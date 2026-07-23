@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-sohne);
+}
+
+:root {
+  /* ── Brand ── */
+  --primary:        #FF3B6B;   /* main accent — buttons, links, highlights */
+  --primary-hover:  #E8235A;   /* darker on hover */
+  --primary-light:  #FFF0F4;   /* soft pink bg — badges, tags */
+  --primary-muted:  #FFB3C6;   /* disabled state / placeholders */
+
+  /* ── Backgrounds ── */
+  --bg:             #FFFFFF;   /* page background */
+  --bg-subtle:      #F8F8F8;   /* sidebar, cards, input backgrounds */
+  --bg-hover:       #F2F2F2;   /* row hover, menu hover */
+
+  /* ── Foreground / Text ── */
+  --fg:             #000000;   /* primary text */
+  --fg-muted:       #6B7280;   /* secondary text — labels, hints */
+  --fg-subtle:      #9CA3AF;   /* placeholder text, disabled */
+  --fg-inverse:     #FFFFFF;   /* text on dark/primary bg */
+
+  /* ── Border ── */
+  --border:         #E5E7EB;   /* default border */
+  --border-strong:  #D1D5DB;   /* focused inputs, dividers */
+
+  /* ── Status Colors ── */
+  --success:        #16A34A;   /* confirmed bookings, paid */
+  --success-light:  #F0FDF4;   /* success bg */
+  --warning:        #D97706;   /* pending, follow-up due */
+  --warning-light:  #FFFBEB;   /* warning bg */
+  --danger:         #DC2626;   /* cancelled, overdue, lost */
+  --danger-light:   #FEF2F2;   /* danger bg */
+  --info:           #2563EB;   /* info banners, links */
+  --info-light:     #EFF6FF;   /* info bg */
+
+  /* ── Sidebar ── */
+  --sidebar-bg:     #0F0F0F;   /* dark sidebar */
+  --sidebar-fg:     #E5E7EB;   /* sidebar text */
+  --sidebar-active: #FF3B6B;   /* active nav item */
+
+  /* ── Misc ── */
+  --radius:         8px;       /* default border radius */
+  --radius-lg:      12px;      /* cards, modals */
+  --shadow:         0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --shadow-lg:      0 4px 16px 0 rgb(0 0 0 / 0.08);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sohne), Arial, sans-serif;
+}
