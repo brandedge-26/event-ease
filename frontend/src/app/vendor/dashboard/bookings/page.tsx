@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { NewBookingModal, EMPTY_FORM } from "../_components/NewBookingModal";
+import type { BookingStatus } from "../_components/NewBookingModal";
 
-type Status = "confirmed" | "pending" | "cancelled";
+type Status = BookingStatus;
 
 type Booking = {
   id: string;
@@ -18,9 +20,6 @@ type Booking = {
   status: Status;
   notes: string;
 };
-
-const HALLS = ["Hall A", "Hall B", "Hall C"];
-const EVENT_TYPES = ["Wedding", "Engagement", "Birthday Party", "Corporate Event", "Conference", "Anniversary", "Other"];
 
 const INITIAL_BOOKINGS: Booking[] = [
   { id: "BK-001", customerName: "Ahmed Khan",  phone: "0300-1234567", event: "Wedding",        hall: "Hall A", date: "2026-08-02", time: "18:00", guests: 350, amount: 450000, paid: 200000, status: "confirmed", notes: "Requires stage decoration" },
@@ -51,11 +50,6 @@ const FILTER_TABS: { label: string; value: "all" | Status }[] = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
-const EMPTY_FORM = {
-  customerName: "", phone: "", event: "", hall: HALLS[0],
-  date: "", time: "", guests: "", amount: "", paid: "", notes: "",
-};
-
 function fmt(n: number) {
   return "Rs. " + n.toLocaleString("en-PK");
 }
@@ -69,265 +63,6 @@ function formatTime(t: string) {
   const ampm = h >= 12 ? "PM" : "AM";
   const hour = h % 12 || 12;
   return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
-}
-
-// ─── New Booking Modal ────────────────────────────────────────────────────────
-function NewBookingModal({
-  open,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (form: typeof EMPTY_FORM, status: Status) => void;
-}) {
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [formStatus, setFormStatus] = useState<Status>("pending");
-
-  function reset() {
-    setForm(EMPTY_FORM);
-    setFormStatus("pending");
-  }
-
-  function handleClose() {
-    reset();
-    onClose();
-  }
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    onSubmit(form, formStatus);
-    reset();
-  }
-
-  const canSubmit = form.customerName && form.event && form.hall && form.date && form.time && form.guests;
-
-  if (!open) return null;
-
-  const inputCls = "w-full px-4 py-3 rounded-xl text-sm outline-none border focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-1 transition-all";
-  const inputStyle = { background: "var(--bg-subtle)", borderColor: "#D1D5DB", color: "var(--fg)" };
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
-        onClick={handleClose}
-      />
-
-      {/* Sheet / Modal */}
-      <div
-        className={[
-          "fixed z-50 bg-white overflow-hidden flex flex-col",
-          // Mobile: bottom sheet
-          "bottom-0 left-0 right-0 rounded-t-3xl max-h-[92dvh]",
-          // Desktop: centered modal
-          "lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2",
-          "lg:right-auto lg:rounded-3xl lg:w-[520px] lg:max-h-[88vh]",
-        ].join(" ")}
-        style={{ boxShadow: "0 -4px 40px rgba(0,0,0,0.12)" }}
-      >
-        {/* Handle (mobile only) */}
-        <div className="flex justify-center pt-3 pb-1 lg:hidden shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} />
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
-          <div>
-            <p className="text-base font-semibold text-black">New Booking</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Fill in the details to create a booking</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100 transition-colors"
-            style={{ color: "var(--fg-muted)" }}
-          >
-            <XIcon />
-          </button>
-        </div>
-
-        {/* Scrollable form body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
-
-          {/* Customer Info */}
-          <section className="flex flex-col gap-3">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--fg-subtle)" }}>Customer</p>
-            <input
-              name="customerName"
-              placeholder="Customer name *"
-              value={form.customerName}
-              onChange={handleChange}
-              required
-              className={inputCls}
-              style={inputStyle}
-            />
-            <input
-              name="phone"
-              placeholder="Phone number"
-              value={form.phone}
-              onChange={handleChange}
-              className={inputCls}
-              style={inputStyle}
-            />
-          </section>
-
-          {/* Event Details */}
-          <section className="flex flex-col gap-3">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--fg-subtle)" }}>Event Details</p>
-
-            {/* Event type + Hall */}
-            <div className="grid grid-cols-2 gap-2">
-              <select
-                name="event"
-                value={form.event}
-                onChange={handleChange}
-                required
-                className={inputCls}
-                style={{ ...inputStyle, color: form.event ? "var(--fg)" : "var(--fg-muted)" }}
-              >
-                <option value="" disabled>Event type *</option>
-                {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <select
-                name="hall"
-                value={form.hall}
-                onChange={handleChange}
-                className={inputCls}
-                style={inputStyle}
-              >
-                {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-              </select>
-            </div>
-
-            {/* Date + Time */}
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                name="date"
-                type="date"
-                value={form.date}
-                onChange={handleChange}
-                required
-                className={inputCls}
-                style={inputStyle}
-              />
-              <input
-                name="time"
-                type="time"
-                value={form.time}
-                onChange={handleChange}
-                required
-                className={inputCls}
-                style={inputStyle}
-              />
-            </div>
-
-            {/* Guests */}
-            <input
-              name="guests"
-              type="number"
-              placeholder="Number of guests *"
-              value={form.guests}
-              onChange={handleChange}
-              required
-              min={1}
-              className={inputCls}
-              style={inputStyle}
-            />
-          </section>
-
-          {/* Payment */}
-          <section className="flex flex-col gap-3">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--fg-subtle)" }}>Payment</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: "var(--fg-muted)" }}>Rs.</span>
-                <input
-                  name="amount"
-                  type="number"
-                  placeholder="Total amount"
-                  value={form.amount}
-                  onChange={handleChange}
-                  min={0}
-                  className={`${inputCls} pl-11`}
-                  style={inputStyle}
-                />
-              </div>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: "var(--fg-muted)" }}>Rs.</span>
-                <input
-                  name="paid"
-                  type="number"
-                  placeholder="Advance paid"
-                  value={form.paid}
-                  onChange={handleChange}
-                  min={0}
-                  className={`${inputCls} pl-11`}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Status toggle */}
-          <section className="flex flex-col gap-3">
-            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--fg-subtle)" }}>Status</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(["pending", "confirmed"] as Status[]).map(s => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setFormStatus(s)}
-                  className="py-3 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-                  style={{
-                    background: formStatus === s ? STATUS_CONFIG[s].bg : "var(--bg-subtle)",
-                    color: formStatus === s ? STATUS_CONFIG[s].color : "var(--fg-muted)",
-                    border: `1.5px solid ${formStatus === s ? STATUS_CONFIG[s].color : "transparent"}`,
-                  }}
-                >
-                  {STATUS_CONFIG[s].label}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Notes */}
-          <section>
-            <textarea
-              name="notes"
-              placeholder="Notes (optional)"
-              value={form.notes}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none border resize-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-1 transition-all"
-              style={inputStyle}
-            />
-          </section>
-
-          {/* Submit — sticky at bottom */}
-          <div className="sticky bottom-0 pt-2 pb-1 bg-white">
-            <button
-              type="submit"
-              disabled={!canSubmit}
-              className="w-full py-4 rounded-2xl text-sm font-semibold transition-opacity"
-              style={{
-                background: canSubmit ? "var(--primary)" : "#E5E7EB",
-                color: canSubmit ? "#ffffff" : "var(--fg-muted)",
-                cursor: canSubmit ? "pointer" : "not-allowed",
-              }}
-            >
-              Create Booking
-            </button>
-          </div>
-        </form>
-      </div>
-    </>
-  );
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -359,7 +94,7 @@ export default function BookingsPage() {
   const totalRevenue = bookings.filter(b => b.status !== "cancelled").reduce((s, b) => s + b.amount, 0);
   const collected    = bookings.filter(b => b.status !== "cancelled").reduce((s, b) => s + b.paid, 0);
 
-  function handleCreate(form: typeof EMPTY_FORM, status: Status) {
+  function handleCreate(form: typeof EMPTY_FORM, status: Status, _services: unknown[]) {
     const newBooking: Booking = {
       id: "BK-" + String(bookings.length + 1).padStart(3, "0"),
       customerName: form.customerName,

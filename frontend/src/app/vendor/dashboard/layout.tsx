@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation";
 const nav = [
   { label: "Dashboard", href: "/vendor/dashboard", icon: <GridIcon /> },
   { label: "Calendar", href: "/vendor/dashboard/calendar", icon: <CalendarIcon /> },
-  { label: "Inquiries", href: "/vendor/dashboard/inquiries", icon: <InboxIcon /> },
   { label: "Bookings", href: "/vendor/dashboard/bookings", icon: <BookIcon /> },
   { label: "Customers", href: "/vendor/dashboard/customers", icon: <UsersIcon /> },
   { label: "Payments", href: "/vendor/dashboard/payments", icon: <PaymentIcon /> },
@@ -22,7 +21,6 @@ const nav = [
 // Shown directly in bottom bar
 const bottomNavMain = [
   { label: "Dashboard", href: "/vendor/dashboard", icon: <GridIcon /> },
-  { label: "Inquiries", href: "/vendor/dashboard/inquiries", icon: <InboxIcon /> },
   { label: "Bookings", href: "/vendor/dashboard/bookings", icon: <BookIcon /> },
   { label: "Calendar", href: "/vendor/dashboard/calendar", icon: <CalendarIcon /> },
 ];

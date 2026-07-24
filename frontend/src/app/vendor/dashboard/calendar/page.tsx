@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { NewBookingModal, EMPTY_FORM } from "../_components/NewBookingModal";
+import type { BookingStatus } from "../_components/NewBookingModal";
 
 type Booking = {
   id: string;
@@ -80,7 +82,7 @@ function hallBg(hall: string) {
 }
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
-function DayDetailModal({ dateKey, bookings, onClose }: { dateKey: string; bookings: Booking[]; onClose: () => void }) {
+function DayDetailModal({ dateKey, bookings, onClose, onNewBooking, onCloseHall }: { dateKey: string; bookings: Booking[]; onClose: () => void; onNewBooking: () => void; onCloseHall: () => void }) {
   const dateLabel = new Date(dateKey + "T00:00:00").toLocaleDateString("en-GB", {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
@@ -114,9 +116,14 @@ function DayDetailModal({ dateKey, bookings, onClose }: { dateKey: string; booki
               <FreeIcon />
               <p className="text-sm font-semibold mt-3" style={{ color: "#16A34A" }}>Available</p>
               <p className="text-xs mt-1" style={{ color: "var(--fg-muted)" }}>No bookings on this date</p>
-              <button onClick={onClose} className="mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80" style={{ background: "var(--primary)", color: "#ffffff" }}>
-                + New Booking
-              </button>
+              <div className="flex items-center gap-2 mt-4">
+                <button onClick={onNewBooking} className="px-5 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80" style={{ background: "var(--primary)", color: "#ffffff" }}>
+                  + New Booking
+                </button>
+                <button onClick={onCloseHall} className="px-5 py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80" style={{ background: "#FEE2E2", color: "#DC2626" }}>
+                  Hall Close
+                </button>
+              </div>
             </div>
           )}
           {bookings.map((b) => {
@@ -182,7 +189,11 @@ export default function CalendarPage() {
   const allMonthBookings = monthEntries.flatMap(([, b]) => b);
   const confirmedCount  = allMonthBookings.filter(b => b.status === "confirmed").length;
   const pendingCount    = allMonthBookings.filter(b => b.status === "pending").length;
-  const modalBookings   = modalKey ? (BOOKINGS[modalKey] || []) : [];
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingDefaultDate, setBookingDefaultDate] = useState("");
+  const [extraBookings, setExtraBookings] = useState<BookingMap>({});
+  const allBookings = (key: string) => [...(BOOKINGS[key] || []), ...(extraBookings[key] || [])];
+  const modalBookings   = modalKey ? allBookings(modalKey) : [];
 
   return (
     <>
@@ -194,7 +205,43 @@ export default function CalendarPage() {
         .today-pulse { animation: calPulse 1.8s ease-in-out infinite; }
       `}</style>
 
-      {modalKey && <DayDetailModal dateKey={modalKey} bookings={modalBookings} onClose={() => setModalKey(null)} />}
+      <NewBookingModal
+        open={bookingModalOpen}
+        onClose={() => setBookingModalOpen(false)}
+        defaultDate={bookingDefaultDate}
+        onSubmit={(_form, _status, _services) => {
+          setBookingModalOpen(false);
+        }}
+      />
+
+      {modalKey && (
+        <DayDetailModal
+          dateKey={modalKey}
+          bookings={modalBookings}
+          onClose={() => setModalKey(null)}
+          onNewBooking={() => {
+            setBookingDefaultDate(modalKey!);
+            setModalKey(null);
+            setBookingModalOpen(true);
+          }}
+          onCloseHall={() => {
+            const key = modalKey!;
+            setExtraBookings(prev => ({
+              ...prev,
+              [key]: [...(prev[key] || []), {
+                id: `blocked-${key}`,
+                customerName: "Maintenance",
+                event: "Hall Closed",
+                hall: "Hall A",
+                guests: 0,
+                time: "All Day",
+                status: "blocked",
+              }],
+            }));
+            setModalKey(null);
+          }}
+        />
+      )}
 
       <div className="p-3 lg:p-6 flex flex-col gap-4" style={{ minHeight: "calc(100vh - 60px)" }}>
 
@@ -204,7 +251,11 @@ export default function CalendarPage() {
             <h1 className="text-lg lg:text-2xl font-semibold text-black tracking-tight">Calendar</h1>
             <p className="text-xs lg:text-sm mt-0.5" style={{ color: "var(--fg-muted)" }}>View and manage your bookings</p>
           </div>
-          <button className="flex items-center gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-2xl text-xs lg:text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90" style={{ background: "var(--primary)", color: "#ffffff" }}>
+          <button
+            onClick={() => { setBookingDefaultDate(""); setBookingModalOpen(true); }}
+            className="flex items-center gap-2 px-3 lg:px-4 py-2 lg:py-2.5 rounded-2xl text-xs lg:text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90"
+            style={{ background: "var(--primary)", color: "#ffffff" }}
+          >
             <PlusIcon /> New Booking
           </button>
         </div>
@@ -255,7 +306,7 @@ export default function CalendarPage() {
           {/* Day cells */}
           <div className="grid grid-cols-7 flex-1" style={{ gridTemplateRows: `repeat(${weeks}, 1fr)` }}>
             {cells.map((cell, i) => {
-              const bookings    = BOOKINGS[cell.key] || [];
+              const bookings    = allBookings(cell.key);
               const isToday     = cell.key === todayKey && cell.currentMonth;
               const hasConfirmed = cell.currentMonth && bookings.some(b => b.status === "confirmed");
               const hasPending   = cell.currentMonth && bookings.some(b => b.status === "pending");
@@ -325,16 +376,16 @@ export default function CalendarPage() {
                       {bookings.slice(0, 2).map(b => (
                         <div key={b.id}>
                           <p className="text-[11px] font-semibold leading-tight truncate"
-                            style={{ color: onWhite ? "#ffffff" : b.status === "confirmed" ? "var(--primary)" : b.status === "pending" ? "#D97706" : "#DC2626" }}>
+                            style={{ color: (onWhite || hasBlocked) ? "#ffffff" : b.status === "confirmed" ? "var(--primary)" : "#D97706" }}>
                             {b.event}
                           </p>
                           <p className="text-[10px] leading-tight truncate"
-                            style={{ color: onWhite ? "rgba(255,255,255,0.75)" : "var(--fg-muted)" }}>
+                            style={{ color: (onWhite || hasBlocked) ? "rgba(255,255,255,0.8)" : "var(--fg-muted)" }}>
                             {b.customerName}
                           </p>
                           {b.guests > 0 && (
                             <p className="text-[10px] leading-tight"
-                              style={{ color: onWhite ? "rgba(255,255,255,0.6)" : "var(--fg-subtle)" }}>
+                              style={{ color: (onWhite || hasBlocked) ? "rgba(255,255,255,0.65)" : "var(--fg-subtle)" }}>
                               {b.guests} guests
                             </p>
                           )}
@@ -342,7 +393,7 @@ export default function CalendarPage() {
                       ))}
                       {bookings.length > 2 && (
                         <p className="text-[10px] font-medium mt-auto"
-                          style={{ color: onWhite ? "rgba(255,255,255,0.7)" : "var(--fg-muted)" }}>
+                          style={{ color: (onWhite || hasBlocked) ? "rgba(255,255,255,0.7)" : "var(--fg-muted)" }}>
                           +{bookings.length - 2} more
                         </p>
                       )}
