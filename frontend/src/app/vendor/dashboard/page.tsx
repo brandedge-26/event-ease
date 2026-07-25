@@ -161,10 +161,10 @@ export default function DashboardPage() {
   ];
 
   const upcomingBookings = [
-    { name: "Fatima Malik",  event: "Wedding",        date: "28 Jul", status: "Confirmed", statusColor: "var(--primary)", statusBg: "var(--primary-light)" },
-    { name: "Omar Sheikh",   event: "Corporate Event", date: "3 Aug",  status: "Confirmed", statusColor: "var(--primary)", statusBg: "var(--primary-light)" },
-    { name: "Zara Ahmed",    event: "Engagement",      date: "8 Aug",  status: "Pending",   statusColor: "#D97706",        statusBg: "#FFFBEB" },
-    { name: "Ali Hassan",    event: "Wedding",         date: "15 Aug", status: "Confirmed", statusColor: "var(--primary)", statusBg: "var(--primary-light)" },
+    { name: "Fatima Malik", phone: "0321-5566778", event: "Wedding",        hall: "Hall A", date: "28 Jul", time: "5:00 PM", guests: 450, amount: 580000, paid: 150000, status: "Confirmed", statusColor: "var(--primary)", statusBg: "var(--primary-light)", hallColor: "var(--primary)", hallBg: "var(--primary-light)" },
+    { name: "Omar Sheikh",  phone: "0300-8899001", event: "Corporate Event", hall: "Hall C", date: "3 Aug",  time: "9:00 AM", guests: 150, amount: 110000, paid: 110000, status: "Confirmed", statusColor: "var(--primary)", statusBg: "var(--primary-light)", hallColor: "#7C3AED",        hallBg: "#F5F3FF" },
+    { name: "Zara Ahmed",   phone: "0312-2233445", event: "Engagement",      hall: "Hall B", date: "8 Aug",  time: "7:00 PM", guests: 180, amount: 160000, paid: 80000,  status: "Pending",   statusColor: "#D97706",        statusBg: "#FFFBEB",              hallColor: "#2563EB",        hallBg: "#EFF6FF" },
+    { name: "Ali Hassan",   phone: "0333-7788990", event: "Wedding",         hall: "Hall A", date: "15 Aug", time: "6:00 PM", guests: 380, amount: 490000, paid: 200000, status: "Confirmed", statusColor: "var(--primary)", statusBg: "var(--primary-light)", hallColor: "var(--primary)", hallBg: "var(--primary-light)" },
   ];
 
   return (
@@ -216,30 +216,67 @@ export default function DashboardPage() {
           </div>
 
           {/* Upcoming Bookings */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3">
               <h2 className="text-base font-semibold text-black">Upcoming Bookings</h2>
               <Link href="/vendor/dashboard/bookings" className="text-xs font-medium hover:underline" style={{ color: "var(--primary)" }}>
                 View all
               </Link>
             </div>
-            <div className="flex flex-col">
-              {upcomingBookings.map((b, i) => (
-                <div key={i} className="flex items-center justify-between py-3 border-b border-[#F4F4F5] last:border-0">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white" style={{ background: "var(--primary)" }}>
-                      {b.name[0]}
+            <div className="flex flex-col gap-2 px-4 pb-4">
+              {upcomingBookings.map((b, i) => {
+                const paidPct = b.amount > 0 ? Math.min(100, Math.round((b.paid / b.amount) * 100)) : 0;
+                const balance = b.amount - b.paid;
+                return (
+                  <div key={i} className="rounded-2xl p-4" style={{ border: "1.5px solid #F4F4F5" }}>
+                    {/* Row 1: avatar + name + status */}
+                    <div className="flex items-start justify-between gap-2 mb-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white" style={{ background: b.hallColor }}>
+                          {b.name[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-black truncate">{b.name}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{b.phone}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: b.statusBg, color: b.statusColor }}>
+                        {b.status}
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-black">{b.name}</p>
-                      <p className="text-xs" style={{ color: "var(--fg-muted)" }}>{b.event} · {b.date}</p>
+                    {/* Row 2: hall + event */}
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: b.hallBg, color: b.hallColor }}>{b.hall}</span>
+                      <span className="text-xs font-medium text-black">{b.event}</span>
+                    </div>
+                    {/* Row 3: date, time, guests */}
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-2.5">
+                      <span className="text-xs" style={{ color: "var(--fg-muted)" }}>📅 {b.date}</span>
+                      <span className="text-xs" style={{ color: "var(--fg-muted)" }}>⏰ {b.time}</span>
+                      <span className="text-xs" style={{ color: "var(--fg-muted)" }}>👥 {b.guests}</span>
+                    </div>
+                    {/* Row 4: payment */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px]" style={{ color: "var(--fg-subtle)" }}>Payment</span>
+                          <span className="text-[10px] font-medium" style={{ color: paidPct === 100 ? "#16A34A" : "#D97706" }}>{paidPct}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full" style={{ background: "#E5E7EB" }}>
+                          <div className="h-1.5 rounded-full" style={{ width: `${paidPct}%`, background: paidPct === 100 ? "#16A34A" : "var(--primary)" }} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-black">Rs. {b.amount.toLocaleString("en-PK")}</p>
+                        {balance > 0
+                          ? <p className="text-[10px]" style={{ color: "#D97706" }}>Due: Rs. {balance.toLocaleString("en-PK")}</p>
+                          : <p className="text-[10px]" style={{ color: "#16A34A" }}>Fully Paid</p>
+                        }
+                      </div>
                     </div>
                   </div>
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: b.statusBg, color: b.statusColor }}>
-                    {b.status}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
