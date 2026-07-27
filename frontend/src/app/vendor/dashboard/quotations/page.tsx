@@ -3,13 +3,12 @@
 import { useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type QuotationStatus = "draft" | "sent" | "accepted" | "rejected";
+type QuotationStatus = "pending" | "accepted" | "rejected";
 
-type LineItem = { description: string; qty: number; unitPrice: number };
+type ServiceEntry = { id: string; label: string; unit: string; price: string };
 
 type Quotation = {
   id: string;
-  bookingId: string;
   customerName: string;
   phone: string;
   email: string;
@@ -17,11 +16,10 @@ type Quotation = {
   hall: string;
   date: string;
   guests: number;
-  validUntil: string;
+  hallAmount: number;
   status: QuotationStatus;
-  items: LineItem[];
+  services: ServiceEntry[];
   notes: string;
-  discount: number;
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -31,8 +29,7 @@ const HALLS       = ["Hall A", "Hall B", "Hall C"];
 const EVENT_TYPES = ["Wedding", "Engagement", "Birthday Party", "Corporate Event", "Anniversary", "Conference", "Other"];
 
 const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; bg: string }> = {
-  draft:    { label: "Draft",    color: "#6B7280", bg: "#F4F4F5" },
-  sent:     { label: "Sent",     color: "#2563EB", bg: "#EFF6FF" },
+  pending:  { label: "Pending",  color: "#D97706", bg: "#FFFBEB" },
   accepted: { label: "Accepted", color: "#16A34A", bg: "#F0FDF4" },
   rejected: { label: "Rejected", color: "#DC2626", bg: "#FEF2F2" },
 };
@@ -50,159 +47,122 @@ const HALL_BG: Record<string, string> = {
 
 const FILTER_TABS: { label: string; value: "all" | QuotationStatus }[] = [
   { label: "All",      value: "all" },
-  { label: "Draft",    value: "draft" },
-  { label: "Sent",     value: "sent" },
+  { label: "Pending",  value: "pending" },
   { label: "Accepted", value: "accepted" },
   { label: "Rejected", value: "rejected" },
+];
+
+type PresetSvc = { id: string; label: string };
+const PRESET_SVCS: PresetSvc[] = [
+  { id: "drink",  label: "Drink Service" },
+  { id: "music",  label: "Music" },
+  { id: "table",  label: "Table Service" },
+  { id: "custom", label: "Custom" },
 ];
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const INITIAL_QUOTATIONS: Quotation[] = [
   {
-    id: "QT-001", bookingId: "BK-001", customerName: "Ahmed Khan", phone: "0300-1234567", email: "ahmed.khan@gmail.com",
-    event: "Wedding", hall: "Hall A", date: "2026-08-02", guests: 350, validUntil: "2026-07-28", status: "accepted",
-    items: [
-      { description: "Hall Rental (Hall A – Full Day)", qty: 1, unitPrice: 250000 },
-      { description: "Catering – Dinner Buffet", qty: 350, unitPrice: 650 },
-      { description: "Stage & Floral Decoration", qty: 1, unitPrice: 85000 },
-      { description: "Drink Service", qty: 350, unitPrice: 100 },
+    id: "QT-001", customerName: "Ahmed Khan", phone: "0300-1234567", email: "ahmed.khan@gmail.com",
+    event: "Wedding", hall: "Hall A", date: "2026-08-02", guests: 350, hallAmount: 250000, status: "accepted",
+    services: [
+      { id: "drink", label: "Drink Service", unit: "350 pax", price: "35000" },
+      { id: "music", label: "Music",         unit: "1",       price: "20000" },
     ],
-    notes: "Client has requested extra floral arrangements at entrance. Confirm decoration team one week prior.",
-    discount: 15000,
+    notes: "Client has requested extra floral arrangements at entrance.",
   },
   {
-    id: "QT-002", bookingId: "BK-002", customerName: "Sara Malik", phone: "0312-9876543", email: "sara.malik@hotmail.com",
-    event: "Birthday Party", hall: "Hall B", date: "2026-08-05", guests: 80, validUntil: "2026-07-30", status: "accepted",
-    items: [
-      { description: "Hall Rental (Hall B – Half Day)", qty: 1, unitPrice: 60000 },
-      { description: "Catering – Tea & Snacks", qty: 80, unitPrice: 350 },
-      { description: "Birthday Decoration Package", qty: 1, unitPrice: 18000 },
-      { description: "Music & Sound System", qty: 1, unitPrice: 12000 },
+    id: "QT-002", customerName: "Sara Malik", phone: "0312-9876543", email: "sara.malik@hotmail.com",
+    event: "Birthday Party", hall: "Hall B", date: "2026-08-05", guests: 80, hallAmount: 60000, status: "accepted",
+    services: [
+      { id: "music", label: "Music", unit: "1", price: "12000" },
     ],
     notes: "Birthday theme: Pastel pink and gold.",
-    discount: 0,
   },
   {
-    id: "QT-003", bookingId: "—", customerName: "Nadia Shah", phone: "0321-4567890", email: "nadia.shah@yahoo.com",
-    event: "Wedding", hall: "Hall A", date: "2026-08-10", guests: 400, validUntil: "2026-07-31", status: "sent",
-    items: [
-      { description: "Hall Rental (Hall A – Full Day)", qty: 1, unitPrice: 250000 },
-      { description: "Catering – Lunch & Dinner Buffet", qty: 400, unitPrice: 850 },
-      { description: "Premium Stage Decoration", qty: 1, unitPrice: 120000 },
-      { description: "Lighting Package", qty: 1, unitPrice: 35000 },
-      { description: "Drink Service", qty: 400, unitPrice: 100 },
+    id: "QT-003", customerName: "Nadia Shah", phone: "0321-4567890", email: "nadia.shah@yahoo.com",
+    event: "Wedding", hall: "Hall A", date: "2026-08-10", guests: 400, hallAmount: 250000, status: "pending",
+    services: [
+      { id: "drink", label: "Drink Service", unit: "400 pax", price: "40000" },
+      { id: "music", label: "Music",         unit: "1",       price: "25000" },
+      { id: "table", label: "Table Service", unit: "35 tables", price: "28000" },
     ],
     notes: "Menu tasting scheduled for 2 Aug. Client may request vegetarian options.",
-    discount: 20000,
   },
   {
-    id: "QT-004", bookingId: "BK-004", customerName: "Bilal Raza", phone: "0333-1122334", email: "bilal.raza@gmail.com",
-    event: "Corporate Event", hall: "Hall C", date: "2026-08-14", guests: 120, validUntil: "2026-08-05", status: "accepted",
-    items: [
-      { description: "Hall Rental (Hall C – Full Day)", qty: 1, unitPrice: 70000 },
-      { description: "Catering – Business Lunch", qty: 120, unitPrice: 500 },
-      { description: "AV & Projector Setup", qty: 1, unitPrice: 15000 },
-      { description: "Table & Chair Arrangement", qty: 10, unitPrice: 800 },
+    id: "QT-004", customerName: "Bilal Raza", phone: "0333-1122334", email: "bilal.raza@gmail.com",
+    event: "Corporate Event", hall: "Hall C", date: "2026-08-14", guests: 120, hallAmount: 70000, status: "accepted",
+    services: [
+      { id: "table", label: "Table Service", unit: "10 tables", price: "8000" },
     ],
     notes: "Corporate branding banners to be set up. Client will bring their own standees.",
-    discount: 5000,
   },
   {
-    id: "QT-005", bookingId: "—", customerName: "Hina Baig", phone: "0345-6677889", email: "hina.baig@gmail.com",
-    event: "Engagement", hall: "Hall B", date: "2026-08-18", guests: 200, validUntil: "2026-08-08", status: "sent",
-    items: [
-      { description: "Hall Rental (Hall B – Full Day)", qty: 1, unitPrice: 90000 },
-      { description: "Catering – Dinner Buffet", qty: 200, unitPrice: 600 },
-      { description: "Engagement Decoration", qty: 1, unitPrice: 55000 },
-      { description: "Photography Package", qty: 1, unitPrice: 30000 },
+    id: "QT-005", customerName: "Hina Baig", phone: "0345-6677889", email: "hina.baig@gmail.com",
+    event: "Engagement", hall: "Hall B", date: "2026-08-18", guests: 200, hallAmount: 90000, status: "pending",
+    services: [
+      { id: "drink", label: "Drink Service", unit: "200 pax", price: "20000" },
+      { id: "music", label: "Music",         unit: "1",       price: "15000" },
     ],
     notes: "Guests travelling from Lahore. Require accommodation referrals.",
-    discount: 10000,
   },
   {
-    id: "QT-006", bookingId: "—", customerName: "Tariq Butt", phone: "0302-3344556", email: "tariq.butt@outlook.com",
-    event: "Wedding", hall: "Hall A", date: "2026-08-22", guests: 500, validUntil: "2026-08-10", status: "draft",
-    items: [
-      { description: "Hall Rental (Hall A – Full Day)", qty: 1, unitPrice: 250000 },
-      { description: "Catering – Dinner Buffet", qty: 500, unitPrice: 700 },
-      { description: "Grand Stage Decoration", qty: 1, unitPrice: 150000 },
-      { description: "Music & Live Band", qty: 1, unitPrice: 50000 },
-      { description: "Valet Parking Service", qty: 1, unitPrice: 20000 },
+    id: "QT-006", customerName: "Tariq Butt", phone: "0302-3344556", email: "tariq.butt@outlook.com",
+    event: "Wedding", hall: "Hall A", date: "2026-08-22", guests: 500, hallAmount: 280000, status: "pending",
+    services: [
+      { id: "drink", label: "Drink Service", unit: "500 pax", price: "50000" },
+      { id: "music", label: "Music",         unit: "1",       price: "30000" },
     ],
     notes: "Draft pending confirmation of exact guest count and menu preferences.",
-    discount: 0,
   },
   {
-    id: "QT-007", bookingId: "—", customerName: "Usman Ali", phone: "0311-9988776", email: "usman.ali@gmail.com",
-    event: "Anniversary", hall: "Hall B", date: "2026-09-05", guests: 60, validUntil: "2026-08-25", status: "rejected",
-    items: [
-      { description: "Hall Rental (Hall B – Half Day)", qty: 1, unitPrice: 55000 },
-      { description: "Catering – Dinner for 60", qty: 60, unitPrice: 700 },
-      { description: "Romantic Decoration Package", qty: 1, unitPrice: 25000 },
-    ],
+    id: "QT-007", customerName: "Usman Ali", phone: "0311-9988776", email: "usman.ali@gmail.com",
+    event: "Anniversary", hall: "Hall B", date: "2026-09-05", guests: 60, hallAmount: 55000, status: "rejected",
+    services: [],
     notes: "Client rejected due to budget constraints. May revisit in future.",
-    discount: 0,
   },
   {
-    id: "QT-008", bookingId: "BK-008", customerName: "Fatima Malik", phone: "0321-5566778", email: "fatima.malik@gmail.com",
-    event: "Wedding", hall: "Hall A", date: "2026-09-01", guests: 450, validUntil: "2026-08-20", status: "accepted",
-    items: [
-      { description: "Hall Rental (Hall A – Full Day)", qty: 1, unitPrice: 250000 },
-      { description: "Catering – Full Day Buffet", qty: 450, unitPrice: 900 },
-      { description: "Premium Floral Decoration", qty: 1, unitPrice: 130000 },
-      { description: "Sound System & DJ", qty: 1, unitPrice: 40000 },
-      { description: "Drink Service", qty: 450, unitPrice: 100 },
+    id: "QT-008", customerName: "Fatima Malik", phone: "0321-5566778", email: "fatima.malik@gmail.com",
+    event: "Wedding", hall: "Hall A", date: "2026-09-01", guests: 450, hallAmount: 260000, status: "accepted",
+    services: [
+      { id: "drink", label: "Drink Service", unit: "450 pax", price: "45000" },
+      { id: "music", label: "Music",         unit: "1",       price: "30000" },
+      { id: "table", label: "Table Service", unit: "40 tables", price: "32000" },
     ],
     notes: "VIP section required for 20 guests. Separate menu for VIP table.",
-    discount: 25000,
   },
   {
-    id: "QT-009", bookingId: "—", customerName: "Omar Sheikh", phone: "0300-8899001", email: "omar.sheikh@corp.pk",
-    event: "Conference", hall: "Hall C", date: "2026-09-10", guests: 150, validUntil: "2026-08-28", status: "draft",
-    items: [
-      { description: "Hall Rental (Hall C – Full Day)", qty: 1, unitPrice: 70000 },
-      { description: "Catering – High Tea & Lunch", qty: 150, unitPrice: 600 },
-      { description: "AV Setup & Projectors (×2)", qty: 2, unitPrice: 12000 },
-      { description: "Simultaneous Translation Equipment", qty: 1, unitPrice: 20000 },
+    id: "QT-009", customerName: "Omar Sheikh", phone: "0300-8899001", email: "omar.sheikh@corp.pk",
+    event: "Conference", hall: "Hall C", date: "2026-09-10", guests: 150, hallAmount: 70000, status: "pending",
+    services: [
+      { id: "table", label: "Table Service", unit: "12 tables", price: "9600" },
     ],
     notes: "International speakers attending. Require proper AV testing 1 day prior.",
-    discount: 0,
   },
   {
-    id: "QT-010", bookingId: "—", customerName: "Zara Ahmed", phone: "0312-2233445", email: "zara.ahmed@hotmail.com",
-    event: "Engagement", hall: "Hall B", date: "2026-09-15", guests: 180, validUntil: "2026-09-05", status: "sent",
-    items: [
-      { description: "Hall Rental (Hall B – Full Day)", qty: 1, unitPrice: 90000 },
-      { description: "Catering – Dinner Buffet", qty: 180, unitPrice: 650 },
-      { description: "Engagement Floral Setup", qty: 1, unitPrice: 45000 },
-      { description: "Videography Package", qty: 1, unitPrice: 28000 },
+    id: "QT-010", customerName: "Zara Ahmed", phone: "0312-2233445", email: "zara.ahmed@hotmail.com",
+    event: "Engagement", hall: "Hall B", date: "2026-09-15", guests: 180, hallAmount: 85000, status: "pending",
+    services: [
+      { id: "drink", label: "Drink Service", unit: "180 pax", price: "18000" },
     ],
     notes: "Family from Karachi arriving. Need to confirm catering headcount 3 days prior.",
-    discount: 5000,
   },
   {
-    id: "QT-011", bookingId: "—", customerName: "Ali Hassan", phone: "0333-7788990", email: "ali.hassan@gmail.com",
-    event: "Wedding", hall: "Hall A", date: "2026-09-20", guests: 380, validUntil: "2026-09-08", status: "draft",
-    items: [
-      { description: "Hall Rental (Hall A – Full Day)", qty: 1, unitPrice: 250000 },
-      { description: "Catering – Dinner Buffet", qty: 380, unitPrice: 750 },
-      { description: "Stage & Aisle Decoration", qty: 1, unitPrice: 95000 },
-      { description: "Drone Photography Add-on", qty: 1, unitPrice: 18000 },
+    id: "QT-011", customerName: "Ali Hassan", phone: "0333-7788990", email: "ali.hassan@gmail.com",
+    event: "Wedding", hall: "Hall A", date: "2026-09-20", guests: 380, hallAmount: 250000, status: "pending",
+    services: [
+      { id: "drink", label: "Drink Service", unit: "380 pax", price: "38000" },
+      { id: "music", label: "Music",         unit: "1",       price: "20000" },
     ],
     notes: "Awaiting family decision. Follow up scheduled for 1 Sep.",
-    discount: 0,
   },
   {
-    id: "QT-012", bookingId: "—", customerName: "Raza Corp", phone: "0302-1122334", email: "events@razacorp.pk",
-    event: "Conference", hall: "Hall C", date: "2026-09-28", guests: 200, validUntil: "2026-09-15", status: "rejected",
-    items: [
-      { description: "Hall Rental (Hall C – Full Day)", qty: 1, unitPrice: 70000 },
-      { description: "Catering – Lunch & Refreshments", qty: 200, unitPrice: 550 },
-      { description: "Stage & Podium Setup", qty: 1, unitPrice: 30000 },
-      { description: "Branding & Signage Setup", qty: 1, unitPrice: 15000 },
+    id: "QT-012", customerName: "Raza Corp", phone: "0302-1122334", email: "events@razacorp.pk",
+    event: "Conference", hall: "Hall C", date: "2026-09-28", guests: 200, hallAmount: 70000, status: "rejected",
+    services: [
+      { id: "table", label: "Table Service", unit: "16 tables", price: "12800" },
     ],
     notes: "Client chose a competitor venue. Keep in contact for future events.",
-    discount: 0,
   },
 ];
 
@@ -214,41 +174,33 @@ function formatDate(d: string) {
   if (!d || d === "—") return "—";
   return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
-function calcSubtotal(items: LineItem[]) {
-  return items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
-}
-function calcTotal(items: LineItem[], discount: number) {
-  return Math.max(0, calcSubtotal(items) - discount);
+function calcTotal(q: Quotation) {
+  return q.hallAmount + (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
 }
 
-// ─── Empty line item ──────────────────────────────────────────────────────────
-const EMPTY_ITEM: LineItem = { description: "", qty: 1, unitPrice: 0 };
-
-// ─── Shared form state type ───────────────────────────────────────────────────
+// ─── FormState ────────────────────────────────────────────────────────────────
 type FormState = {
   customerName: string;
   phone: string;
   email: string;
-  bookingId: string;
   event: string;
   hall: string;
   date: string;
   guests: string;
-  validUntil: string;
+  hallAmount: string;
   notes: string;
-  discount: string;
   status: QuotationStatus;
-  items: LineItem[];
+  services: ServiceEntry[];
 };
 
 const EMPTY_FORM: FormState = {
-  customerName: "", phone: "", email: "", bookingId: "",
+  customerName: "", phone: "", email: "",
   event: EVENT_TYPES[0], hall: HALLS[0], date: "", guests: "",
-  validUntil: "", notes: "", discount: "0", status: "draft",
-  items: [{ ...EMPTY_ITEM }],
+  hallAmount: "", notes: "", status: "pending",
+  services: [],
 };
 
-// ─── Quotation Form (shared by New + Edit modals) ─────────────────────────────
+// ─── Quotation Form ───────────────────────────────────────────────────────────
 function QuotationForm({
   title,
   subtitle,
@@ -262,27 +214,36 @@ function QuotationForm({
   onClose: () => void;
   onSubmit: (f: FormState) => void;
 }) {
-  const [f, setF]     = useState<FormState>(initial);
-  const [items, setItems] = useState<LineItem[]>(initial.items.length > 0 ? initial.items : [{ ...EMPTY_ITEM }]);
+  const [f, setF]           = useState<FormState>(initial);
+  const [services, setSvcs] = useState<ServiceEntry[]>(initial.services);
 
-  const subtotal = calcSubtotal(items);
-  const disc     = Number(f.discount) || 0;
-  const total    = Math.max(0, subtotal - disc);
+  const hallAmt    = Number(f.hallAmount) || 0;
+  const svcTotal   = services.reduce((s, sv) => s + (Number(sv.price) || 0), 0);
+  const grandTotal = hallAmt + svcTotal;
 
   function setField<K extends keyof FormState>(k: K, v: FormState[K]) {
     setF(prev => ({ ...prev, [k]: v }));
   }
-  function updateItem(i: number, patch: Partial<LineItem>) {
-    setItems(prev => prev.map((it, idx) => idx === i ? { ...it, ...patch } : it));
+
+  function togglePreset(p: PresetSvc) {
+    setSvcs(prev => {
+      const exists = prev.find(s => s.id === p.id);
+      if (exists) return prev.filter(s => s.id !== p.id);
+      return [...prev, { id: p.id, label: p.label, unit: "", price: "" }];
+    });
   }
-  function addItem() { setItems(prev => [...prev, { ...EMPTY_ITEM }]); }
-  function removeItem(i: number) {
-    setItems(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
+
+  function updateSvc(id: string, field: keyof ServiceEntry, value: string) {
+    setSvcs(prev => prev.map(s => s.id === id ? { ...s, [field]: value } : s));
+  }
+
+  function removeSvc(id: string) {
+    setSvcs(prev => prev.filter(s => s.id !== id));
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSubmit({ ...f, items });
+    onSubmit({ ...f, services });
   }
 
   const inp      = "px-4 py-3 rounded-xl border text-sm outline-none w-full";
@@ -292,21 +253,21 @@ function QuotationForm({
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
-        className="fixed z-50 bottom-0 left-0 right-0 rounded-t-3xl bg-white flex flex-col lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:right-auto lg:w-[440px] lg:rounded-3xl overflow-hidden"
-        style={{ maxHeight: "92dvh", boxShadow: "0 -4px 40px rgba(0,0,0,0.14)" }}
+        className="fixed z-50 bottom-0 left-0 right-0 rounded-t-3xl bg-white flex flex-col overflow-hidden max-h-[92dvh] lg:bottom-0 lg:left-auto lg:right-0 lg:top-0 lg:w-[560px] lg:rounded-none lg:rounded-l-3xl lg:max-h-full"
+        style={{ boxShadow: "0 -4px 40px rgba(0,0,0,0.14)" }}
       >
         {/* Drag handle (mobile) */}
         <div className="flex justify-center pt-3 pb-1 lg:hidden shrink-0">
           <div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} />
         </div>
 
-        {/* Modal header */}
+        {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
           <div>
             <p className="text-sm font-bold text-black">{title}</p>
             {subtitle && <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100 transition-colors" style={{ color: "var(--fg-muted)" }}>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100" style={{ color: "var(--fg-muted)" }}>
             <XIcon />
           </button>
         </div>
@@ -317,23 +278,10 @@ function QuotationForm({
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Customer Info</p>
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Customer Name *</label>
-                <input value={f.customerName} onChange={e => setField("customerName", e.target.value)} placeholder="e.g. Ahmed Khan" className={inp} style={inpStyle} required />
-              </div>
+              <input value={f.customerName} onChange={e => setField("customerName", e.target.value)} placeholder="Customer name *" className={inp} style={inpStyle} required />
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Phone</label>
-                  <input value={f.phone} onChange={e => setField("phone", e.target.value)} placeholder="0300-1234567" className={inp} style={inpStyle} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Email</label>
-                  <input type="email" value={f.email} onChange={e => setField("email", e.target.value)} placeholder="email@example.com" className={inp} style={inpStyle} />
-                </div>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Booking ID (optional)</label>
-                <input value={f.bookingId} onChange={e => setField("bookingId", e.target.value)} placeholder="BK-001" className={inp} style={inpStyle} />
+                <input value={f.phone} onChange={e => setField("phone", e.target.value)} placeholder="Phone" className={inp} style={inpStyle} />
+                <input type="email" value={f.email} onChange={e => setField("email", e.target.value)} placeholder="Email" className={inp} style={inpStyle} />
               </div>
             </div>
           </div>
@@ -343,18 +291,12 @@ function QuotationForm({
             <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Event Details</p>
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Event Type *</label>
-                  <select value={f.event} onChange={e => setField("event", e.target.value)} className={inp} style={inpStyle} required>
-                    {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Hall *</label>
-                  <select value={f.hall} onChange={e => setField("hall", e.target.value)} className={inp} style={inpStyle} required>
-                    {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-                  </select>
-                </div>
+                <select value={f.event} onChange={e => setField("event", e.target.value)} className={inp} style={inpStyle} required>
+                  {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={f.hall} onChange={e => setField("hall", e.target.value)} className={inp} style={inpStyle} required>
+                  {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
@@ -369,85 +311,101 @@ function QuotationForm({
             </div>
           </div>
 
-          {/* Line Items */}
+          {/* Hall Amount */}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Line Items</p>
-            <div className="flex flex-col gap-2">
-              {items.map((it, i) => {
-                const amt = it.qty * it.unitPrice;
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Hall Amount</p>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: "var(--fg-muted)" }}>Rs.</span>
+              <input
+                type="number" placeholder="0" value={f.hallAmount}
+                onChange={e => setField("hallAmount", e.target.value)}
+                min={0} className={`${inp} pl-11`} style={inpStyle}
+              />
+            </div>
+          </div>
+
+          {/* Services */}
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Services <span className="font-normal normal-case" style={{ color: "var(--fg-subtle)", letterSpacing: 0 }}>(optional)</span></p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {PRESET_SVCS.map(p => {
+                const active = services.some(s => s.id === p.id);
                 return (
-                  <div key={i} className="p-3 rounded-xl border flex flex-col gap-2" style={{ borderColor: "#E5E7EB", background: "var(--bg-subtle)" }}>
-                    <div className="flex items-center gap-2">
-                      <input
-                        value={it.description}
-                        onChange={e => updateItem(i, { description: e.target.value })}
-                        placeholder="Description (e.g. Hall Rental)"
-                        className="flex-1 px-3 py-2 rounded-lg border text-sm outline-none"
-                        style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }}
-                      />
-                      {items.length > 1 && (
-                        <button type="button" onClick={() => removeItem(i)} className="w-7 h-7 flex items-center justify-center rounded-lg shrink-0 cursor-pointer hover:bg-red-50 transition-colors" style={{ color: "#DC2626" }}>
-                          <MinusIcon />
-                        </button>
-                      )}
+                  <button key={p.id} type="button" onClick={() => togglePreset(p)}
+                    className="flex items-center gap-2 px-3 py-3 rounded-xl text-sm font-medium cursor-pointer transition-all text-left"
+                    style={{
+                      background: active ? "var(--primary-light)" : "var(--bg-subtle)",
+                      color: active ? "var(--primary)" : "var(--fg-muted)",
+                      border: `1.5px solid ${active ? "var(--primary-muted)" : "transparent"}`,
+                    }}>
+                    <SvcIcon id={p.id} />
+                    {p.label}
+                    {active && <span className="ml-auto"><CheckIcon /></span>}
+                  </button>
+                );
+              })}
+            </div>
+            {services.length > 0 && (
+              <div className="flex flex-col gap-3">
+                {services.map(s => (
+                  <div key={s.id} className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: "var(--bg-subtle)", border: "1px solid #E5E7EB" }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <SvcIcon id={s.id} color="var(--primary)" />
+                        <p className="text-sm font-semibold text-black">
+                          {s.id === "custom" ? (s.label !== "Custom" ? s.label : "Custom Service") : s.label}
+                        </p>
+                      </div>
+                      <button type="button" onClick={() => removeSvc(s.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded-lg cursor-pointer hover:bg-red-50"
+                        style={{ color: "#DC2626" }}>
+                        <XSmIcon />
+                      </button>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 items-center">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold" style={{ color: "var(--fg-subtle)" }}>Qty</label>
-                        <input
-                          type="number"
-                          value={it.qty}
-                          onChange={e => updateItem(i, { qty: Math.max(1, Number(e.target.value)) })}
-                          min={1}
-                          className="px-3 py-2 rounded-lg border text-sm outline-none text-center"
-                          style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }}
-                        />
+                    {s.id === "custom" && (
+                      <input placeholder="Service name *" value={s.label === "Custom" ? "" : s.label}
+                        onChange={e => updateSvc(s.id, "label", e.target.value || "Custom")}
+                        className="w-full px-3 py-2.5 rounded-xl text-sm outline-none border"
+                        style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }} autoFocus />
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Unit / Qty</p>
+                        <input placeholder="e.g. 350 pax" value={s.unit} onChange={e => updateSvc(s.id, "unit", e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none border"
+                          style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }} />
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold" style={{ color: "var(--fg-subtle)" }}>Unit Price</label>
-                        <input
-                          type="number"
-                          value={it.unitPrice}
-                          onChange={e => updateItem(i, { unitPrice: Math.max(0, Number(e.target.value)) })}
-                          min={0}
-                          placeholder="0"
-                          className="px-3 py-2 rounded-lg border text-sm outline-none"
-                          style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }}
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] font-semibold" style={{ color: "var(--fg-subtle)" }}>Amount</label>
-                        <div className="px-3 py-2 rounded-lg text-sm font-semibold" style={{ background: "#F4F4F5", color: "var(--primary)" }}>
-                          {fmt(amt)}
+                      <div>
+                        <p className="text-xs mb-1.5" style={{ color: "var(--fg-muted)" }}>Price</p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{ color: "var(--fg-muted)" }}>Rs.</span>
+                          <input type="number" placeholder="0" value={s.price} onChange={e => updateSvc(s.id, "price", e.target.value)}
+                            min={0} className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none border"
+                            style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }} />
                         </div>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-              <button
-                type="button"
-                onClick={addItem}
-                className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl border border-dashed text-sm font-semibold cursor-pointer transition-colors hover:border-gray-400"
-                style={{ borderColor: "#D1D5DB", color: "var(--fg-muted)" }}
-              >
-                <PlusIcon /> Add Item
-              </button>
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Discount & Valid Until */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Discount (Rs.)</label>
-              <div className="flex items-center gap-2 px-4 py-3 rounded-xl border" style={{ background: "var(--bg-subtle)", borderColor: "#D1D5DB" }}>
-                <span className="text-xs font-semibold shrink-0" style={{ color: "var(--fg-muted)" }}>Rs.</span>
-                <input type="number" value={f.discount} onChange={e => setField("discount", e.target.value)} placeholder="0" min={0} className="flex-1 bg-transparent outline-none text-sm font-semibold text-black w-0" />
-              </div>
+          {/* Amount breakdown */}
+          <div className="rounded-xl overflow-hidden border" style={{ borderColor: "#E5E7EB" }}>
+            <div className="flex items-center justify-between px-4 py-2.5" style={{ background: "var(--bg-subtle)" }}>
+              <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Hall Amount</span>
+              <span className="text-xs font-medium text-black">Rs. {hallAmt.toLocaleString("en-PK")}</span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Valid Until *</label>
-              <input type="date" value={f.validUntil} onChange={e => setField("validUntil", e.target.value)} className={inp} style={inpStyle} required />
+            {svcTotal > 0 && (
+              <div className="flex items-center justify-between px-4 py-2.5 border-t" style={{ background: "var(--bg-subtle)", borderColor: "#E5E7EB" }}>
+                <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Services ({services.length})</span>
+                <span className="text-xs font-medium text-black">+ Rs. {svcTotal.toLocaleString("en-PK")}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between px-4 py-3 border-t" style={{ background: "#fff", borderColor: "#E5E7EB" }}>
+              <span className="text-xs font-bold text-black">Grand Total</span>
+              <span className="text-sm font-bold" style={{ color: "var(--primary)" }}>Rs. {grandTotal.toLocaleString("en-PK")}</span>
             </div>
           </div>
 
@@ -457,63 +415,17 @@ function QuotationForm({
             <textarea
               value={f.notes}
               onChange={e => setField("notes", e.target.value)}
-              placeholder="Add any special instructions or notes..."
+              placeholder="Special instructions or notes..."
               rows={3}
               className="px-4 py-3 rounded-xl border text-sm outline-none resize-none"
-              style={{ background: "var(--bg-subtle)", borderColor: "#D1D5DB", color: "var(--fg)" }}
+              style={{ background: "var(--bg-subtle)", borderColor: "#D1D5DB", color: "var(--fg)", minHeight: "80px" }}
             />
           </div>
 
-          {/* Totals summary */}
-          <div className="rounded-2xl p-4 flex flex-col gap-2" style={{ background: "var(--bg-subtle)" }}>
-            <div className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Subtotal</span>
-              <span className="text-sm font-semibold text-black">{fmt(subtotal)}</span>
-            </div>
-            {disc > 0 && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Discount</span>
-                <span className="text-sm font-semibold" style={{ color: "#DC2626" }}>− {fmt(disc)}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "#E5E7EB" }}>
-              <span className="text-sm font-bold text-black">Total</span>
-              <span className="text-base font-bold" style={{ color: "var(--primary)" }}>{fmt(total)}</span>
-            </div>
-          </div>
-
-          {/* Status toggle */}
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--fg-subtle)" }}>Save As</p>
-            <div className="grid grid-cols-2 gap-2">
-              {(["draft", "sent"] as QuotationStatus[]).map(s => {
-                const cfg = STATUS_CONFIG[s];
-                const active = f.status === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setField("status", s)}
-                    className="py-2.5 rounded-xl text-sm font-semibold cursor-pointer transition-all"
-                    style={{
-                      background: active ? cfg.bg : "var(--bg-subtle)",
-                      color: active ? cfg.color : "var(--fg-muted)",
-                      border: `1.5px solid ${active ? cfg.color : "transparent"}`,
-                    }}
-                  >
-                    {s === "draft" ? "Save as Draft" : "Send to Customer"}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <button
-            type="submit"
+          <button type="submit"
             className="w-full py-3.5 rounded-2xl text-sm font-bold cursor-pointer transition-opacity hover:opacity-90 mt-1"
-            style={{ background: "var(--primary)", color: "#ffffff" }}
-          >
-            {f.status === "sent" ? "Send Quotation" : "Save Draft"}
+            style={{ background: "var(--primary)", color: "#ffffff" }}>
+            Save Quotation
           </button>
         </form>
       </div>
@@ -523,10 +435,24 @@ function QuotationForm({
 
 // ─── PDF Generator ────────────────────────────────────────────────────────────
 function generatePDF(q: Quotation) {
-  const subtotal = q.items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
-  const total    = subtotal - (q.discount || 0);
+  const svcTotal = (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
+  const total    = q.hallAmount + svcTotal;
   const fmtRs    = (n: number) => "Rs. " + n.toLocaleString("en-PK");
   const fmtDate  = (d: string) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "—";
+
+  const servicesHTML = (q.services?.length ?? 0) > 0
+    ? `<table class="table">
+        <thead><tr><th>Service</th><th>Qty / Unit</th><th class="right">Price</th></tr></thead>
+        <tbody>
+          ${q.services.map(s => `
+            <tr>
+              <td>${s.label}</td>
+              <td>${s.unit || "—"}</td>
+              <td class="right">${s.price ? fmtRs(Number(s.price)) : "—"}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>`
+    : `<p class="no-services">No additional services</p>`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -536,28 +462,17 @@ function generatePDF(q: Quotation) {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #111; background: #fff; padding: 40px; font-size: 13px; }
-    @media print {
-      body { padding: 24px; }
-      .no-print { display: none !important; }
-      @page { margin: 16mm; size: A4; }
-    }
-
-    /* Header */
+    @media print { body { padding: 24px; } .no-print { display: none !important; } @page { margin: 16mm; size: A4; } }
     .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 24px; border-bottom: 2px solid #FF3B6B; margin-bottom: 28px; }
-    .brand { display: flex; align-items: center; gap: 12px; }
     .brand-name { font-size: 22px; font-weight: 800; color: #111; letter-spacing: -0.5px; }
     .brand-sub { font-size: 11px; color: #888; margin-top: 1px; }
     .quote-meta { text-align: right; }
     .quote-id { font-size: 20px; font-weight: 700; color: #111; }
     .quote-status { display: inline-block; margin-top: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-
-    /* Info grid */
     .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }
     .info-block h3 { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 8px; }
     .info-block p { font-size: 13px; color: #333; line-height: 1.6; }
     .info-block .name { font-size: 15px; font-weight: 700; color: #111; }
-
-    /* Items table */
     .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 10px; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     thead tr { background: #FFF0F4; }
@@ -567,108 +482,55 @@ function generatePDF(q: Quotation) {
     tbody tr:last-child { border-bottom: none; }
     tbody td { padding: 10px 12px; font-size: 13px; color: #333; }
     tbody td.right { text-align: right; }
-    tbody td.bold { font-weight: 600; color: #111; }
-
-    /* Totals */
-    .totals { margin-left: auto; width: 260px; }
-    .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; color: #555; }
-    .totals-row.divider { border-top: 1px solid #E5E7EB; margin-top: 4px; padding-top: 10px; }
-    .totals-row.total { font-size: 15px; font-weight: 700; color: #111; }
-    .totals-row.discount { color: #16A34A; }
-
-    /* Notes */
-    .notes-box { background: #F9F9F9; border-radius: 8px; padding: 14px 16px; margin-top: 24px; font-size: 12px; color: #555; line-height: 1.7; }
+    .no-services { font-size: 13px; color: #aaa; font-style: italic; padding: 8px 0; }
+    .payment-box { background: #f9f9f9; border-radius: 12px; padding: 16px; }
+    .pay-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+    .pay-row.total { border-top: 1px solid #eee; margin-top: 4px; padding-top: 10px; font-size: 15px; font-weight: 700; }
+    .notes-box { background: #f9f9f9; border-radius: 8px; padding: 14px 16px; margin-top: 24px; font-size: 12px; color: #555; line-height: 1.7; }
     .notes-box strong { display: block; margin-bottom: 4px; color: #111; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    /* Footer */
     .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #E5E7EB; display: flex; justify-content: space-between; font-size: 11px; color: #aaa; }
-
-    /* Print button */
     .print-btn { display: block; margin: 0 auto 32px; padding: 10px 28px; background: #FF3B6B; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
   </style>
 </head>
 <body>
   <button class="print-btn no-print" onclick="window.print()">Download / Print PDF</button>
-
-  <!-- Header -->
   <div class="header">
-    <div class="brand">
-      <div>
-        <div class="brand-name">Royal Banquet Hall</div>
-        <div class="brand-sub">Event Ease</div>
-      </div>
-    </div>
+    <div><div class="brand-name">Royal Banquet Hall</div><div class="brand-sub">Event Ease</div></div>
     <div class="quote-meta">
       <div class="quote-id">${q.id}</div>
-      <span class="quote-status" style="background:${
-        q.status === "accepted" ? "#F0FDF4" : q.status === "sent" ? "#EFF6FF" : q.status === "rejected" ? "#FEF2F2" : "#F4F4F5"
-      }; color:${
-        q.status === "accepted" ? "#16A34A" : q.status === "sent" ? "#2563EB" : q.status === "rejected" ? "#DC2626" : "#6B7280"
-      }">
-        ${q.status.charAt(0).toUpperCase() + q.status.slice(1)}
+      <span class="quote-status" style="background:${q.status==="accepted"?"#F0FDF4":q.status==="rejected"?"#FEF2F2":"#FFFBEB"};color:${q.status==="accepted"?"#16A34A":q.status==="rejected"?"#DC2626":"#D97706"}">
+        ${q.status.charAt(0).toUpperCase()+q.status.slice(1)}
       </span>
     </div>
   </div>
-
-  <!-- Info Grid -->
   <div class="info-grid">
     <div class="info-block">
       <h3>Prepared For</h3>
       <p class="name">${q.customerName}</p>
       <p>${q.phone}</p>
       ${q.email ? `<p>${q.email}</p>` : ""}
-      ${q.bookingId !== "—" ? `<p style="margin-top:4px;font-size:11px;color:#999;">Booking: ${q.bookingId}</p>` : ""}
     </div>
     <div class="info-block">
       <h3>Event Details</h3>
       <p><strong>${q.event}</strong> — ${q.hall}</p>
       <p>Date: ${fmtDate(q.date)}</p>
       <p>Guests: ${q.guests}</p>
-      <p style="margin-top:6px;font-size:11px;color:#DC2626;font-weight:600;">Valid Until: ${fmtDate(q.validUntil)}</p>
     </div>
   </div>
-
-  <!-- Line Items -->
-  <p class="section-title">Line Items</p>
-  <table>
-    <thead>
-      <tr>
-        <th style="width:50%">Description</th>
-        <th class="right" style="width:10%">Qty</th>
-        <th class="right" style="width:20%">Unit Price</th>
-        <th class="right" style="width:20%">Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${q.items.map(item => `
-        <tr>
-          <td class="bold">${item.description}</td>
-          <td class="right">${item.qty}</td>
-          <td class="right">${fmtRs(item.unitPrice)}</td>
-          <td class="right bold">${fmtRs(item.qty * item.unitPrice)}</td>
-        </tr>
-      `).join("")}
-    </tbody>
-  </table>
-
-  <!-- Totals -->
-  <div class="totals">
-    <div class="totals-row"><span>Subtotal</span><span>${fmtRs(subtotal)}</span></div>
-    ${q.discount ? `<div class="totals-row discount"><span>Discount</span><span>− ${fmtRs(q.discount)}</span></div>` : ""}
-    <div class="totals-row divider total"><span>Total</span><span>${fmtRs(total)}</span></div>
+  <p class="section-title">Services</p>
+  ${servicesHTML}
+  <p class="section-title">Payment Summary</p>
+  <div class="payment-box">
+    <div class="pay-row"><span>Hall Amount</span><span>${fmtRs(q.hallAmount)}</span></div>
+    ${svcTotal > 0 ? `<div class="pay-row"><span>Services Total</span><span>${fmtRs(svcTotal)}</span></div>` : ""}
+    <div class="pay-row total"><span>Grand Total</span><span style="color:#FF3B6B">${fmtRs(total)}</span></div>
   </div>
-
-  ${q.notes ? `
-  <div class="notes-box">
-    <strong>Notes</strong>
-    ${q.notes}
-  </div>` : ""}
-
-  <!-- Footer -->
+  ${q.notes ? `<div class="notes-box"><strong>Notes</strong>${q.notes}</div>` : ""}
   <div class="footer">
-    <span>Generated by Event Ease · eventease.app</span>
-    <span>Quotation valid until ${fmtDate(q.validUntil)}</span>
+    <span>Generated by Event Ease · Royal Banquet Hall</span>
+    <span>${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
   </div>
+  <script>window.onload=()=>{window.print()}</script>
 </body>
 </html>`;
 
@@ -678,18 +540,16 @@ function generatePDF(q: Quotation) {
   win.document.close();
 }
 
-// ─── Detail Modal ─────────────────────────────────────────────────────────────
+// ─── Detail Content ───────────────────────────────────────────────────────────
 function QuotationDetailContent({
-  q,
-  onClose,
-  onStatusChange,
+  q, onClose, onStatusChange,
 }: {
   q: Quotation;
   onClose: () => void;
   onStatusChange: (id: string, status: QuotationStatus) => void;
 }) {
-  const subtotal = calcSubtotal(q.items);
-  const total    = calcTotal(q.items, q.discount);
+  const svcTotal = (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
+  const total    = q.hallAmount + svcTotal;
   const cfg      = STATUS_CONFIG[q.status];
 
   return (
@@ -698,19 +558,15 @@ function QuotationDetailContent({
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
           <p className="text-sm font-bold text-black">{q.id}</p>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>
-            {cfg.label}
-          </span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => generatePDF(q)}
+          <button onClick={() => generatePDF(q)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-opacity hover:opacity-80"
-            style={{ background: "var(--primary-light)", color: "var(--primary)" }}
-          >
+            style={{ background: "var(--primary-light)", color: "var(--primary)" }}>
             <PDFIcon /> PDF
           </button>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100 transition-colors" style={{ color: "var(--fg-muted)" }}>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100" style={{ color: "var(--fg-muted)" }}>
             <XIcon />
           </button>
         </div>
@@ -727,11 +583,6 @@ function QuotationDetailContent({
             <p className="text-sm font-semibold text-black">{q.customerName}</p>
             <p className="text-xs mt-0.5 truncate" style={{ color: "var(--fg-muted)" }}>{q.phone}{q.email ? ` · ${q.email}` : ""}</p>
           </div>
-          {q.bookingId !== "—" && (
-            <span className="text-xs font-mono font-medium px-2 py-1 rounded-lg shrink-0" style={{ background: "#F4F4F5", color: "var(--fg-muted)" }}>
-              {q.bookingId}
-            </span>
-          )}
         </div>
 
         {/* Event Details */}
@@ -739,13 +590,12 @@ function QuotationDetailContent({
           <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Event Details</p>
           <div className="flex flex-col">
             {[
-              { label: "Event",       value: q.event,              badge: false },
-              { label: "Hall",        value: q.hall,               badge: true  },
-              { label: "Event Date",  value: formatDate(q.date),   badge: false },
-              { label: "Valid Until", value: formatDate(q.validUntil), badge: false },
-              { label: "Guests",      value: `${q.guests} guests`, badge: false },
+              { label: "Event",      value: q.event,              badge: false },
+              { label: "Hall",       value: q.hall,               badge: true  },
+              { label: "Event Date", value: formatDate(q.date),   badge: false },
+              { label: "Guests",     value: `${q.guests} guests`, badge: false },
             ].map((row, i) => (
-              <div key={row.label} className={`flex items-center justify-between py-2.5 ${i !== 4 ? "border-b" : ""}`} style={{ borderColor: "#F4F4F5" }}>
+              <div key={row.label} className={`flex items-center justify-between py-2.5 ${i !== 3 ? "border-b" : ""}`} style={{ borderColor: "#F4F4F5" }}>
                 <span className="text-xs" style={{ color: "var(--fg-muted)" }}>{row.label}</span>
                 {row.badge
                   ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: HALL_BG[q.hall] || "var(--primary-light)", color: HALL_COLOR[q.hall] || "var(--primary)" }}>{row.value}</span>
@@ -756,43 +606,42 @@ function QuotationDetailContent({
           </div>
         </div>
 
-        {/* Line Items */}
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Line Items</p>
-          <div className="rounded-xl overflow-hidden border" style={{ borderColor: "#E5E7EB" }}>
-            {/* Table header */}
-            <div className="grid grid-cols-12 px-3 py-2" style={{ background: "var(--bg-subtle)", borderBottom: "1px solid #E5E7EB" }}>
-              <span className="col-span-6 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--fg-subtle)" }}>Description</span>
-              <span className="col-span-2 text-[10px] font-bold uppercase tracking-wide text-center" style={{ color: "var(--fg-subtle)" }}>Qty</span>
-              <span className="col-span-2 text-[10px] font-bold uppercase tracking-wide text-right" style={{ color: "var(--fg-subtle)" }}>Rate</span>
-              <span className="col-span-2 text-[10px] font-bold uppercase tracking-wide text-right" style={{ color: "var(--fg-subtle)" }}>Amt</span>
+        {/* Services */}
+        {(q.services?.length ?? 0) > 0 && (
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Services</p>
+            <div className="flex flex-col gap-2">
+              {(q.services ?? []).map((s, i) => (
+                <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: "var(--bg-subtle)", border: "1px solid #E5E7EB" }}>
+                  <div>
+                    <p className="text-sm font-semibold text-black">{s.label}</p>
+                    {s.unit && <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>{s.unit}</p>}
+                  </div>
+                  {s.price && <span className="text-sm font-semibold" style={{ color: "var(--primary)" }}>Rs. {Number(s.price).toLocaleString("en-PK")}</span>}
+                </div>
+              ))}
             </div>
-            {q.items.map((it, i) => (
-              <div key={i} className={`grid grid-cols-12 px-3 py-2.5 ${i !== q.items.length - 1 ? "border-b" : ""}`} style={{ borderColor: "#F4F4F5" }}>
-                <span className="col-span-6 text-xs text-black leading-snug pr-2">{it.description}</span>
-                <span className="col-span-2 text-xs text-center" style={{ color: "var(--fg-muted)" }}>{it.qty}</span>
-                <span className="col-span-2 text-xs text-right" style={{ color: "var(--fg-muted)" }}>{it.unitPrice.toLocaleString("en-PK")}</span>
-                <span className="col-span-2 text-xs font-semibold text-right text-black">{(it.qty * it.unitPrice).toLocaleString("en-PK")}</span>
+          </div>
+        )}
+
+        {/* Amount breakdown */}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Payment</p>
+          <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #E5E7EB" }}>
+            <div className="flex items-center justify-between px-4 py-2.5" style={{ background: "var(--bg-subtle)" }}>
+              <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Hall Amount</span>
+              <span className="text-xs font-semibold text-black">{fmt(q.hallAmount)}</span>
+            </div>
+            {(q.services ?? []).filter(s => Number(s.price) > 0).map((s, i) => (
+              <div key={i} className="flex items-center justify-between px-4 py-2.5" style={{ borderTop: "1px solid #F4F4F5", background: "var(--bg-subtle)" }}>
+                <span className="text-xs" style={{ color: "var(--fg-muted)" }}>{s.label}</span>
+                <span className="text-xs font-semibold text-black">+ {fmt(Number(s.price))}</span>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Totals */}
-        <div className="rounded-2xl p-4 flex flex-col gap-2" style={{ background: "var(--bg-subtle)" }}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Subtotal</span>
-            <span className="text-sm font-semibold text-black">{fmt(subtotal)}</span>
-          </div>
-          {q.discount > 0 && (
-            <div className="flex items-center justify-between">
-              <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Discount</span>
-              <span className="text-sm font-semibold" style={{ color: "#DC2626" }}>− {fmt(q.discount)}</span>
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid #E5E7EB", background: "#fff" }}>
+              <span className="text-xs font-bold text-black">Grand Total</span>
+              <span className="text-sm font-bold" style={{ color: "var(--primary)" }}>{fmt(total)}</span>
             </div>
-          )}
-          <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: "#E5E7EB" }}>
-            <span className="text-sm font-bold text-black">Total</span>
-            <span className="text-base font-bold" style={{ color: "var(--primary)" }}>{fmt(total)}</span>
           </div>
         </div>
 
@@ -800,81 +649,60 @@ function QuotationDetailContent({
         {q.notes && (
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--fg-subtle)" }}>Notes</p>
-            <p className="text-sm rounded-xl p-3 leading-relaxed" style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>
-              {q.notes}
-            </p>
+            <p className="text-sm rounded-xl p-3 leading-relaxed" style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>{q.notes}</p>
           </div>
         )}
 
         {/* Status Actions */}
         <div className="flex flex-col gap-2 pt-1">
-          {q.status === "draft" && (
+          <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--fg-subtle)" }}>Update Status</p>
+          <div className="flex gap-2">
             <button
-              onClick={() => { onStatusChange(q.id, "sent"); onClose(); }}
-              className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90"
-              style={{ background: "#EFF6FF", color: "#2563EB" }}
-            >
-              Mark as Sent
+              onClick={() => onStatusChange(q.id, "accepted")}
+              disabled={q.status === "accepted"}
+              className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-40"
+              style={{
+                background: q.status === "accepted" ? "#F0FDF4" : "#F0FDF4",
+                color: "#16A34A",
+                border: q.status === "accepted" ? "2px solid #16A34A" : "2px solid transparent",
+              }}>
+              {q.status === "accepted" ? "✓ Accepted" : "Accept"}
+            </button>
+            <button
+              onClick={() => onStatusChange(q.id, "rejected")}
+              disabled={q.status === "rejected"}
+              className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-40"
+              style={{
+                background: "#FEF2F2",
+                color: "#DC2626",
+                border: q.status === "rejected" ? "2px solid #DC2626" : "2px solid transparent",
+              }}>
+              {q.status === "rejected" ? "✕ Rejected" : "Reject"}
+            </button>
+          </div>
+          {(q.status === "accepted" || q.status === "rejected") && (
+            <button
+              onClick={() => onStatusChange(q.id, "pending")}
+              className="w-full py-2.5 rounded-2xl text-xs font-semibold cursor-pointer hover:opacity-80"
+              style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>
+              Reset to Pending
             </button>
           )}
-          {q.status === "sent" && (
-            <>
-              <button
-                onClick={() => { onStatusChange(q.id, "accepted"); onClose(); }}
-                className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90"
-                style={{ background: "#F0FDF4", color: "#16A34A" }}
-              >
-                Mark Accepted
-              </button>
-              <button
-                onClick={() => { onStatusChange(q.id, "rejected"); onClose(); }}
-                className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80"
-                style={{ background: "#FEF2F2", color: "#DC2626" }}
-              >
-                Mark Rejected
-              </button>
-            </>
-          )}
-          <button
-            onClick={onClose}
-            className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80"
-            style={{ background: "var(--bg-subtle)", color: "var(--fg)" }}
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function DetailModal({
-  q,
-  onClose,
-  onStatusChange,
-}: {
-  q: Quotation;
-  onClose: () => void;
-  onStatusChange: (id: string, status: QuotationStatus) => void;
-}) {
+function DetailModal({ q, onClose, onStatusChange }: { q: Quotation; onClose: () => void; onStatusChange: (id: string, status: QuotationStatus) => void }) {
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      {/* Mobile: bottom sheet */}
-      <div
-        className="fixed z-40 bottom-0 left-0 right-0 rounded-t-3xl bg-white flex flex-col lg:hidden overflow-hidden"
-        style={{ maxHeight: "92dvh", boxShadow: "0 -4px 40px rgba(0,0,0,0.12)" }}
-      >
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} />
-        </div>
+      <div className="fixed z-40 bottom-0 left-0 right-0 rounded-t-3xl bg-white flex flex-col lg:hidden overflow-hidden" style={{ maxHeight: "92dvh", boxShadow: "0 -4px 40px rgba(0,0,0,0.12)" }}>
+        <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} /></div>
         <QuotationDetailContent q={q} onClose={onClose} onStatusChange={onStatusChange} />
       </div>
-      {/* Desktop: centered modal */}
-      <div
-        className="hidden lg:flex fixed z-40 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[440px] bg-white rounded-3xl flex-col overflow-hidden"
-        style={{ height: "85vh", boxShadow: "0 8px 60px rgba(0,0,0,0.18)" }}
-      >
+      <div className="hidden lg:flex fixed z-40 right-0 top-0 bottom-0 w-[560px] bg-white flex-col overflow-hidden rounded-l-3xl" style={{ boxShadow: "-4px 0 40px rgba(0,0,0,0.12)" }}>
         <QuotationDetailContent q={q} onClose={onClose} onStatusChange={onStatusChange} />
       </div>
     </>
@@ -887,13 +715,11 @@ export default function QuotationsPage() {
   const [filter, setFilter]         = useState<"all" | QuotationStatus>("all");
   const [search, setSearch]         = useState("");
   const [page, setPage]             = useState(1);
+  const [newModalOpen, setNewModalOpen] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<Quotation | null>(null);
+  const [editTarget, setEditTarget]     = useState<Quotation | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
 
-  const [newModalOpen, setNewModalOpen]   = useState(false);
-  const [detailTarget, setDetailTarget]   = useState<Quotation | null>(null);
-  const [editTarget, setEditTarget]       = useState<Quotation | null>(null);
-  const [deleteTarget, setDeleteTarget]   = useState<Quotation | null>(null);
-
-  // ── Filtering & pagination ────────────────────────────────────────────────
   const filtered = quotations.filter(q => {
     const matchFilter = filter === "all" || q.status === filter;
     const s = search.toLowerCase();
@@ -901,8 +727,7 @@ export default function QuotationsPage() {
       q.customerName.toLowerCase().includes(s) ||
       q.event.toLowerCase().includes(s) ||
       q.hall.toLowerCase().includes(s) ||
-      q.id.toLowerCase().includes(s) ||
-      q.bookingId.toLowerCase().includes(s);
+      q.id.toLowerCase().includes(s);
     return matchFilter && matchSearch;
   });
 
@@ -913,24 +738,18 @@ export default function QuotationsPage() {
   function changeFilter(v: "all" | QuotationStatus) { setFilter(v); setPage(1); }
   function changeSearch(v: string)                   { setSearch(v); setPage(1); }
 
-  // ── Counts ────────────────────────────────────────────────────────────────
   const counts = {
     all:      quotations.length,
-    draft:    quotations.filter(q => q.status === "draft").length,
-    sent:     quotations.filter(q => q.status === "sent").length,
+    pending:  quotations.filter(q => q.status === "pending").length,
     accepted: quotations.filter(q => q.status === "accepted").length,
     rejected: quotations.filter(q => q.status === "rejected").length,
   };
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
-  const totalValue  = quotations.filter(q => q.status === "accepted").reduce((s, q) => s + calcTotal(q.items, q.discount), 0);
-  const pendingCount = counts.sent + counts.draft;
+  const totalValue = quotations.filter(q => q.status === "accepted").reduce((s, q) => s + calcTotal(q), 0);
 
-  // ── CRUD handlers ─────────────────────────────────────────────────────────
   function handleCreate(f: FormState) {
     const newQ: Quotation = {
       id: "QT-" + String(quotations.length + 1).padStart(3, "0"),
-      bookingId: f.bookingId || "—",
       customerName: f.customerName,
       phone: f.phone,
       email: f.email,
@@ -938,11 +757,10 @@ export default function QuotationsPage() {
       hall: f.hall,
       date: f.date,
       guests: Number(f.guests) || 0,
-      validUntil: f.validUntil,
+      hallAmount: Number(f.hallAmount) || 0,
       status: f.status,
-      items: f.items,
+      services: f.services,
       notes: f.notes,
-      discount: Number(f.discount) || 0,
     };
     setQuotations(prev => [newQ, ...prev]);
     setNewModalOpen(false);
@@ -953,7 +771,6 @@ export default function QuotationsPage() {
     if (!editTarget) return;
     setQuotations(prev => prev.map(q => q.id === editTarget.id ? {
       ...q,
-      bookingId: f.bookingId || "—",
       customerName: f.customerName,
       phone: f.phone,
       email: f.email,
@@ -961,11 +778,10 @@ export default function QuotationsPage() {
       hall: f.hall,
       date: f.date,
       guests: Number(f.guests) || 0,
-      validUntil: f.validUntil,
+      hallAmount: Number(f.hallAmount) || 0,
       status: f.status,
-      items: f.items,
+      services: f.services,
       notes: f.notes,
-      discount: Number(f.discount) || 0,
     } : q));
     setEditTarget(null);
   }
@@ -985,52 +801,28 @@ export default function QuotationsPage() {
       customerName: q.customerName,
       phone: q.phone,
       email: q.email,
-      bookingId: q.bookingId === "—" ? "" : q.bookingId,
       event: q.event,
       hall: q.hall,
       date: q.date,
       guests: String(q.guests),
-      validUntil: q.validUntil,
+      hallAmount: String(q.hallAmount),
       notes: q.notes,
-      discount: String(q.discount),
       status: q.status,
-      items: q.items.length > 0 ? q.items : [{ ...EMPTY_ITEM }],
+      services: q.services,
     };
   }
 
   return (
     <>
-      {/* New Quotation Modal */}
       {newModalOpen && (
-        <QuotationForm
-          title="New Quotation"
-          initial={EMPTY_FORM}
-          onClose={() => setNewModalOpen(false)}
-          onSubmit={handleCreate}
-        />
+        <QuotationForm title="New Quotation" initial={EMPTY_FORM} onClose={() => setNewModalOpen(false)} onSubmit={handleCreate} />
       )}
-
-      {/* Edit Modal */}
       {editTarget && (
-        <QuotationForm
-          title="Edit Quotation"
-          subtitle={editTarget.id}
-          initial={formFromQuotation(editTarget)}
-          onClose={() => setEditTarget(null)}
-          onSubmit={handleEdit}
-        />
+        <QuotationForm title="Edit Quotation" subtitle={editTarget.id} initial={formFromQuotation(editTarget)} onClose={() => setEditTarget(null)} onSubmit={handleEdit} />
       )}
-
-      {/* Detail Modal */}
       {detailTarget && (
-        <DetailModal
-          q={quotations.find(q => q.id === detailTarget.id) ?? detailTarget}
-          onClose={() => setDetailTarget(null)}
-          onStatusChange={handleStatusChange}
-        />
+        <DetailModal q={quotations.find(q => q.id === detailTarget.id) ?? detailTarget} onClose={() => setDetailTarget(null)} onStatusChange={handleStatusChange} />
       )}
-
-      {/* Delete Confirmation */}
       {deleteTarget && (
         <>
           <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
@@ -1044,18 +836,14 @@ export default function QuotationsPage() {
               <span className="font-semibold text-black">{deleteTarget.customerName}</span> will be permanently deleted.
             </p>
             <div className="flex gap-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80 transition-opacity"
-                style={{ background: "var(--bg-subtle)", color: "var(--fg)" }}
-              >
+              <button onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80"
+                style={{ background: "var(--bg-subtle)", color: "var(--fg)" }}>
                 Cancel
               </button>
-              <button
-                onClick={() => handleDelete(deleteTarget.id)}
-                className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ background: "#DC2626", color: "#fff" }}
-              >
+              <button onClick={() => handleDelete(deleteTarget.id)}
+                className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-90"
+                style={{ background: "#DC2626", color: "#fff" }}>
                 Delete
               </button>
             </div>
@@ -1064,23 +852,20 @@ export default function QuotationsPage() {
       )}
 
       <div className="p-4 lg:p-8">
-
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl lg:text-2xl font-semibold text-black tracking-tight">Quotations</h1>
             <p className="text-sm mt-1" style={{ color: "var(--fg-muted)" }}>Create and manage event quotations</p>
           </div>
-          <button
-            onClick={() => setNewModalOpen(true)}
+          <button onClick={() => setNewModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90"
-            style={{ background: "var(--primary)", color: "#ffffff" }}
-          >
+            style={{ background: "var(--primary)", color: "#ffffff" }}>
             <PlusIcon /> New Quotation
           </button>
         </div>
 
-        {/* Stats Bar */}
+        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <p className="text-2xl font-bold text-black">{counts.all}</p>
@@ -1091,8 +876,8 @@ export default function QuotationsPage() {
             <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Accepted</p>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="text-2xl font-bold" style={{ color: "#D97706" }}>{pendingCount}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Pending (Draft + Sent)</p>
+            <p className="text-2xl font-bold" style={{ color: "#D97706" }}>{counts.pending}</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Pending</p>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-sm">
             <p className="text-base font-bold" style={{ color: "var(--primary)" }}>{fmt(totalValue)}</p>
@@ -1104,37 +889,25 @@ export default function QuotationsPage() {
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
           <div className="flex border-b overflow-x-auto" style={{ borderColor: "#F4F4F5" }}>
             {FILTER_TABS.map(t => (
-              <button
-                key={t.value}
-                onClick={() => changeFilter(t.value)}
-                className="flex-1 min-w-fit py-3 px-2 text-sm font-medium transition-colors cursor-pointer relative whitespace-nowrap"
-                style={{ color: filter === t.value ? "var(--primary)" : "var(--fg-muted)" }}
-              >
+              <button key={t.value} onClick={() => changeFilter(t.value)}
+                className="flex-1 min-w-fit py-3 px-2 text-sm font-medium cursor-pointer relative whitespace-nowrap"
+                style={{ color: filter === t.value ? "var(--primary)" : "var(--fg-muted)" }}>
                 {t.label}
                 <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full" style={{
                   background: filter === t.value ? "var(--primary-light)" : "var(--bg-subtle)",
                   color: filter === t.value ? "var(--primary)" : "var(--fg-muted)",
-                }}>
-                  {counts[t.value]}
-                </span>
-                {filter === t.value && (
-                  <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full" style={{ background: "var(--primary)" }} />
-                )}
+                }}>{counts[t.value]}</span>
+                {filter === t.value && <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full" style={{ background: "var(--primary)" }} />}
               </button>
             ))}
           </div>
           <div className="px-4 py-3">
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--fg-subtle)" }}>
-                <SearchIcon />
-              </span>
-              <input
-                value={search}
-                onChange={e => changeSearch(e.target.value)}
+              <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--fg-subtle)" }}><SearchIcon /></span>
+              <input value={search} onChange={e => changeSearch(e.target.value)}
                 placeholder="Search customer, event, hall, quotation ID..."
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none border"
-                style={{ background: "var(--bg-subtle)", borderColor: "#E5E7EB", color: "var(--fg)" }}
-              />
+                style={{ background: "var(--bg-subtle)", borderColor: "#E5E7EB", color: "var(--fg)" }} />
             </div>
           </div>
         </div>
@@ -1148,22 +921,16 @@ export default function QuotationsPage() {
               <p className="text-xs mt-1" style={{ color: "var(--fg-muted)" }}>Try changing the filter or search</p>
             </div>
           )}
-
           {paginated.map(q => {
-            const cfg      = STATUS_CONFIG[q.status];
-            const subtotal = calcSubtotal(q.items);
-            const total    = calcTotal(q.items, q.discount);
-
+            const cfg   = STATUS_CONFIG[q.status];
+            const total = calcTotal(q);
+            const svcTotal = (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
             return (
               <div key={q.id} className="bg-white rounded-2xl shadow-sm p-4">
-
-                {/* Row 1: Avatar + name + phone | status badge */}
+                {/* Row 1: avatar + name + status */}
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0"
-                      style={{ background: HALL_COLOR[q.hall] || "var(--primary)" }}
-                    >
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0" style={{ background: HALL_COLOR[q.hall] || "var(--primary)" }}>
                       {q.customerName[0]}
                     </div>
                     <div className="min-w-0">
@@ -1171,85 +938,54 @@ export default function QuotationsPage() {
                       <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{q.phone}</p>
                     </div>
                   </div>
-                  <span
-                    className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0"
-                    style={{ background: cfg.bg, color: cfg.color }}
-                  >
-                    {cfg.label}
-                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
                 </div>
-
-                {/* Row 2: Hall badge + event type */}
+                {/* Row 2: hall + event */}
                 <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                    style={{ background: HALL_BG[q.hall] || "var(--primary-light)", color: HALL_COLOR[q.hall] || "var(--primary)" }}
-                  >
-                    {q.hall}
-                  </span>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: HALL_BG[q.hall] || "var(--primary-light)", color: HALL_COLOR[q.hall] || "var(--primary)" }}>{q.hall}</span>
                   <span className="text-xs font-medium text-black">{q.event}</span>
                 </div>
-
-                {/* Row 3: Event date + valid until + guests */}
+                {/* Row 3: date + guests */}
                 <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mb-3">
                   <div className="flex items-center gap-1.5">
                     <CalSmIcon />
                     <span className="text-xs" style={{ color: "var(--fg-muted)" }}>{formatDate(q.date)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <ClockSmIcon />
-                    <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Valid: {formatDate(q.validUntil)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
                     <GuestSmIcon />
                     <span className="text-xs" style={{ color: "var(--fg-muted)" }}>{q.guests} guests</span>
                   </div>
-                </div>
-
-                {/* Row 4: items count + subtotal + discount + total */}
-                <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-3">
-                  <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>
-                    {q.items.length} item{q.items.length !== 1 ? "s" : ""}
-                  </span>
-                  <span className="text-xs" style={{ color: "var(--fg-muted)" }}>
-                    Sub: {fmt(subtotal)}
-                  </span>
-                  {q.discount > 0 && (
-                    <span className="text-xs font-medium" style={{ color: "#DC2626" }}>
-                      − {fmt(q.discount)}
+                  {(q.services?.length ?? 0) > 0 && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>
+                      {q.services.length} service{q.services.length !== 1 ? "s" : ""}
                     </span>
                   )}
-                  <span className="text-sm font-bold text-black ml-auto">
-                    {fmt(total)}
-                  </span>
                 </div>
-
-                {/* Row 5: Footer — quotation ID + action buttons */}
+                {/* Row 4: amounts */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-xs" style={{ color: "var(--fg-muted)" }}>
+                    <span>Hall: {fmt(q.hallAmount)}</span>
+                    {svcTotal > 0 && <span>+ Svcs: {fmt(svcTotal)}</span>}
+                  </div>
+                  <span className="text-sm font-bold text-black">{fmt(total)}</span>
+                </div>
+                {/* Row 5: ID + actions */}
                 <div className="flex items-center justify-between pt-2.5 border-t" style={{ borderColor: "#F4F4F5" }}>
                   <span className="text-[10px] font-mono font-medium" style={{ color: "var(--fg-subtle)" }}>{q.id}</span>
                   <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setDetailTarget(q)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-blue-50 transition-colors"
-                      style={{ color: "#2563EB" }}
-                      title="View Details"
-                    >
+                    <button onClick={() => setDetailTarget(q)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-blue-50"
+                      style={{ color: "#2563EB" }} title="View">
                       <EyeIcon />
                     </button>
-                    <button
-                      onClick={() => setEditTarget(q)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-amber-50 transition-colors"
-                      style={{ color: "#D97706" }}
-                      title="Edit"
-                    >
+                    <button onClick={() => setEditTarget(q)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-amber-50"
+                      style={{ color: "#D97706" }} title="Edit">
                       <EditIcon />
                     </button>
-                    <button
-                      onClick={() => setDeleteTarget(q)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-red-50 transition-colors"
-                      style={{ color: "#DC2626" }}
-                      title="Delete"
-                    >
+                    <button onClick={() => setDeleteTarget(q)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-red-50"
+                      style={{ color: "#DC2626" }} title="Delete">
                       <TrashIcon />
                     </button>
                   </div>
@@ -1266,35 +1002,19 @@ export default function QuotationsPage() {
               Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
             </p>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={safePage === 1}
-                className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100 transition-colors"
-                style={{ color: "var(--fg-muted)" }}
-              >
-                <ChevLeftIcon />
-              </button>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100"
+                style={{ color: "var(--fg-muted)" }}><ChevLeftIcon /></button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold cursor-pointer transition-colors"
-                  style={{
-                    background: safePage === n ? "var(--primary)" : "transparent",
-                    color: safePage === n ? "#fff" : "var(--fg-muted)",
-                  }}
-                >
+                <button key={n} onClick={() => setPage(n)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold cursor-pointer"
+                  style={{ background: safePage === n ? "var(--primary)" : "transparent", color: safePage === n ? "#fff" : "var(--fg-muted)" }}>
                   {n}
                 </button>
               ))}
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={safePage === totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100 transition-colors"
-                style={{ color: "var(--fg-muted)" }}
-              >
-                <ChevRightIcon />
-              </button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100"
+                style={{ color: "var(--fg-muted)" }}><ChevRightIcon /></button>
             </div>
           </div>
         )}
@@ -1303,17 +1023,25 @@ export default function QuotationsPage() {
   );
 }
 
+// ─── Service icon helper ──────────────────────────────────────────────────────
+function SvcIcon({ id, color = "currentColor" }: { id: string; color?: string }) {
+  if (id === "drink")  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 8h1a4 4 0 0 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>;
+  if (id === "music")  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>;
+  if (id === "table")  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M8 6v12"/><path d="M16 6v12"/></svg>;
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>;
+}
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function PlusIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>; }
-function MinusIcon()   { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12" /></svg>; }
 function XIcon()       { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>; }
+function XSmIcon()     { return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>; }
+function CheckIcon()   { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>; }
 function PDFIcon()     { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>; }
 function EyeIcon()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>; }
 function EditIcon()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>; }
 function TrashIcon({ size = 14, color = "currentColor" }: { size?: number; color?: string }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>; }
 function SearchIcon()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>; }
 function CalSmIcon()   { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--fg-subtle)" }}><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>; }
-function ClockSmIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--fg-subtle)" }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>; }
 function GuestSmIcon() { return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--fg-subtle)" }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>; }
 function EmptyIcon()   { return <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--fg-subtle)" }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>; }
 function ChevLeftIcon()  { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>; }

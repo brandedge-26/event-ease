@@ -3,41 +3,10 @@
 import { useState } from "react";
 import { NewBookingModal, DatePicker, EMPTY_FORM } from "../_components/NewBookingModal";
 import type { BookingStatus, ServiceEntry } from "../_components/NewBookingModal";
+import { useStore } from "@/store/useStore";
+import type { Booking, PaymentRecord, PaymentMethod } from "@/store/useStore";
 
 type Status = BookingStatus;
-
-type Booking = {
-  id: string;
-  customerName: string;
-  phone: string;
-  event: string;
-  hall: string;
-  date: string;
-  timeFrom: string;
-  timeTo: string;
-  guests: number;
-  amount: number;
-  hallAmount?: number;
-  paid: number;
-  status: Status;
-  notes: string;
-  services: { label: string; unit: string; price: string }[];
-};
-
-const INITIAL_BOOKINGS: Booking[] = [
-  { id: "BK-001", customerName: "Ahmed Khan",   phone: "0300-1234567", event: "Wedding",        hall: "Hall A", date: "2026-08-02", timeFrom: "18:00", timeTo: "23:00", guests: 350, amount: 450000, paid: 200000, status: "confirmed", notes: "Requires stage decoration", services: [{ label: "Drink Service", unit: "350", price: "35000" }, { label: "Music", unit: "1", price: "15000" }] },
-  { id: "BK-002", customerName: "Sara Malik",   phone: "0312-9876543", event: "Birthday Party", hall: "Hall B", date: "2026-08-05", timeFrom: "16:00", timeTo: "21:00", guests: 80,  amount: 85000,  paid: 85000,  status: "confirmed", notes: "", services: [{ label: "Music", unit: "1", price: "12000" }] },
-  { id: "BK-003", customerName: "Nadia Shah",   phone: "0321-4567890", event: "Wedding",        hall: "Hall A", date: "2026-08-10", timeFrom: "17:00", timeTo: "23:00", guests: 400, amount: 520000, paid: 0,      status: "pending",   notes: "Menu tasting scheduled", services: [] },
-  { id: "BK-004", customerName: "Bilal Raza",   phone: "0333-1122334", event: "Corporate Event",hall: "Hall C", date: "2026-08-14", timeFrom: "10:00", timeTo: "17:00", guests: 120, amount: 95000,  paid: 50000,  status: "confirmed", notes: "", services: [{ label: "Table Service", unit: "10", price: "8000" }] },
-  { id: "BK-005", customerName: "Hina Baig",    phone: "0345-6677889", event: "Engagement",     hall: "Hall B", date: "2026-08-18", timeFrom: "19:00", timeTo: "23:30", guests: 200, amount: 180000, paid: 100000, status: "pending",   notes: "Guests from Lahore", services: [] },
-  { id: "BK-006", customerName: "Tariq Butt",   phone: "0302-3344556", event: "Wedding",        hall: "Hall A", date: "2026-07-28", timeFrom: "18:00", timeTo: "00:00", guests: 450, amount: 600000, paid: 600000, status: "confirmed", notes: "", services: [{ label: "Drink Service", unit: "450", price: "45000" }, { label: "Music", unit: "1", price: "20000" }, { label: "Table Service", unit: "40", price: "32000" }] },
-  { id: "BK-007", customerName: "Usman Ali",    phone: "0311-9988776", event: "Anniversary",    hall: "Hall B", date: "2026-07-05", timeFrom: "19:30", timeTo: "23:00", guests: 60,  amount: 55000,  paid: 0,      status: "cancelled", notes: "Client cancelled — refund processed", services: [] },
-  { id: "BK-008", customerName: "Fatima Malik", phone: "0321-5566778", event: "Wedding",        hall: "Hall A", date: "2026-09-01", timeFrom: "17:00", timeTo: "23:00", guests: 450, amount: 580000, paid: 150000, status: "confirmed", notes: "", services: [] },
-  { id: "BK-009", customerName: "Omar Sheikh",  phone: "0300-8899001", event: "Corporate Event",hall: "Hall C", date: "2026-09-05", timeFrom: "09:00", timeTo: "17:00", guests: 150, amount: 110000, paid: 110000, status: "confirmed", notes: "Projector required", services: [{ label: "Table Service", unit: "12", price: "9600" }] },
-  { id: "BK-010", customerName: "Zara Ahmed",   phone: "0312-2233445", event: "Engagement",     hall: "Hall B", date: "2026-09-10", timeFrom: "19:00", timeTo: "23:00", guests: 180, amount: 160000, paid: 80000,  status: "pending",   notes: "", services: [] },
-  { id: "BK-011", customerName: "Ali Hassan",   phone: "0333-7788990", event: "Wedding",        hall: "Hall A", date: "2026-09-20", timeFrom: "18:00", timeTo: "23:30", guests: 380, amount: 490000, paid: 200000, status: "confirmed", notes: "VIP seating arrangement", services: [{ label: "Drink Service", unit: "380", price: "38000" }] },
-  { id: "BK-012", customerName: "Raza Corp",    phone: "0302-1122334", event: "Conference",     hall: "Hall C", date: "2026-09-25", timeFrom: "08:00", timeTo: "16:00", guests: 200, amount: 140000, paid: 0,      status: "pending",   notes: "", services: [] },
-];
 
 const PAGE_SIZE = 6;
 
@@ -67,6 +36,13 @@ const FILTER_TABS: { label: string; value: "all" | Status }[] = [
 
 const HALLS       = ["Hall A", "Hall B", "Hall C"];
 const EVENT_TYPES = ["Wedding", "Engagement", "Birthday Party", "Corporate Event", "Conference", "Anniversary", "Other"];
+
+const METHOD_CONFIG: Record<PaymentMethod, { color: string; bg: string }> = {
+  "Cash":          { color: "#16A34A", bg: "#F0FDF4" },
+  "Bank Transfer": { color: "#2563EB", bg: "#EFF6FF" },
+  "Cheque":        { color: "#7C3AED", bg: "#F5F3FF" },
+  "Online":        { color: "var(--primary)", bg: "var(--primary-light)" },
+};
 
 /** Convert any time string ("18:00" or "06:00 PM") → "HH:MM" for <input type="time"> */
 function toTimeInput(t: string): string {
@@ -163,15 +139,11 @@ function EditBookingModal({ booking, onClose, onSave }: {
     });
   }
 
-  function addService() {
-    setServices(prev => [...prev, { label: "", unit: "", price: "" }]);
-  }
+  function addService() { setServices(prev => [...prev, { label: "", unit: "", price: "" }]); }
   function updateService(i: number, field: string, value: string) {
     setServices(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
   }
-  function removeService(i: number) {
-    setServices(prev => prev.filter((_, idx) => idx !== i));
-  }
+  function removeService(i: number) { setServices(prev => prev.filter((_, idx) => idx !== i)); }
 
   const svcTotal   = services.reduce((s, sv) => s + (Number(sv.price) || 0), 0);
   const hallAmt    = Number(form.hallAmount) || 0;
@@ -180,7 +152,6 @@ function EditBookingModal({ booking, onClose, onSave }: {
 
   const formContent = (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
           <p className="text-sm font-bold text-black">Edit Booking</p>
@@ -189,9 +160,7 @@ function EditBookingModal({ booking, onClose, onSave }: {
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100" style={{ color: "var(--fg-muted)" }}><XIcon /></button>
       </div>
 
-      {/* Scrollable form */}
       <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
-
         <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--fg-subtle)" }}>Customer</p>
         <div className="flex flex-col gap-3">
           <div>
@@ -217,11 +186,7 @@ function EditBookingModal({ booking, onClose, onSave }: {
           </select>
           <div>
             <label className="text-xs font-medium mb-1 block" style={{ color: "var(--fg-muted)" }}>Event Date *</label>
-            <DatePicker
-              value={form.date}
-              onChange={v => { set("date", v); }}
-              hasError={!!errors.date}
-            />
+            <DatePicker value={form.date} onChange={v => { set("date", v); }} hasError={!!errors.date} />
             {errors.date && <p className="text-xs font-medium mt-0.5" style={{ color: "#DC2626" }}>{errors.date}</p>}
           </div>
           <div>
@@ -303,7 +268,6 @@ function EditBookingModal({ booking, onClose, onSave }: {
           Mark as Fully Paid — Rs. {grandTotal.toLocaleString("en-PK")}
         </button>
 
-        {/* Live totals */}
         <div className="rounded-xl" style={{ border: "1px solid #E5E7EB" }}>
           <div className="flex items-center justify-between px-4 py-2.5" style={{ background: "var(--bg-subtle)", borderRadius: "12px 12px 0 0" }}>
             <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Hall Amount</span>
@@ -346,7 +310,6 @@ function EditBookingModal({ booking, onClose, onSave }: {
           style={{ ...inpSt, minHeight: "100px" }} />
       </div>
 
-      {/* Footer */}
       <div className="shrink-0 px-5 py-4 border-t flex gap-3" style={{ borderColor: "#F4F4F5" }}>
         <button type="button" onClick={onClose}
           className="px-5 py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80"
@@ -365,12 +328,10 @@ function EditBookingModal({ booking, onClose, onSave }: {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      {/* Mobile bottom sheet */}
       <div className="fixed z-50 bottom-0 left-0 right-0 rounded-t-3xl bg-white flex flex-col overflow-hidden lg:hidden" style={{ maxHeight: "92dvh", boxShadow: "0 -4px 40px rgba(0,0,0,0.12)" }}>
         <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} /></div>
         {formContent}
       </div>
-      {/* Desktop right drawer */}
       <div className="hidden lg:flex fixed z-50 right-0 top-0 bottom-0 w-[560px] bg-white flex-col overflow-hidden rounded-l-3xl" style={{ boxShadow: "-4px 0 40px rgba(0,0,0,0.12)" }}>
         {formContent}
       </div>
@@ -378,18 +339,14 @@ function EditBookingModal({ booking, onClose, onSave }: {
   );
 }
 
-function fmt(n: number) {
-  return "Rs. " + n.toLocaleString("en-PK");
-}
+function fmt(n: number) { return "Rs. " + n.toLocaleString("en-PK"); }
 function formatDate(d: string) {
   if (!d) return "—";
   return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 function formatTime(t: string) {
   if (!t) return "—";
-  // Already formatted with AM/PM (e.g. "06:00 PM" from the booking form)
   if (/[AP]M/i.test(t)) return t.toUpperCase();
-  // 24h format (e.g. "18:00" from mock data)
   const [h, m] = t.split(":").map(Number);
   if (isNaN(h) || isNaN(m)) return "—";
   const ampm = h >= 12 ? "PM" : "AM";
@@ -404,126 +361,68 @@ function generateBookingPDF(b: Booking) {
   const servicesTotal = (b.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
 
   const servicesHTML = (b.services?.length ?? 0) > 0
-    ? `<table class="table">
-        <thead><tr><th>Service</th><th>Qty / Unit</th><th class="right">Price</th></tr></thead>
-        <tbody>
-          ${b.services.map(s => `
-            <tr>
-              <td>${s.label}</td>
-              <td>${s.unit || "—"}</td>
-              <td class="right">${s.price ? fmtAmt(Number(s.price)) : "—"}</td>
-            </tr>`).join("")}
-          <tr class="total-row">
-            <td colspan="2"><strong>Services Total</strong></td>
-            <td class="right"><strong>${fmtAmt(servicesTotal)}</strong></td>
-          </tr>
-        </tbody>
-      </table>`
+    ? `<table class="table"><thead><tr><th>Service</th><th>Qty / Unit</th><th class="right">Price</th></tr></thead><tbody>
+        ${b.services.map(s => `<tr><td>${s.label}</td><td>${s.unit || "—"}</td><td class="right">${s.price ? fmtAmt(Number(s.price)) : "—"}</td></tr>`).join("")}
+        <tr class="total-row"><td colspan="2"><strong>Services Total</strong></td><td class="right"><strong>${fmtAmt(servicesTotal)}</strong></td></tr>
+      </tbody></table>`
     : `<p class="no-services">No additional services</p>`;
 
   const win = window.open("", "_blank");
   if (!win) return;
-  win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
-  <title>Booking ${b.id}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:40px;max-width:700px;margin:0 auto}
-    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #f0f0f0}
-    .brand-name{font-size:22px;font-weight:800;color:#e91e63;letter-spacing:-0.5px}
-    .brand-sub{font-size:11px;color:#888;margin-top:2px;letter-spacing:1px}
-    .doc-info{text-align:right}
-    .doc-id{font-size:18px;font-weight:700;color:#111}
-    .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-top:4px;
-      background:${b.status === "confirmed" ? "#F0FDF4" : b.status === "pending" ? "#FFFBEB" : "#FEF2F2"};
-      color:${b.status === "confirmed" ? "#16A34A" : b.status === "pending" ? "#D97706" : "#DC2626"}}
-    .section{margin-bottom:24px}
-    .section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:10px}
-    .customer-card{display:flex;align-items:center;gap:14px;background:#f9f9f9;border-radius:12px;padding:14px 16px;margin-bottom:24px}
-    .avatar{width:44px;height:44px;border-radius:50%;background:#e91e63;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
-    .cust-name{font-size:15px;font-weight:700}
-    .cust-phone{font-size:12px;color:#888;margin-top:2px}
-    .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f4f4f4}
-    .row:last-child{border-bottom:none}
-    .row .label{font-size:12px;color:#888}
-    .row .value{font-size:13px;font-weight:600;color:#111}
-    .hall-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;background:#fce4ec;color:#e91e63}
-    .table{width:100%;border-collapse:collapse;margin-top:6px}
-    .table th{text-align:left;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:1px;padding:6px 0;border-bottom:1px solid #eee}
-    .table td{padding:9px 0;font-size:13px;border-bottom:1px solid #f4f4f4}
-    .right{text-align:right}
-    .total-row td{font-size:13px;padding-top:10px;border-bottom:none}
-    .no-services{font-size:13px;color:#aaa;font-style:italic;padding:8px 0}
-    .payment-box{background:#f9f9f9;border-radius:12px;padding:16px}
-    .pay-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
-    .pay-row.total{border-top:1px solid #eee;margin-top:4px;padding-top:10px;font-size:14px;font-weight:700}
-    .balance-val{color:${balance > 0 ? "#D97706" : "#16A34A"};font-weight:700}
-    .progress-bar{height:6px;border-radius:3px;background:#e5e7eb;margin:10px 0 4px}
-    .progress-fill{height:6px;border-radius:3px;background:${paidPct===100?"#16A34A":"#e91e63"};width:${paidPct}%}
-    .notes-box{background:#f9f9f9;border-radius:10px;padding:12px 14px;font-size:13px;color:#555;line-height:1.6}
-    .footer{margin-top:36px;padding-top:16px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center}
-    .footer-left{font-size:11px;color:#bbb}
-    .footer-right{font-size:11px;color:#bbb}
-    @media print{body{padding:20px}button{display:none}}
-  </style></head><body>
-  <div class="header">
-    <div>
-      <div class="brand-name">Royal Banquet Hall</div>
-      <div class="brand-sub">Event Ease</div>
-    </div>
-    <div class="doc-info">
-      <div class="doc-id">${b.id}</div>
-      <span class="badge">${b.status.charAt(0).toUpperCase() + b.status.slice(1)}</span>
-    </div>
-  </div>
-
-  <div class="customer-card">
-    <div class="avatar">${b.customerName[0].toUpperCase()}</div>
-    <div>
-      <div class="cust-name">${b.customerName}</div>
-      <div class="cust-phone">${b.phone || "—"}</div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Event Details</div>
-    <div class="row"><span class="label">Event Type</span><span class="value">${b.event}</span></div>
-    <div class="row"><span class="label">Hall</span><span class="hall-badge">${b.hall}</span></div>
-    <div class="row"><span class="label">Date</span><span class="value">${formatDate(b.date)}</span></div>
-    <div class="row"><span class="label">Time</span><span class="value">${formatTime(b.timeFrom)} – ${formatTime(b.timeTo)}</span></div>
-    <div class="row"><span class="label">Guests</span><span class="value">${b.guests} guests</span></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Services</div>
-    ${servicesHTML}
-  </div>
-
-  <div class="section">
-    <div class="section-title">Payment Summary</div>
-    <div class="payment-box">
-      <div class="pay-row"><span>Total Amount</span><span><strong>${fmtAmt(b.amount)}</strong></span></div>
-      <div class="progress-bar"><div class="progress-fill"></div></div>
-      <div style="font-size:11px;color:#888;text-align:right">${paidPct}% paid</div>
-      <div class="pay-row"><span>Advance Paid</span><span style="color:#16A34A;font-weight:600">${fmtAmt(b.paid)}</span></div>
-      ${servicesTotal > 0 ? `<div class="pay-row"><span>Services Total</span><span>${fmtAmt(servicesTotal)}</span></div>` : ""}
-      <div class="pay-row total"><span>Balance Due</span><span class="balance-val">${fmtAmt(balance)}</span></div>
-    </div>
-  </div>
-
-  ${b.notes ? `<div class="section"><div class="section-title">Notes</div><div class="notes-box">${b.notes}</div></div>` : ""}
-
-  <div class="footer">
-    <span class="footer-left">Generated by Event Ease · Royal Banquet Hall</span>
-    <span class="footer-right">${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
-  </div>
-
-  <script>window.onload=()=>{window.print()}</script>
-  </body></html>`);
+  win.document.write(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Booking ${b.id}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;color:#111;background:#fff;padding:40px;max-width:700px;margin:0 auto}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #f0f0f0}
+  .brand-name{font-size:22px;font-weight:800;color:#e91e63}.brand-sub{font-size:11px;color:#888;margin-top:2px}
+  .doc-id{font-size:18px;font-weight:700}.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-top:4px;background:${b.status==="confirmed"?"#F0FDF4":"#FFFBEB"};color:${b.status==="confirmed"?"#16A34A":"#D97706"}}
+  .section{margin-bottom:24px}.section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:10px}
+  .customer-card{display:flex;align-items:center;gap:14px;background:#f9f9f9;border-radius:12px;padding:14px 16px;margin-bottom:24px}
+  .avatar{width:44px;height:44px;border-radius:50%;background:#e91e63;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
+  .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f4f4f4}.row:last-child{border-bottom:none}
+  .row .label{font-size:12px;color:#888}.row .value{font-size:13px;font-weight:600}
+  .table{width:100%;border-collapse:collapse}.table th{text-align:left;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;padding:6px 0;border-bottom:1px solid #eee}
+  .table td{padding:9px 0;font-size:13px;border-bottom:1px solid #f4f4f4}.right{text-align:right}.total-row td{padding-top:10px;border-bottom:none}
+  .no-services{font-size:13px;color:#aaa;font-style:italic}.payment-box{background:#f9f9f9;border-radius:12px;padding:16px}
+  .pay-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}.pay-row.total{border-top:1px solid #eee;margin-top:4px;padding-top:10px;font-size:14px;font-weight:700}
+  .balance-val{color:${balance>0?"#D97706":"#16A34A"};font-weight:700}
+  .progress-bar{height:6px;border-radius:3px;background:#e5e7eb;margin:10px 0 4px}.progress-fill{height:6px;border-radius:3px;background:${paidPct===100?"#16A34A":"#e91e63"};width:${paidPct}%}
+  .notes-box{background:#f9f9f9;border-radius:10px;padding:12px 14px;font-size:13px;color:#555;line-height:1.6}
+  .footer{margin-top:36px;padding-top:16px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;font-size:11px;color:#bbb}
+  @media print{body{padding:20px}}</style></head><body>
+  <div class="header"><div><div class="brand-name">Royal Banquet Hall</div><div class="brand-sub">Event Ease</div></div>
+  <div><div class="doc-id">${b.id}</div><span class="badge">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</span></div></div>
+  <div class="customer-card"><div class="avatar">${b.customerName[0].toUpperCase()}</div><div><div style="font-size:15px;font-weight:700">${b.customerName}</div><div style="font-size:12px;color:#888">${b.phone||"—"}</div></div></div>
+  <div class="section"><div class="section-title">Event Details</div>
+  <div class="row"><span class="label">Event</span><span class="value">${b.event}</span></div>
+  <div class="row"><span class="label">Hall</span><span class="value">${b.hall}</span></div>
+  <div class="row"><span class="label">Date</span><span class="value">${formatDate(b.date)}</span></div>
+  <div class="row"><span class="label">Time</span><span class="value">${formatTime(b.timeFrom)} – ${formatTime(b.timeTo)}</span></div>
+  <div class="row"><span class="label">Guests</span><span class="value">${b.guests} guests</span></div></div>
+  <div class="section"><div class="section-title">Services</div>${servicesHTML}</div>
+  <div class="section"><div class="section-title">Payment Summary</div><div class="payment-box">
+  <div class="pay-row"><span>Total Amount</span><span><strong>${fmtAmt(b.amount)}</strong></span></div>
+  <div class="progress-bar"><div class="progress-fill"></div></div>
+  <div style="font-size:11px;color:#888;text-align:right">${paidPct}% paid</div>
+  <div class="pay-row"><span>Total Paid</span><span style="color:#16A34A;font-weight:600">${fmtAmt(b.paid)}</span></div>
+  <div class="pay-row total"><span>Balance Due</span><span class="balance-val">${fmtAmt(balance)}</span></div></div></div>
+  ${b.notes?`<div class="section"><div class="section-title">Notes</div><div class="notes-box">${b.notes}</div></div>`:""}
+  <div class="footer"><span>Generated by Event Ease · Royal Banquet Hall</span><span>${new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</span></div>
+  <script>window.onload=()=>{window.print()}</script></body></html>`);
   win.document.close();
 }
 
-// ─── Detail Panel / Modal content ─────────────────────────────────────────────
-function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: () => void; onCancel: (id: string) => void; onEdit: () => void }) {
+// ─── Booking Detail ───────────────────────────────────────────────────────────
+function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment }: {
+  b: Booking;
+  onClose: () => void;
+  onCancel: (id: string) => void;
+  onEdit: () => void;
+  onAddPayment: (id: string, amount: number, note: string, method: PaymentMethod) => void;
+}) {
+  const [showPayForm, setShowPayForm] = useState(false);
+  const [payAmt, setPayAmt]           = useState("");
+  const [payNote, setPayNote]         = useState("");
+  const [payMethod, setPayMethod]     = useState<PaymentMethod>("Cash");
+
   const servicesTotal = (b.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
   const hallAmount    = b.hallAmount ?? (b.amount - servicesTotal);
   const balance       = b.amount - b.paid;
@@ -531,7 +430,6 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
           <p className="text-sm font-bold text-black">{b.id}</p>
@@ -540,21 +438,18 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => generateBookingPDF(b)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-opacity hover:opacity-80"
-            style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid var(--primary-muted)" }}
-          >
+          <button onClick={() => generateBookingPDF(b)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer hover:opacity-80"
+            style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1px solid var(--primary-muted)" }}>
             <PdfIcon /> PDF
           </button>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100 transition-colors" style={{ color: "var(--fg-muted)" }}>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100" style={{ color: "var(--fg-muted)" }}>
             <XIcon />
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
-
         {/* Customer */}
         <div className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: "var(--bg-subtle)" }}>
           <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-white shrink-0" style={{ background: HALL_COLOR[b.hall] || "var(--primary)" }}>
@@ -572,8 +467,7 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
           <div className="flex flex-col gap-0">
             {[
               { label: "Event Type", value: b.event },
-              { label: "Hall",       value: b.hall,
-                badge: true },
+              { label: "Hall",       value: b.hall, badge: true },
               { label: "Date",       value: formatDate(b.date) },
               { label: "Time",       value: `${formatTime(b.timeFrom)} – ${formatTime(b.timeTo)}` },
               { label: "Guests",     value: `${b.guests} guests` },
@@ -600,9 +494,7 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
                     <p className="text-sm font-semibold text-black">{s.label}</p>
                     {s.unit && <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Qty: {s.unit}</p>}
                   </div>
-                  {s.price && (
-                    <span className="text-sm font-semibold" style={{ color: "var(--primary)" }}>Rs. {Number(s.price).toLocaleString("en-PK")}</span>
-                  )}
+                  {s.price && <span className="text-sm font-semibold" style={{ color: "var(--primary)" }}>Rs. {Number(s.price).toLocaleString("en-PK")}</span>}
                 </div>
               ))}
             </div>
@@ -612,17 +504,15 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
         {/* Payment */}
         <div>
           <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: "var(--fg-subtle)" }}>Payment</p>
-
-          {/* Progress bar */}
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Paid {paidPct}%</span>
             {paidPct === 100 && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: "#F0FDF4", color: "#16A34A" }}>Fully Paid</span>}
           </div>
           <div className="w-full h-2 rounded-full mb-4" style={{ background: "#E5E7EB" }}>
-            <div className="h-2 rounded-full transition-all" style={{ width: `${paidPct}%`, background: paidPct === 100 ? "#16A34A" : "var(--primary)" }} />
+            <div className="h-2 rounded-full" style={{ width: `${paidPct}%`, background: paidPct === 100 ? "#16A34A" : "var(--primary)" }} />
           </div>
 
-          {/* Breakdown rows */}
+          {/* Breakdown */}
           <div className="rounded-2xl" style={{ border: "1px solid #E5E7EB" }}>
             <div className="flex items-center justify-between px-4 py-2.5">
               <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Hall Amount</span>
@@ -643,7 +533,7 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
           {/* Paid / Due */}
           <div className="mt-3 rounded-2xl" style={{ border: "1px solid #E5E7EB" }}>
             <div className="flex items-center justify-between px-4 py-2.5">
-              <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Advance Paid</span>
+              <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Total Paid</span>
               <span className="text-xs font-semibold" style={{ color: "#16A34A" }}>{fmt(b.paid)}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: "1px solid #F4F4F5" }}>
@@ -651,25 +541,98 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
               <span className="text-sm font-bold" style={{ color: balance > 0 ? "#D97706" : "#16A34A" }}>{fmt(balance)}</span>
             </div>
           </div>
+
+          {/* Payment History */}
+          {(b.payments ?? []).length > 0 && (
+            <div className="mt-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--fg-subtle)" }}>Payment History</p>
+              <div className="flex flex-col gap-1.5">
+                {(b.payments ?? []).map(p => (
+                  <div key={p.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: "var(--bg-subtle)", border: "1px solid #E5E7EB" }}>
+                    <div>
+                      <p className="text-xs font-semibold text-black">{p.note}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: "var(--fg-muted)" }}>{formatDate(p.date)}{p.method ? ` · ${p.method}` : ""}</p>
+                    </div>
+                    <span className="text-xs font-semibold" style={{ color: "#16A34A" }}>+ {fmt(p.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add Payment */}
+          {b.status !== "cancelled" && (
+            <div className="mt-3">
+              {!showPayForm ? (
+                <button onClick={() => setShowPayForm(true)}
+                  className="w-full py-2.5 rounded-xl text-xs font-semibold cursor-pointer hover:opacity-80"
+                  style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1.5px solid var(--primary-muted)" }}>
+                  + Add Payment
+                </button>
+              ) : (
+                <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: "var(--bg-subtle)", border: "1.5px solid #E5E7EB" }}>
+                  <p className="text-xs font-bold text-black">Record Payment</p>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{ color: "var(--fg-muted)" }}>Rs.</span>
+                    <input type="number" placeholder="Amount *" value={payAmt} onChange={e => setPayAmt(e.target.value)}
+                      min={1} className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none border"
+                      style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }} autoFocus />
+                  </div>
+                  <input type="text" placeholder="Note (e.g. Second installment)" value={payNote} onChange={e => setPayNote(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm outline-none border"
+                    style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }} />
+                  {/* Method */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["Cash", "Bank Transfer", "Cheque", "Online"] as PaymentMethod[]).map(m => (
+                      <button key={m} type="button" onClick={() => setPayMethod(m)}
+                        className="py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all"
+                        style={{
+                          background: payMethod === m ? METHOD_CONFIG[m].bg : "#fff",
+                          color: payMethod === m ? METHOD_CONFIG[m].color : "var(--fg-muted)",
+                          border: `1.5px solid ${payMethod === m ? METHOD_CONFIG[m].color : "#E5E7EB"}`,
+                        }}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setShowPayForm(false); setPayAmt(""); setPayNote(""); setPayMethod("Cash"); }}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-semibold cursor-pointer"
+                      style={{ background: "#fff", color: "var(--fg-muted)", border: "1px solid #E5E7EB" }}>
+                      Cancel
+                    </button>
+                    <button onClick={() => {
+                        const amt = Number(payAmt);
+                        if (!amt || amt <= 0) return;
+                        onAddPayment(b.id, amt, payNote, payMethod);
+                        setShowPayForm(false); setPayAmt(""); setPayNote(""); setPayMethod("Cash");
+                      }}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-semibold cursor-pointer"
+                      style={{ background: "var(--primary)", color: "#fff" }}>
+                      Record Payment
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Notes */}
         {b.notes && (
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--fg-subtle)" }}>Notes</p>
-            <p className="text-sm rounded-xl p-3 leading-relaxed" style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>
-              {b.notes}
-            </p>
+            <p className="text-sm rounded-xl p-3 leading-relaxed" style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>{b.notes}</p>
           </div>
         )}
 
         {/* Actions */}
         {b.status !== "cancelled" && (
           <div className="flex flex-col gap-2 pt-1">
-            <button onClick={onEdit} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80" style={{ background: "var(--bg-subtle)", color: "var(--fg)" }}>
+            <button onClick={onEdit} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80" style={{ background: "var(--bg-subtle)", color: "var(--fg)" }}>
               Edit Booking
             </button>
-            <button onClick={() => { onCancel(b.id); onClose(); }} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80" style={{ background: "#FEF2F2", color: "#DC2626" }}>
+            <button onClick={() => { onCancel(b.id); onClose(); }} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80" style={{ background: "#FEF2F2", color: "#DC2626" }}>
               Cancel Booking
             </button>
           </div>
@@ -679,21 +642,19 @@ function BookingDetail({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: 
   );
 }
 
-// ─── Detail Drawer (mobile bottom sheet + desktop right drawer) ───────────────
-function DetailModal({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: () => void; onCancel: (id: string) => void; onEdit: () => void }) {
+function DetailModal({ b, onClose, onCancel, onEdit, onAddPayment }: {
+  b: Booking; onClose: () => void; onCancel: (id: string) => void; onEdit: () => void;
+  onAddPayment: (id: string, amount: number, note: string, method: PaymentMethod) => void;
+}) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      {/* Mobile: bottom sheet */}
       <div className="fixed z-50 bottom-0 left-0 right-0 rounded-t-3xl bg-white flex flex-col overflow-hidden lg:hidden" style={{ maxHeight: "92dvh", boxShadow: "0 -4px 40px rgba(0,0,0,0.12)" }}>
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} />
-        </div>
-        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} />
+        <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} /></div>
+        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} onAddPayment={onAddPayment} />
       </div>
-      {/* Desktop: right drawer */}
       <div className="hidden lg:flex fixed z-50 right-0 top-0 bottom-0 w-[560px] bg-white flex-col overflow-hidden rounded-l-3xl" style={{ boxShadow: "-4px 0 40px rgba(0,0,0,0.12)" }}>
-        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} />
+        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} onAddPayment={onAddPayment} />
       </div>
     </>
   );
@@ -701,14 +662,18 @@ function DetailModal({ b, onClose, onCancel, onEdit }: { b: Booking; onClose: ()
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BookingsPage() {
-  const [bookings, setBookings]   = useState<Booking[]>(INITIAL_BOOKINGS);
+  const { bookings, addBooking, updateBooking, cancelBooking: storeCancelBooking, addPaymentToBooking } = useStore();
+
   const [filter, setFilter]       = useState<"all" | Status>("all");
   const [search, setSearch]       = useState("");
   const [page, setPage]           = useState(1);
-  const [modalOpen, setModalOpen]   = useState(false);
-  const [selected, setSelected]     = useState<Booking | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [editOpen, setEditOpen]     = useState(false);
+
+  // Always derive selected from live store data
+  const selected = selectedId ? bookings.find(b => b.id === selectedId) ?? null : null;
 
   const filtered = bookings.filter(b => {
     const matchFilter = filter === "all" || b.status === filter;
@@ -740,8 +705,13 @@ export default function BookingsPage() {
 
   function handleCreate(form: typeof EMPTY_FORM, status: Status, services: ServiceEntry[]) {
     const servicesTotal = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-    const grandTotal    = Number(form.amount) || 0;          // already grand total from modal
+    const grandTotal    = Number(form.amount) || 0;
     const hallAmt       = grandTotal - servicesTotal;
+    const advancePaid   = Number(form.paid) || 0;
+    const today         = new Date().toISOString().slice(0, 10);
+    const initialPayments = advancePaid > 0
+      ? [{ id: `PR-${Date.now()}`, amount: advancePaid, date: today, note: "Advance", method: "Cash" as PaymentMethod }]
+      : [];
     const newBooking: Booking = {
       id: "BK-" + String(bookings.length + 1).padStart(3, "0"),
       customerName: form.customerName,
@@ -754,125 +724,84 @@ export default function BookingsPage() {
       guests: Number(form.guests) || 0,
       amount: grandTotal,
       hallAmount: hallAmt,
-      paid: Number(form.paid) || 0,
+      paid: advancePaid,
       notes: form.notes,
       status,
       services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
+      payments: initialPayments.length > 0 ? initialPayments : [],
     };
-    setBookings(prev => [newBooking, ...prev]);
+    addBooking(newBooking);
     setModalOpen(false);
-    setSelected(newBooking);
+    setSelectedId(newBooking.id);
     setPage(1);
   }
 
-  function cancelBooking(id: string) {
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "cancelled" } : b));
-    setSelected(prev => prev?.id === id ? { ...prev, status: "cancelled" } : prev);
+  function handleCancelBooking(id: string) {
+    storeCancelBooking(id);
   }
 
   function handleSaveEdit(updated: Booking) {
-    setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
-    setSelected(updated);
+    updateBooking(updated);
     setEditOpen(false);
   }
 
-  function openDetail(b: Booking) {
-    setSelected(b);
-    setDetailOpen(true);
+  function handleAddPayment(id: string, amount: number, note: string, method: PaymentMethod) {
+    addPaymentToBooking(id, amount, note, method);
   }
 
-  // sync selected when bookings update
-  function syncSelected(id: string) {
-    setSelected(prev => prev?.id === id ? bookings.find(b => b.id === id) ?? null : prev);
-  }
-  void syncSelected;
+  function openDetail(b: Booking) { setSelectedId(b.id); setDetailOpen(true); }
 
   return (
     <>
-      <NewBookingModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleCreate}
-      />
+      <NewBookingModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleCreate} />
 
-      {/* Detail drawer */}
       {selected && detailOpen && !editOpen && (
         <DetailModal
           b={selected}
           onClose={() => setDetailOpen(false)}
-          onCancel={(id) => { cancelBooking(id); setDetailOpen(false); }}
+          onCancel={(id) => { handleCancelBooking(id); setDetailOpen(false); }}
           onEdit={() => setEditOpen(true)}
+          onAddPayment={handleAddPayment}
         />
       )}
 
-      {/* Edit drawer */}
       {selected && editOpen && (
-        <EditBookingModal
-          booking={selected}
-          onClose={() => setEditOpen(false)}
-          onSave={handleSaveEdit}
-        />
+        <EditBookingModal booking={selected} onClose={() => setEditOpen(false)} onSave={handleSaveEdit} />
       )}
 
       <div className="p-4 lg:p-8">
-
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl lg:text-2xl font-semibold text-black tracking-tight">Bookings</h1>
             <p className="text-sm mt-1" style={{ color: "var(--fg-muted)" }}>Manage all event bookings</p>
           </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90"
-            style={{ background: "var(--primary)", color: "#ffffff" }}
-          >
+          <button onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-90"
+            style={{ background: "var(--primary)", color: "#ffffff" }}>
             <PlusIcon /> New Booking
           </button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="text-2xl font-bold text-black">{counts.all}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Total Bookings</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="text-2xl font-bold" style={{ color: "#16A34A" }}>{counts.confirmed}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Confirmed</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="text-base font-bold text-black">{fmt(totalRevenue)}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Total Revenue</p>
-          </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <p className="text-base font-bold" style={{ color: "#16A34A" }}>{fmt(collected)}</p>
-            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Collected</p>
-          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-2xl font-bold text-black">{counts.all}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Total Bookings</p></div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-2xl font-bold" style={{ color: "#16A34A" }}>{counts.confirmed}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Confirmed</p></div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-base font-bold text-black">{fmt(totalRevenue)}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Total Revenue</p></div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-base font-bold" style={{ color: "#16A34A" }}>{fmt(collected)}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Collected</p></div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
-
-          {/* Left: List */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
-
-            {/* Filter + Search */}
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
               <div className="flex border-b" style={{ borderColor: "#F4F4F5" }}>
                 {FILTER_TABS.map(t => (
-                  <button
-                    key={t.value}
-                    onClick={() => changeFilter(t.value)}
-                    className="flex-1 py-3 text-sm font-medium transition-colors cursor-pointer relative"
-                    style={{ color: filter === t.value ? "var(--primary)" : "var(--fg-muted)" }}
-                  >
+                  <button key={t.value} onClick={() => changeFilter(t.value)}
+                    className="flex-1 py-3 text-sm font-medium cursor-pointer relative"
+                    style={{ color: filter === t.value ? "var(--primary)" : "var(--fg-muted)" }}>
                     {t.label}
                     <span className="ml-1 text-xs px-1.5 py-0.5 rounded-full" style={{
                       background: filter === t.value ? "var(--primary-light)" : "var(--bg-subtle)",
                       color: filter === t.value ? "var(--primary)" : "var(--fg-muted)",
-                    }}>
-                      {counts[t.value]}
-                    </span>
+                    }}>{counts[t.value]}</span>
                     {filter === t.value && <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full" style={{ background: "var(--primary)" }} />}
                   </button>
                 ))}
@@ -880,18 +809,13 @@ export default function BookingsPage() {
               <div className="px-4 py-3">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--fg-subtle)" }}><SearchIcon /></span>
-                  <input
-                    value={search}
-                    onChange={e => changeSearch(e.target.value)}
-                    placeholder="Search customer, event, hall, ID..."
+                  <input value={search} onChange={e => changeSearch(e.target.value)} placeholder="Search customer, event, hall, ID..."
                     className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none border"
-                    style={{ background: "var(--bg-subtle)", borderColor: "#E5E7EB", color: "var(--fg)" }}
-                  />
+                    style={{ background: "var(--bg-subtle)", borderColor: "#E5E7EB", color: "var(--fg)" }} />
                 </div>
               </div>
             </div>
 
-            {/* Cards */}
             <div className="flex flex-col gap-2">
               {paginated.length === 0 && (
                 <div className="bg-white rounded-2xl shadow-sm py-16 flex flex-col items-center text-center">
@@ -904,15 +828,11 @@ export default function BookingsPage() {
                 const cfg     = STATUS_CONFIG[b.status];
                 const balance = b.amount - b.paid;
                 const paidPct = b.amount > 0 ? Math.min(100, Math.round((b.paid / b.amount) * 100)) : 0;
-                const isActive = selected?.id === b.id;
+                const isActive = selectedId === b.id;
                 return (
-                  <div
-                    key={b.id}
-                    onClick={() => openDetail(b)}
-                    className="bg-white rounded-2xl shadow-sm p-4 cursor-pointer transition-all hover:shadow-md"
-                    style={{ border: `1.5px solid ${isActive ? "var(--primary)" : "transparent"}` }}
-                  >
-                    {/* Row 1: avatar + name + status */}
+                  <div key={b.id} onClick={() => openDetail(b)}
+                    className="bg-white rounded-2xl shadow-sm p-4 cursor-pointer hover:shadow-md"
+                    style={{ border: `1.5px solid ${isActive ? "var(--primary)" : "transparent"}` }}>
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white" style={{ background: HALL_COLOR[b.hall] || "var(--primary)" }}>
@@ -923,36 +843,17 @@ export default function BookingsPage() {
                           <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{b.phone}</p>
                         </div>
                       </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: cfg.bg, color: cfg.color }}>
-                        {cfg.label}
-                      </span>
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
                     </div>
-
-                    {/* Row 2: event + hall */}
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: HALL_BG[b.hall] || "var(--primary-light)", color: HALL_COLOR[b.hall] || "var(--primary)" }}>
-                        {b.hall}
-                      </span>
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: HALL_BG[b.hall] || "var(--primary-light)", color: HALL_COLOR[b.hall] || "var(--primary)" }}>{b.hall}</span>
                       <span className="text-xs font-medium text-black">{b.event}</span>
                     </div>
-
-                    {/* Row 3: date, time, guests */}
                     <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mb-3">
-                      <div className="flex items-center gap-1.5">
-                        <CalendarSmIcon />
-                        <span className="text-xs" style={{ color: "var(--fg-muted)" }}>{formatDate(b.date)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <ClockSmIcon />
-                        <span className="text-xs" style={{ color: "var(--fg-muted)" }}>{formatTime(b.timeFrom)} – {formatTime(b.timeTo)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <GuestSmIcon />
-                        <span className="text-xs" style={{ color: "var(--fg-muted)" }}>{b.guests} guests</span>
-                      </div>
+                      <div className="flex items-center gap-1.5"><CalendarSmIcon /><span className="text-xs" style={{ color: "var(--fg-muted)" }}>{formatDate(b.date)}</span></div>
+                      <div className="flex items-center gap-1.5"><ClockSmIcon /><span className="text-xs" style={{ color: "var(--fg-muted)" }}>{formatTime(b.timeFrom)} – {formatTime(b.timeTo)}</span></div>
+                      <div className="flex items-center gap-1.5"><GuestSmIcon /><span className="text-xs" style={{ color: "var(--fg-muted)" }}>{b.guests} guests</span></div>
                     </div>
-
-                    {/* Row 4: payment progress + amount */}
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
@@ -972,8 +873,6 @@ export default function BookingsPage() {
                         )}
                       </div>
                     </div>
-
-                    {/* Booking ID */}
                     <div className="mt-2 pt-2 border-t flex items-center justify-between" style={{ borderColor: "#F4F4F5" }}>
                       <span className="text-[10px] font-mono font-medium" style={{ color: "var(--fg-subtle)" }}>{b.id}</span>
                       <span className="text-[10px]" style={{ color: "var(--fg-subtle)" }}>View details →</span>
@@ -983,47 +882,29 @@ export default function BookingsPage() {
               })}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between bg-white rounded-2xl shadow-sm px-4 py-3">
                 <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
                   Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length}
                 </p>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={safePage === 1}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100 transition-colors"
-                    style={{ color: "var(--fg-muted)" }}
-                  >
-                    <ChevLeftIcon />
-                  </button>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100"
+                    style={{ color: "var(--fg-muted)" }}><ChevLeftIcon /></button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold cursor-pointer transition-colors"
-                      style={{
-                        background: safePage === p ? "var(--primary)" : "transparent",
-                        color: safePage === p ? "#fff" : "var(--fg-muted)",
-                      }}
-                    >
+                    <button key={p} onClick={() => setPage(p)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold cursor-pointer"
+                      style={{ background: safePage === p ? "var(--primary)" : "transparent", color: safePage === p ? "#fff" : "var(--fg-muted)" }}>
                       {p}
                     </button>
                   ))}
-                  <button
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={safePage === totalPages}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100 transition-colors"
-                    style={{ color: "var(--fg-muted)" }}
-                  >
-                    <ChevRightIcon />
-                  </button>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer disabled:opacity-30 hover:bg-gray-100"
+                    style={{ color: "var(--fg-muted)" }}><ChevRightIcon /></button>
                 </div>
               </div>
             )}
           </div>
-
         </div>
       </div>
     </>
