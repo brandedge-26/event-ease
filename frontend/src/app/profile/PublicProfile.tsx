@@ -5,15 +5,8 @@ import type { Vendor } from "@/lib/vendorData";
 
 type Tab = "about" | "gallery" | "halls" | "reviews";
 
-const TAB_LABELS: Record<Tab, string> = {
-  about: "About",
-  gallery: "Gallery",
-  halls: "Halls & Pricing",
-  reviews: "Reviews",
-};
-
-const PRIMARY       = "#FF3B6B";
-const PRIMARY_LIGHT = "#FFF0F4";
+const PRIMARY    = "#FF3B6B";
+const STAR_COLOR = "#F59E0B";
 
 export default function PublicProfile({ vendor }: { vendor: Vendor }) {
   const [tab, setTab] = useState<Tab>("about");
@@ -24,154 +17,194 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
 
       {/* ── Nav ── */}
       <nav className="sticky top-0 z-20 bg-white" style={{ borderBottom: "1px solid #E5E7EB" }}>
-        <div className="max-w-7xl mx-auto px-5 lg:px-10 h-15 flex items-center justify-between" style={{ height: 56 }}>
-          <div className="flex items-center gap-2">
-            <a href="/" className="flex items-center gap-0.5">
-              <span className="text-base font-black text-black">Event</span>
-              <span className="text-base font-black" style={{ color: PRIMARY }}>Ease</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 flex items-center justify-between" style={{ height: 52 }}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <a href="/" className="flex items-center gap-0.5 shrink-0">
+              <span className="text-sm font-black text-black">Event</span>
+              <span className="text-sm font-black" style={{ color: PRIMARY }}>Ease</span>
             </a>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-            <span className="text-sm" style={{ color: "#6B7280" }}>{vendor.name}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" className="shrink-0"><polyline points="9 18 15 12 9 6"/></svg>
+            <span className="text-xs truncate" style={{ color: "#6B7280" }}>{vendor.name}</span>
           </div>
           <a href="/"
-            className="flex items-center gap-1.5 text-sm font-medium px-3.5 py-1.5 rounded-lg border transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors hover:bg-gray-50 shrink-0 ml-2"
             style={{ color: "#374151", borderColor: "#E5E7EB" }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
             All Venues
           </a>
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-5 lg:px-10 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-4 lg:py-8">
 
         {/* ── Venue Header ── */}
-        <div className="mb-6 lg:mb-8">
-          <div className="flex items-start gap-4 mb-5 lg:mb-6">
-            <div className="w-14 h-14 lg:w-20 lg:h-20 rounded-2xl flex items-center justify-center text-xl lg:text-3xl font-black text-white shrink-0"
-              style={{ background: vendor.coverGradient }}>
-              {vendor.name[0]}
-            </div>
-            <div className="flex-1 min-w-0 pt-0.5">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <h1 className="text-xl lg:text-3xl font-bold tracking-tight text-black leading-tight">{vendor.name}</h1>
-                <span className="inline-flex items-center gap-1 text-[10px] lg:text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-                  style={{ background: PRIMARY_LIGHT, color: PRIMARY }}>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                  Verified
-                </span>
+        <div className="mb-4 lg:mb-8">
+
+          {/* Mobile: full-width cover image */}
+          <div className="lg:hidden relative rounded-2xl overflow-hidden mb-4" style={{ aspectRatio: "16/9" }}>
+            <div className="absolute inset-0" style={{ background: vendor.coverGradient }} />
+            <div className="absolute inset-0 opacity-10"
+              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 60%)" }} />
+            <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-white text-[11px] font-semibold"
+              style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }}>
+              1 / {vendor.gallery.length}
+            </span>
+          </div>
+
+          {/* Desktop two-column / Mobile single-column */}
+          <div className="lg:grid lg:gap-8 lg:items-stretch mb-4 lg:mb-6" style={{ gridTemplateColumns: "1fr 1.15fr" }}>
+
+            {/* Left: venue info + CTA */}
+            <div className="flex flex-col justify-center">
+              {/* Avatar + name row */}
+              <div className="flex items-start gap-3 mb-3 lg:mb-5">
+                <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-xl lg:rounded-2xl flex items-center justify-center text-lg lg:text-2xl font-black text-white shrink-0"
+                  style={{ background: vendor.coverGradient }}>
+                  {vendor.name[0]}
+                </div>
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                    <h1 className="text-lg sm:text-xl lg:text-3xl font-bold tracking-tight text-black leading-tight">{vendor.name}</h1>
+                    <VerifiedBadge />
+                  </div>
+                  <p className="text-xs sm:text-sm lg:text-base mb-1.5 lg:mb-2 leading-snug" style={{ color: "#6B7280" }}>{vendor.tagline}</p>
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs" style={{ color: "#6B7280" }}>
+                    <span className="flex items-center gap-1">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                      <span className="truncate max-w-[160px] sm:max-w-none">{vendor.location}</span>
+                    </span>
+                    <span className="flex items-center gap-0.5">
+                      {[1,2,3,4,5].map(n => (
+                        <svg key={n} width="10" height="10" viewBox="0 0 24 24" fill={n <= Math.round(vendor.rating) ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                      ))}
+                      <strong className="text-black ml-1">{vendor.rating}</strong>
+                      <span className="ml-0.5">({vendor.reviewCount})</span>
+                    </span>
+                    <span>Est. {vendor.established}</span>
+                  </div>
+                </div>
               </div>
-              <p className="text-sm lg:text-base mb-2" style={{ color: "#6B7280" }}>{vendor.tagline}</p>
-              <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs lg:text-sm" style={{ color: "#6B7280" }}>
-                <span className="flex items-center gap-1">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                  {vendor.location}
-                </span>
-                <span className="flex items-center gap-0.5">
-                  {[1,2,3,4,5].map(n => (
-                    <svg key={n} width="11" height="11" viewBox="0 0 24 24" fill={n <= Math.round(vendor.rating) ? PRIMARY : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                  ))}
-                  <strong className="text-black ml-1">{vendor.rating}</strong>
-                  <span className="ml-0.5">({vendor.reviewCount})</span>
-                </span>
-                <span>Est. {vendor.established}</span>
+
+              {/* CTA buttons — visible everywhere */}
+              <div className="flex gap-2.5 lg:gap-3">
+                <a href={`tel:${vendor.phone}`}
+                  className="flex items-center justify-center gap-1.5 flex-1 py-2.5 lg:py-3 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+                  style={{ background: PRIMARY, color: "#fff" }}>
+                  <PhoneIcon /> Call Now
+                </a>
+                <a href={`https://wa.me/${vendor.whatsapp}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 flex-1 py-2.5 lg:py-3 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50"
+                  style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
+                  <WhatsAppIcon /> WhatsApp
+                </a>
               </div>
             </div>
+
+            {/* Right: cover image — desktop only */}
+            <div className="hidden lg:block relative rounded-3xl overflow-hidden" style={{ minHeight: 300 }}>
+              <div className="absolute inset-0" style={{ background: vendor.coverGradient }} />
+              <div className="absolute inset-0 opacity-[0.08]"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 55%)" }} />
+              <span className="absolute top-4 right-4 px-3 py-1.5 rounded-xl text-white text-xs font-semibold"
+                style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)" }}>
+                1 / {vendor.gallery.length}
+              </span>
+              <div className="absolute bottom-0 left-0 right-0 p-5">
+                <p className="text-white/70 text-xs mb-0.5 font-medium">Main Banquet Hall</p>
+                <p className="text-white font-bold text-sm">{vendor.name}</p>
+              </div>
+            </div>
+
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-3 mt-4 lg:mt-0">
             {[
-              { label: "Rating",        value: vendor.rating.toString(),             suffix: "/5"   },
-              { label: "Reviews",       value: vendor.reviewCount.toString(),         suffix: ""     },
-              { label: "Events Hosted", value: vendor.totalEvents.toLocaleString(),  suffix: "+"    },
-              { label: "Max Capacity",  value: vendor.maxCapacity.toString(),        suffix: " pax" },
+              { label: "Rating",        value: vendor.rating.toString(),            suffix: "/5"   },
+              { label: "Reviews",       value: vendor.reviewCount.toString(),        suffix: ""     },
+              { label: "Events Hosted", value: vendor.totalEvents.toLocaleString(), suffix: "+"    },
+              { label: "Max Capacity",  value: vendor.maxCapacity.toString(),       suffix: " pax" },
             ].map(s => (
-              <div key={s.label} className="text-center py-4 px-3 rounded-2xl bg-white" style={{ border: "1px solid #F0F0F0" }}>
-                <p className="text-xl lg:text-2xl font-bold leading-tight" style={{ color: PRIMARY }}>
-                  {s.value}<span className="text-xs font-normal ml-0.5" style={{ color: "#9CA3AF" }}>{s.suffix}</span>
+              <div key={s.label} className="text-center py-3 lg:py-4 px-2 lg:px-3 rounded-2xl bg-white" style={{ border: "1px solid #F0F0F0" }}>
+                <p className="text-lg lg:text-2xl font-bold leading-tight text-black">
+                  {s.value}<span className="text-[11px] font-normal ml-0.5" style={{ color: "#9CA3AF" }}>{s.suffix}</span>
                 </p>
-                <p className="text-[11px] mt-1" style={{ color: "#9CA3AF" }}>{s.label}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: "#9CA3AF" }}>{s.label}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* ── Two-column layout ── */}
-        <div className="flex gap-8 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
 
           {/* ── Left: Content ── */}
-          <div className="flex-1 min-w-0">
+          <div className="w-full lg:flex-1 min-w-0">
 
             {/* Tabs */}
-            <div className="flex gap-1 mb-6 p-1 rounded-xl overflow-x-auto" style={{ background: "#F3F4F6" }}>
-              {(["about", "gallery", "halls", "reviews"] as Tab[]).map(t => {
-                const mobileLabel: Record<Tab, string> = { about: "About", gallery: "Gallery", halls: "Pricing", reviews: "Reviews" };
-                return (
-                  <button key={t} onClick={() => setTab(t)}
-                    className="flex-1 py-2 px-2 lg:px-3 text-xs lg:text-sm font-medium rounded-lg transition-all whitespace-nowrap min-w-0"
-                    style={tab === t
-                      ? { background: "#fff", color: PRIMARY, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }
-                      : { color: "#6B7280" }
-                    }>
-                    <span className="lg:hidden">{mobileLabel[t]}</span>
-                    <span className="hidden lg:inline">{TAB_LABELS[t]}</span>
-                  </button>
-                );
-              })}
+            <div className="flex gap-1 mb-4 lg:mb-6 p-1 rounded-xl overflow-x-auto scrollbar-none" style={{ background: "#F3F4F6" }}>
+              {(["about", "gallery", "halls", "reviews"] as Tab[]).map(t => (
+                <button key={t} onClick={() => setTab(t)}
+                  className="flex-1 py-2 px-2 lg:px-3 text-xs lg:text-sm font-medium rounded-lg transition-all whitespace-nowrap"
+                  style={tab === t
+                    ? { background: "#fff", color: PRIMARY, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }
+                    : { color: "#6B7280" }
+                  }>
+                  {t === "halls" ? <><span className="lg:hidden">Pricing</span><span className="hidden lg:inline">Halls & Pricing</span></> : (t.charAt(0).toUpperCase() + t.slice(1))}
+                </button>
+              ))}
             </div>
 
             {/* ── About ── */}
             {tab === "about" && (
-              <div className="space-y-5">
-
-                <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #F0F0F0" }}>
+              <div className="space-y-3 lg:space-y-5">
+                <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
                   <Label>About</Label>
                   <p className="text-sm leading-relaxed" style={{ color: "#374151" }}>{vendor.about}</p>
                 </div>
-
-                <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #F0F0F0" }}>
+                <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
                   <Label>Services</Label>
                   <div className="flex flex-wrap gap-2">
                     {vendor.services.map(s => (
-                      <span key={s} className="text-xs font-semibold px-3 py-1.5 rounded-full border"
-                        style={{ background: PRIMARY_LIGHT, color: PRIMARY, borderColor: PRIMARY + "28" }}>
+                      <span key={s} className="text-xs font-medium px-3 py-1.5 rounded-full"
+                        style={{ background: "#F3F4F6", color: "#374151" }}>
                         {s}
                       </span>
                     ))}
                   </div>
                 </div>
-
-                <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #F0F0F0" }}>
+                <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
                   <Label>Amenities & Facilities</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {vendor.amenities.map(a => (
                       <div key={a} className="flex items-center gap-2.5 py-2 px-3 rounded-xl" style={{ background: "#F9FAFB" }}>
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: PRIMARY_LIGHT }}>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: "#F3F4F6" }}>
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                         </div>
                         <span className="text-sm" style={{ color: "#374151" }}>{a}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-
-                <div className="bg-white rounded-2xl p-5" style={{ border: "1px solid #F0F0F0" }}>
+                <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
                   <Label>Contact Information</Label>
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {[
-                      { label: "Phone",   value: vendor.phone,    icon: <PhoneIcon2 />,    href: `tel:${vendor.phone}` },
-                      { label: "Email",   value: vendor.email,    icon: <EmailIcon />,     href: `mailto:${vendor.email}` },
-                      { label: "Address", value: vendor.location, icon: <LocationIcon />,  href: undefined },
+                      { label: "Phone",   value: vendor.phone,    icon: <PhoneIcon2 />, href: `tel:${vendor.phone}` },
+                      { label: "Email",   value: vendor.email,    icon: <EmailIcon />,  href: `mailto:${vendor.email}` },
+                      { label: "Address", value: vendor.location, icon: <LocationIcon />, href: undefined },
                     ].map(row => (
-                      <div key={row.label} className="flex items-center gap-3 py-3 px-4 rounded-xl" style={{ background: "#F9FAFB" }}>
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: PRIMARY_LIGHT, color: PRIMARY }}>
+                      <div key={row.label} className="flex items-center gap-3 py-2.5 px-3 lg:px-4 rounded-xl" style={{ background: "#F9FAFB" }}>
+                        <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#F3F4F6", color: "#6B7280" }}>
                           {row.icon}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: "#9CA3AF" }}>{row.label}</p>
                           {row.href
-                            ? <a href={row.href} className="text-sm font-medium text-black hover:underline">{row.value}</a>
-                            : <p className="text-sm font-medium text-black">{row.value}</p>
+                            ? <a href={row.href} className="text-sm font-medium text-black hover:underline truncate block">{row.value}</a>
+                            : <p className="text-sm font-medium text-black truncate">{row.value}</p>
                           }
                         </div>
                       </div>
@@ -184,55 +217,50 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
             {/* ── Gallery ── */}
             {tab === "gallery" && (
               <div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-3">
                   {vendor.gallery.map((g, i) => (
                     <div key={i} className="rounded-2xl overflow-hidden relative group cursor-pointer" style={{ aspectRatio: "4/3" }}>
                       <div className="absolute inset-0" style={{ background: g.gradient }} />
-                      {/* Subtle noise */}
                       <div className="absolute inset-0 opacity-[0.07]"
                         style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200" />
-                      {/* Bottom gradient */}
                       <div className="absolute bottom-0 left-0 right-0 h-2/3" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)" }} />
-                      {/* Icon badge */}
-                      <div className="absolute top-3 left-3 w-7 h-7 rounded-lg flex items-center justify-center"
+                      <div className="absolute top-2.5 left-2.5 w-7 h-7 rounded-lg flex items-center justify-center"
                         style={{ background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)" }}>
                         <GalleryTypeIcon index={i} />
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 p-3.5">
-                        <p className="text-white font-semibold text-sm leading-tight">{g.label}</p>
-                        <p className="text-white/65 text-xs mt-0.5">{g.sublabel}</p>
+                      <div className="absolute bottom-0 left-0 right-0 p-3">
+                        <p className="text-white font-semibold text-xs sm:text-sm leading-tight">{g.label}</p>
+                        <p className="text-white/65 text-[10px] sm:text-xs mt-0.5">{g.sublabel}</p>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-center text-xs mt-4" style={{ color: "#9CA3AF" }}>{vendor.gallery.length} event highlights</p>
+                <p className="text-center text-xs mt-3" style={{ color: "#9CA3AF" }}>{vendor.gallery.length} event highlights</p>
               </div>
             )}
 
             {/* ── Halls & Pricing ── */}
             {tab === "halls" && (
-              <div className="space-y-4">
+              <div className="space-y-3 lg:space-y-4">
                 {vendor.halls.map((hall, i) => (
                   <div key={i} className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #F0F0F0" }}>
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-4 mb-3">
-                        <div>
-                          <h4 className="text-base font-bold text-black">{hall.name}</h4>
-                          <p className="text-xs mt-1 flex items-center gap-1.5" style={{ color: "#6B7280" }}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                    <div className="p-4 lg:p-5">
+                      <div className="flex items-start justify-between gap-3 mb-2.5">
+                        <div className="min-w-0">
+                          <h4 className="text-sm lg:text-base font-bold text-black">{hall.name}</h4>
+                          <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "#6B7280" }}>
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
                             Up to {hall.capacity} guests
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xl font-bold" style={{ color: PRIMARY }}>
-                            Rs. {hall.price.toLocaleString("en-PK")}
-                          </p>
+                          <p className="text-lg lg:text-xl font-bold text-black">Rs. {hall.price.toLocaleString("en-PK")}</p>
                           <p className="text-[10px]" style={{ color: "#9CA3AF" }}>per event</p>
                         </div>
                       </div>
-                      <p className="text-sm leading-relaxed mb-4" style={{ color: "#6B7280" }}>{hall.desc}</p>
-                      <div className="flex flex-col sm:flex-row gap-2.5 pt-4" style={{ borderTop: "1px solid #F3F4F6" }}>
+                      <p className="text-xs lg:text-sm leading-relaxed mb-3 lg:mb-4" style={{ color: "#6B7280" }}>{hall.desc}</p>
+                      <div className="flex flex-col sm:flex-row gap-2 pt-3" style={{ borderTop: "1px solid #F3F4F6" }}>
                         <a href={`tel:${vendor.phone}`}
                           className="flex-1 py-2.5 rounded-xl text-sm font-bold text-center transition-opacity hover:opacity-90"
                           style={{ background: PRIMARY, color: "#fff" }}>
@@ -248,13 +276,11 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
                     </div>
                   </div>
                 ))}
-
-                {/* CTA banner */}
-                <div className="rounded-2xl p-6 text-center" style={{ background: vendor.coverGradient }}>
-                  <p className="text-white font-bold text-base mb-1">Not sure which hall fits your event?</p>
-                  <p className="text-white/80 text-sm mb-4">Our team is happy to help you choose the perfect space.</p>
+                <div className="rounded-2xl p-5 text-center" style={{ background: vendor.coverGradient }}>
+                  <p className="text-white font-bold text-sm mb-1">Not sure which hall fits your event?</p>
+                  <p className="text-white/80 text-xs mb-4">Our team is happy to help you choose the perfect space.</p>
                   <a href={`tel:${vendor.phone}`}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"
                     style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)" }}>
                     <PhoneIcon /> {vendor.phone}
                   </a>
@@ -264,41 +290,38 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
 
             {/* ── Reviews ── */}
             {tab === "reviews" && (
-              <div className="space-y-4">
-                {/* Rating summary */}
-                <div className="bg-white rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-5 sm:gap-8" style={{ border: "1px solid #F0F0F0" }}>
+              <div className="space-y-3 lg:space-y-4">
+                <div className="bg-white rounded-2xl p-4 lg:p-5 flex flex-col sm:flex-row items-center gap-4 lg:gap-8" style={{ border: "1px solid #F0F0F0" }}>
                   <div className="text-center shrink-0">
-                    <p className="text-5xl font-black leading-none" style={{ color: PRIMARY }}>{vendor.rating}</p>
+                    <p className="text-4xl lg:text-5xl font-black leading-none text-black">{vendor.rating}</p>
                     <div className="flex justify-center gap-0.5 my-2">
                       {[1,2,3,4,5].map(n => (
-                        <svg key={n} width="14" height="14" viewBox="0 0 24 24" fill={n <= Math.round(vendor.rating) ? PRIMARY : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        <svg key={n} width="13" height="13" viewBox="0 0 24 24" fill={n <= Math.round(vendor.rating) ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                       ))}
                     </div>
                     <p className="text-xs" style={{ color: "#9CA3AF" }}>{vendor.reviewCount} reviews</p>
                   </div>
-                  <div className="flex-1 space-y-1.5">
+                  <div className="flex-1 w-full space-y-1.5">
                     {[5,4,3,2,1].map(star => {
                       const pct = star === 5 ? 72 : star === 4 ? 20 : star === 3 ? 5 : star === 2 ? 2 : 1;
                       return (
-                        <div key={star} className="flex items-center gap-2.5">
-                          <span className="text-xs w-2 text-right" style={{ color: "#9CA3AF" }}>{star}</span>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill={PRIMARY} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        <div key={star} className="flex items-center gap-2">
+                          <span className="text-xs w-2 text-right shrink-0" style={{ color: "#9CA3AF" }}>{star}</span>
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill={STAR_COLOR} stroke="none" className="shrink-0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                           <div className="flex-1 h-1.5 rounded-full" style={{ background: "#F3F4F6" }}>
-                            <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: PRIMARY }} />
+                            <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: "#D1D5DB" }} />
                           </div>
-                          <span className="text-[10px] w-5 text-right" style={{ color: "#9CA3AF" }}>{pct}%</span>
+                          <span className="text-[10px] w-5 text-right shrink-0" style={{ color: "#9CA3AF" }}>{pct}%</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-
-                {/* Review cards */}
                 {vendor.reviews.map((r, i) => (
-                  <div key={i} className="bg-white rounded-2xl p-5" style={{ border: "1px solid #F0F0F0" }}>
+                  <div key={i} className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0"
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0"
                           style={{ background: vendor.coverGradient }}>
                           {r.name[0]}
                         </div>
@@ -307,9 +330,9 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
                           <p className="text-[10px]" style={{ color: "#9CA3AF" }}>{r.date}</p>
                         </div>
                       </div>
-                      <div className="flex gap-0.5">
+                      <div className="flex gap-0.5 shrink-0">
                         {[1,2,3,4,5].map(n => (
-                          <svg key={n} width="12" height="12" viewBox="0 0 24 24" fill={n <= r.rating ? PRIMARY : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                          <svg key={n} width="11" height="11" viewBox="0 0 24 24" fill={n <= r.rating ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                         ))}
                       </div>
                     </div>
@@ -323,7 +346,7 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
 
           {/* ── Right: Sticky Sidebar (desktop only) ── */}
           <div className="hidden lg:block w-72 xl:w-80 shrink-0">
-            <div className="sticky top-20 rounded-2xl overflow-hidden" style={{ border: "1px solid #E5E7EB", background: "#fff" }}>
+            <div className="sticky top-16 rounded-2xl overflow-hidden" style={{ border: "1px solid #E5E7EB", background: "#fff" }}>
               <div className="p-5">
                 <p className="text-[11px] font-medium mb-1" style={{ color: "#9CA3AF" }}>Starting from</p>
                 <p className="text-3xl font-black leading-tight" style={{ color: PRIMARY }}>
@@ -332,7 +355,6 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
                 <p className="text-xs mt-0.5 mb-5" style={{ color: "#9CA3AF" }}>
                   per event · {vendor.halls.length} hall{vendor.halls.length > 1 ? "s" : ""} available
                 </p>
-
                 <a href={`tel:${vendor.phone}`}
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold mb-2.5 transition-opacity hover:opacity-90"
                   style={{ background: PRIMARY, color: "#fff" }}>
@@ -343,13 +365,12 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
                   style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
                   <WhatsAppIcon /> WhatsApp
                 </a>
-
                 <div className="mt-5 pt-5 space-y-3" style={{ borderTop: "1px solid #F3F4F6" }}>
                   {[
-                    { k: "Max Guests",      v: `${vendor.maxCapacity} pax` },
-                    { k: "Events Hosted",   v: `${vendor.totalEvents.toLocaleString()}+` },
-                    { k: "Rating",          v: `${vendor.rating} / 5` },
-                    { k: "Established",     v: `${vendor.established}` },
+                    { k: "Max Guests",    v: `${vendor.maxCapacity} pax` },
+                    { k: "Events Hosted", v: `${vendor.totalEvents.toLocaleString()}+` },
+                    { k: "Rating",        v: `${vendor.rating} / 5` },
+                    { k: "Established",   v: `${vendor.established}` },
                   ].map(row => (
                     <div key={row.k} className="flex items-center justify-between">
                       <span className="text-sm" style={{ color: "#6B7280" }}>{row.k}</span>
@@ -360,8 +381,7 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
               </div>
               <div className="px-5 py-3 text-center" style={{ borderTop: "1px solid #F9FAFB", background: "#FAFAFA" }}>
                 <p className="text-[10px]" style={{ color: "#9CA3AF" }}>
-                  Powered by{" "}
-                  <span className="font-semibold" style={{ color: PRIMARY }}>Event Ease</span>
+                  Powered by <span className="font-semibold" style={{ color: PRIMARY }}>Event Ease</span>
                 </p>
               </div>
             </div>
@@ -374,11 +394,11 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
       </div>
 
       {/* ── Mobile Sticky Bottom CTA ── */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white" style={{ borderTop: "1px solid #E5E7EB", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white z-30" style={{ borderTop: "1px solid #E5E7EB", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex items-center gap-2.5 px-4 py-3">
           <div className="flex-1 min-w-0">
             <p className="text-[10px]" style={{ color: "#9CA3AF" }}>Starting from</p>
-            <p className="text-base font-bold leading-tight truncate" style={{ color: PRIMARY }}>
+            <p className="text-sm font-bold leading-tight truncate" style={{ color: PRIMARY }}>
               Rs. {minPrice.toLocaleString("en-PK")}
             </p>
           </div>
@@ -388,7 +408,7 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
             <PhoneIcon /> Call Now
           </a>
           <a href={`https://wa.me/${vendor.whatsapp}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center w-11 h-11 rounded-xl border transition-colors hover:bg-gray-50 shrink-0"
+            className="flex items-center justify-center w-10 h-10 rounded-xl border transition-colors hover:bg-gray-50 shrink-0"
             style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
             <WhatsAppIcon />
           </a>
@@ -399,17 +419,32 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
   );
 }
 
-// ─── Small helpers ─────────────────────────────────────────────────────────────
+// ─── Verified Badge ──────────────────────────────────────────────────────────
+function VerifiedBadge() {
+  return (
+    <div className="relative group shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" className="sm:w-[22px] sm:h-[22px] cursor-default">
+        <polygon points="12,1 13.76,3.17 16.21,1.84 17,4.52 19.78,4.22 19.48,7 22.16,7.79 20.83,10.24 23,12 20.83,13.76 22.16,16.21 19.48,17 19.78,19.78 17,19.48 16.21,22.16 13.76,20.83 12,23 10.24,20.83 7.79,22.16 7,19.48 4.22,19.78 4.52,17 1.84,16.21 3.17,13.76 1,12 3.17,10.24 1.84,7.79 4.52,7 4.22,4.22 7,4.52 7.79,1.84 10.24,3.17" fill={PRIMARY}/>
+        <polyline points="7.5,12.5 10.5,15.5 16.5,8.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      </svg>
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg z-50"
+        style={{ background: "#1F2937" }}>
+        Verified by Event Ease
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent" style={{ borderTopColor: "#1F2937" }}/>
+      </div>
+    </div>
+  );
+}
 
+// ─── Small helpers ────────────────────────────────────────────────────────────
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: "#9CA3AF" }}>
+    <p className="text-[10px] font-bold uppercase tracking-widest mb-3 lg:mb-4" style={{ color: "#9CA3AF" }}>
       {children}
     </p>
   );
 }
 
-// Gallery icon set (SVG only, no emojis)
 function GalleryTypeIcon({ index }: { index: number }) {
   const icons = [
     <svg key={0} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
@@ -422,7 +457,6 @@ function GalleryTypeIcon({ index }: { index: number }) {
   return icons[index % icons.length];
 }
 
-// ─── Icons ─────────────────────────────────────────────────────────────────────
 function PhoneIcon() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.64a16 16 0 006.29 6.29l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>;
 }

@@ -93,10 +93,81 @@ const INITIAL_PAYMENTS: Payment[] = [
   { id: "PAY-010", bookingId: "BK-011", customerName: "Ali Hassan",   phone: "0333-7788990", event: "Wedding",        hall: "Hall A", eventDate: "2026-09-20", dueDate: "2026-09-05", totalAmount: 490000, paid: 200000, status: "pending",  transactions: [{ date: "2026-07-25", amount: 200000, method: "Cheque",        note: "Advance payment" }] },
 ];
 
+// ─── Package Types ────────────────────────────────────────────────────────────
+export type PackageCategory = "Wedding" | "Engagement" | "Birthday" | "Corporate" | "Anniversary" | "Other";
+export type PackageStatus = "active" | "inactive";
+
+export type Package = {
+  id: string;
+  name: string;
+  category: PackageCategory;
+  description: string;
+  price: number;
+  maxGuests: number;
+  duration: string;
+  includes: string[];
+  status: PackageStatus;
+};
+
+const INITIAL_PACKAGES: Package[] = [
+  { id: "PKG-001", name: "Basic Wedding Package",    category: "Wedding",    description: "Perfect for intimate weddings with essential services included.", price: 150000, maxGuests: 200, duration: "6 Hours",   status: "active",   includes: ["Hall Decoration", "Catering (Dinner)", "Sound System", "Stage Setup", "Parking"] },
+  { id: "PKG-002", name: "Premium Wedding Package",  category: "Wedding",    description: "Our all-inclusive wedding package with premium add-ons for a grand celebration.", price: 350000, maxGuests: 500, duration: "Full Day", status: "active",   includes: ["Hall Decoration", "Catering (Dinner + Lunch)", "Sound System", "Stage Setup", "Lighting", "Photography", "Floral Arrangements", "Valet Parking", "Bridal Room"] },
+  { id: "PKG-003", name: "Corporate Event Package",  category: "Corporate",  description: "Professional setup for corporate events, conferences and seminars.", price: 80000,  maxGuests: 150, duration: "8 Hours",   status: "active",   includes: ["Projector & Screen", "Sound System", "Round Tables", "Catering (Lunch)", "WiFi", "Reception Desk"] },
+  { id: "PKG-004", name: "Birthday Bash Package",    category: "Birthday",   description: "Fun and colorful birthday celebration package for all ages.", price: 45000,  maxGuests: 80,  duration: "4 Hours",   status: "active",   includes: ["Theme Decoration", "DJ Sound", "Cake (3 tier)", "Catering (Snacks)", "Photo Booth"] },
+  { id: "PKG-005", name: "Engagement Ceremony",      category: "Engagement", description: "Elegant engagement ceremony setup with traditional and modern elements.", price: 120000, maxGuests: 300, duration: "5 Hours",   status: "inactive", includes: ["Stage Decoration", "Catering (Dinner)", "Sound System", "Floral Setup", "Photography"] },
+];
+
+// ─── Staff Types ──────────────────────────────────────────────────────────────
+export type StaffRole = "Manager" | "Waiter" | "Chef" | "Security" | "Cleaner" | "Decorator" | "DJ" | "Receptionist" | "Photographer" | "Driver" | "Other";
+export type StaffStatus = "active" | "on-leave" | "inactive";
+
+export type StaffMember = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: StaffRole;
+  department: string;
+  salary: number;
+  joinDate: string;
+  status: StaffStatus;
+  address: string;
+  notes: string;
+  avatarColor: string; // flat pastel bg hex
+  avatarUrl?: string;  // uploaded photo URL (blob or data URL)
+};
+
+// Flat pastel colors — low bg, always use dark text (#1F2937)
+export const STAFF_AVATAR_COLORS = [
+  "#E0E7FF", "#FCE7F3", "#D1FAE5", "#FEF3C7",
+  "#EDE9FE", "#CFFAFE", "#FEE2E2", "#F3F4F6",
+];
+
+const INITIAL_STAFF: StaffMember[] = [
+  { id: "STF-001", name: "Imran Hussain",  email: "imran@royalbanquet.com",  phone: "0300-1112233", role: "Manager",      department: "Operations", salary: 80000, joinDate: "2020-03-15", status: "active",   address: "Gulshan-e-Iqbal, Karachi", notes: "Senior manager, handles all floor operations.", avatarColor: "#E0E7FF" },
+  { id: "STF-002", name: "Sana Butt",      email: "sana@royalbanquet.com",   phone: "0312-4455667", role: "Receptionist", department: "Front Desk", salary: 35000, joinDate: "2021-07-01", status: "active",   address: "North Nazimabad, Karachi",  notes: "Handles client inquiries and walk-ins.", avatarColor: "#FCE7F3" },
+  { id: "STF-003", name: "Tariq Mehmood",  email: "tariq@royalbanquet.com",  phone: "0321-9988776", role: "Chef",         department: "Kitchen",    salary: 65000, joinDate: "2019-11-10", status: "active",   address: "Gulberg, Lahore",           notes: "Head chef specializing in desi cuisine.", avatarColor: "#D1FAE5" },
+  { id: "STF-004", name: "Ali Rehman",     email: "ali@royalbanquet.com",    phone: "0333-2233445", role: "Waiter",       department: "Service",    salary: 25000, joinDate: "2022-01-20", status: "active",   address: "FB Area, Karachi",          notes: "", avatarColor: "#FEF3C7" },
+  { id: "STF-005", name: "Bilal Sheikh",   email: "bilal@royalbanquet.com",  phone: "0345-5566778", role: "Decorator",    department: "Events",     salary: 45000, joinDate: "2021-04-05", status: "on-leave", address: "DHA Phase 2, Karachi",      notes: "On medical leave till Aug 2026.", avatarColor: "#EDE9FE" },
+  { id: "STF-006", name: "Nadia Anwar",    email: "nadia@royalbanquet.com",  phone: "0302-7788990", role: "Photographer", department: "Events",     salary: 55000, joinDate: "2022-06-15", status: "active",   address: "Clifton, Karachi",          notes: "Covers all events, experienced with DSLR.", avatarColor: "#CFFAFE" },
+  { id: "STF-007", name: "Usman Farooq",   email: "usman@royalbanquet.com",  phone: "0311-3344556", role: "Security",     department: "Security",   salary: 28000, joinDate: "2023-02-01", status: "active",   address: "Korangi, Karachi",          notes: "", avatarColor: "#FEE2E2" },
+  { id: "STF-008", name: "Kamran Akbar",   email: "kamran@royalbanquet.com", phone: "0300-9900112", role: "DJ",           department: "Events",     salary: 40000, joinDate: "2020-08-22", status: "inactive", address: "Saddar, Karachi",           notes: "Contract ended. Previously handled all event sound.", avatarColor: "#F3F4F6" },
+];
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 interface StoreState {
   bookings: Booking[];
   payments: Payment[];
+  packages: Package[];
+  staff: StaffMember[];
+
+  addPackage: (p: Package) => void;
+  updatePackage: (p: Package) => void;
+  deletePackage: (id: string) => void;
+
+  addStaff: (s: StaffMember) => void;
+  updateStaff: (s: StaffMember) => void;
+  deleteStaff: (id: string) => void;
 
   /** Create a new booking → auto-creates linked payment record */
   addBooking: (b: Booking) => void;
@@ -126,6 +197,16 @@ interface StoreState {
 export const useStore = create<StoreState>((set) => ({
   bookings: INITIAL_BOOKINGS,
   payments: INITIAL_PAYMENTS,
+  packages: INITIAL_PACKAGES,
+  staff:    INITIAL_STAFF,
+
+  addPackage: (p) => set((state) => ({ packages: [p, ...state.packages] })),
+  updatePackage: (p) => set((state) => ({ packages: state.packages.map((pk) => pk.id === p.id ? p : pk) })),
+  deletePackage: (id) => set((state) => ({ packages: state.packages.filter((p) => p.id !== id) })),
+
+  addStaff: (s) => set((state) => ({ staff: [s, ...state.staff] })),
+  updateStaff: (s) => set((state) => ({ staff: state.staff.map((m) => m.id === s.id ? s : m) })),
+  deleteStaff: (id) => set((state) => ({ staff: state.staff.filter((s) => s.id !== id) })),
 
   addBooking: (b) =>
     set((state) => {
