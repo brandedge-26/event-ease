@@ -3,6 +3,7 @@ export type GalleryItem = {
   sublabel: string;
   gradient: string;
   icon: string;
+  imageUrl?: string;
 };
 
 export type Hall = {

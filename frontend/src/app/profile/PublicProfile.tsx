@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import type { Vendor } from "@/lib/vendorData";
+import { useStore } from "@/store/useStore";
 
 type Tab = "about" | "gallery" | "halls" | "reviews";
 
 const PRIMARY    = "#FF3B6B";
 const STAR_COLOR = "#F59E0B";
 
-export default function PublicProfile({ vendor }: { vendor: Vendor }) {
+export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }) {
+  const { vendorProfile } = useStore();
+  const vendor = vendorProfile.slug === vendorProp.slug ? vendorProfile : vendorProp;
   const [tab, setTab] = useState<Tab>("about");
-  const minPrice = Math.min(...vendor.halls.map(h => h.price));
+  const minPrice = vendor.halls.length > 0 ? Math.min(...vendor.halls.map(h => h.price)) : 0;
 
   return (
     <div className="min-h-screen" style={{ background: "#F9FAFB" }}>
@@ -220,18 +223,19 @@ export default function PublicProfile({ vendor }: { vendor: Vendor }) {
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-3">
                   {vendor.gallery.map((g, i) => (
                     <div key={i} className="rounded-2xl overflow-hidden relative group cursor-pointer" style={{ aspectRatio: "4/3" }}>
-                      <div className="absolute inset-0" style={{ background: g.gradient }} />
-                      <div className="absolute inset-0 opacity-[0.07]"
-                        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+                      {g.imageUrl
+                        ? <img src={g.imageUrl} alt={g.label} className="absolute inset-0 w-full h-full object-cover" />
+                        : <>
+                            <div className="absolute inset-0" style={{ background: g.gradient }} />
+                            <div className="absolute inset-0 opacity-[0.07]"
+                              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+                          </>
+                      }
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200" />
                       <div className="absolute bottom-0 left-0 right-0 h-2/3" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)" }} />
-                      <div className="absolute top-2.5 left-2.5 w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)" }}>
-                        <GalleryTypeIcon index={i} />
-                      </div>
                       <div className="absolute bottom-0 left-0 right-0 p-3">
                         <p className="text-white font-semibold text-xs sm:text-sm leading-tight">{g.label}</p>
-                        <p className="text-white/65 text-[10px] sm:text-xs mt-0.5">{g.sublabel}</p>
+                        {g.sublabel && <p className="text-white/65 text-[10px] sm:text-xs mt-0.5">{g.sublabel}</p>}
                       </div>
                     </div>
                   ))}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_VENDOR, type Vendor } from "@/lib/vendorData";
 
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 export type BookingStatus = "confirmed" | "pending" | "cancelled";
@@ -160,6 +161,8 @@ interface StoreState {
   payments: Payment[];
   packages: Package[];
   staff: StaffMember[];
+  vendorProfile: Vendor;
+  updateVendorProfile: (updates: Partial<Vendor>) => void;
 
   addPackage: (p: Package) => void;
   updatePackage: (p: Package) => void;
@@ -199,6 +202,10 @@ export const useStore = create<StoreState>((set) => ({
   payments: INITIAL_PAYMENTS,
   packages: INITIAL_PACKAGES,
   staff:    INITIAL_STAFF,
+  vendorProfile: DEFAULT_VENDOR,
+  updateVendorProfile: (updates) => set((state) => ({
+    vendorProfile: { ...state.vendorProfile, ...updates },
+  })),
 
   addPackage: (p) => set((state) => ({ packages: [p, ...state.packages] })),
   updatePackage: (p) => set((state) => ({ packages: state.packages.map((pk) => pk.id === p.id ? p : pk) })),
