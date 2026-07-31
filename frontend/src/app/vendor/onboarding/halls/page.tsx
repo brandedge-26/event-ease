@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { galleryStore } from "@/lib/galleryStore";
 
 const inputClass =
   "w-full px-5 py-4 rounded-2xl text-base outline-none transition-all duration-200 border border-[#D1D5DB] focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2";
@@ -26,8 +27,10 @@ export default function HallDetailsPage() {
     description: "",
   });
 
-  const [logo, setLogo] = useState<string | null>(null);
-  const [hallImages, setHallImages] = useState<string[]>([]);
+  const [logo,           setLogo]           = useState<string | null>(null); // preview URL
+  const [logoFile,       setLogoFile]       = useState<File | null>(null);
+  const [hallImages,     setHallImages]     = useState<string[]>([]); // blob URLs for preview
+  const [hallImageFiles, setHallImageFiles] = useState<File[]>([]);   // actual File objects
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,25 +39,46 @@ export default function HallDetailsPage() {
   function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setLogoFile(file);
     setLogo(URL.createObjectURL(file));
   }
 
   function handleHallImages(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+    const picked = Array.from(e.target.files || []);
+    if (!picked.length) return;
     const remaining = MAX_IMAGES - hallImages.length;
-    const toAdd = files.slice(0, remaining).map((f) => URL.createObjectURL(f));
-    setHallImages((prev) => [...prev, ...toAdd]);
+    const toAdd = picked.slice(0, remaining);
+    setHallImages((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
+    setHallImageFiles((prev) => [...prev, ...toAdd]);
     e.target.value = "";
   }
 
   function removeImage(index: number) {
     setHallImages((prev) => prev.filter((_, i) => i !== index));
+    setHallImageFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    router.push("/vendor/onboarding/account");
+    sessionStorage.setItem("ob_step2", JSON.stringify(form));
+
+    // Keep gallery File objects in memory so verify page can upload after registration
+    galleryStore.set(hallImageFiles);
+
+    // Save logo as base64 so verify page can upload it after registration
+    if (logoFile) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        sessionStorage.setItem("ob_logo_b64",  reader.result as string);
+        sessionStorage.setItem("ob_logo_type", logoFile.type);
+        router.push("/vendor/onboarding/account");
+      };
+      reader.readAsDataURL(logoFile);
+    } else {
+      sessionStorage.removeItem("ob_logo_b64");
+      sessionStorage.removeItem("ob_logo_type");
+      router.push("/vendor/onboarding/account");
+    }
   }
 
   return (
@@ -129,21 +153,32 @@ export default function HallDetailsPage() {
         />
 
         {/* Logo Upload */}
-        <div
-          onClick={() => logoRef.current?.click()}
-          className="flex flex-col items-center justify-center gap-2 py-5 rounded-2xl border border-dashed border-[#D1D5DB] cursor-pointer transition-colors hover:border-[var(--primary)]"
-          style={{ background: "var(--bg-subtle)" }}
-        >
-          {logo ? (
-            <Image src={logo} alt="Logo" width={48} height={48} className="rounded-xl object-cover" />
-          ) : (
-            <>
+        <div className="flex items-center gap-4">
+          <div
+            onClick={() => logoRef.current?.click()}
+            className="w-20 h-20 shrink-0 rounded-2xl border border-dashed border-[#D1D5DB] flex items-center justify-center cursor-pointer transition-colors hover:border-[var(--primary)] overflow-hidden"
+            style={{ background: "var(--bg-subtle)" }}
+          >
+            {logo ? (
+              <Image src={logo} alt="Logo" width={80} height={80} className="w-full h-full object-cover" />
+            ) : (
               <UploadIcon />
-              <span className="text-xs font-medium" style={{ color: "var(--fg-muted)" }}>
-                Business Logo
-              </span>
-            </>
-          )}
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-medium" style={{ color: "var(--fg)" }}>Business Logo</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>
+              {logo ? "Tap to change" : "Optional · PNG, JPG up to 5MB"}
+            </p>
+            <button
+              type="button"
+              onClick={() => logoRef.current?.click()}
+              className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-xl cursor-pointer transition-opacity hover:opacity-80"
+              style={{ background: "var(--primary-light)", color: "var(--primary)" }}
+            >
+              {logo ? "Change Logo" : "Upload Logo"}
+            </button>
+          </div>
           <input
             ref={logoRef}
             type="file"

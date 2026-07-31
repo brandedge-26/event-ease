@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
 
 const inputClass =
   "w-full px-5 py-4 rounded-2xl text-base outline-none transition-all duration-200 border border-[#D1D5DB] focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2";
@@ -22,73 +23,71 @@ export default function AccountInfoPage() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [showConfirm,  setShowConfirm]  = useState(false);
+  const [error,        setError]        = useState("");
+  const [loading,      setLoading]      = useState(false);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleSendCode() {
-    if (!form.email) return;
-    setOtpSent(true);
-    setTimeout(() => otpRefs.current[0]?.focus(), 50);
-  }
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
 
-  function handleOtp(e: React.ChangeEvent<HTMLInputElement>, i: number) {
-    const val = e.target.value.replace(/\D/g, "").slice(-1);
-    const next = [...otp];
-    next[i] = val;
-    setOtp(next);
-    if (val && i < 5) otpRefs.current[i + 1]?.focus();
-  }
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (form.password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
 
-  function handleOtpKeyDown(e: React.KeyboardEvent<HTMLInputElement>, i: number) {
-    if (e.key === "Backspace" && !otp[i] && i > 0) {
-      otpRefs.current[i - 1]?.focus();
+    setLoading(true);
+    try {
+      const res = await api.post("/api/vendor/auth/send-otp", { email: form.email.trim() });
+      if (!res.success) {
+        setError(res.message ?? "Failed to send OTP. Please try again.");
+        return;
+      }
+
+      // Save step 3 data for the verify page
+      sessionStorage.setItem("ob_step3", JSON.stringify({
+        ownerName: form.ownerName.trim(),
+        email:     form.email.trim(),
+        password:  form.password,
+      }));
+
+      router.push("/vendor/onboarding/verify");
+    } catch {
+      setError("Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  function handleOtpPaste(e: React.ClipboardEvent) {
-    const text = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (!text) return;
-    e.preventDefault();
-    const next = [...otp];
-    text.split("").forEach((c, i) => { next[i] = c; });
-    setOtp(next);
-    otpRefs.current[Math.min(text.length, 5)]?.focus();
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    router.push("/vendor/onboarding/complete");
-  }
-
-  const otpComplete = otp.every((d) => d !== "");
   const isDisabled =
-    !form.ownerName ||
-    !form.email ||
-    !otpSent ||
-    !otpComplete ||
-    !form.password ||
-    !form.confirmPassword;
+    !form.ownerName || !form.email || !form.password || !form.confirmPassword || loading;
 
   return (
     <div className="w-full max-w-lg">
 
-      {/* Heading */}
       <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
         Account Info.
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
-        Step 3 of 3 — Set up your login credentials.
+        Step 3 of 4 — Set up your login credentials.
       </p>
+
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "#FEE2E2", color: "#B91C1C" }}>
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
-        {/* Owner Name */}
         <input
           name="ownerName"
           type="text"
@@ -100,49 +99,17 @@ export default function AccountInfoPage() {
           style={inputStyle}
         />
 
-        {/* Email + Send Code */}
-        <div className="flex gap-3">
-          <input
-            name="email"
-            type="email"
-            placeholder="Email address *"
-            value={form.email}
-            onChange={handleChange}
-            required
-            className={inputClass}
-            style={inputStyle}
-          />
-          <button
-            type="button"
-            onClick={handleSendCode}
-            className="shrink-0 px-5 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90 active:opacity-80 whitespace-nowrap"
-            style={{ background: "var(--primary)", color: "#ffffff" }}
-          >
-            Send Code
-          </button>
-        </div>
+        <input
+          name="email"
+          type="email"
+          placeholder="Email address *"
+          value={form.email}
+          onChange={handleChange}
+          required
+          className={inputClass}
+          style={inputStyle}
+        />
 
-        {/* OTP Boxes */}
-        {otpSent && (
-          <div className="grid grid-cols-6 gap-2" onPaste={handleOtpPaste}>
-            {otp.map((val, i) => (
-              <input
-                key={i}
-                ref={(el) => { otpRefs.current[i] = el; }}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={val}
-                onChange={(e) => handleOtp(e, i)}
-                onKeyDown={(e) => handleOtpKeyDown(e, i)}
-                className="w-full text-center text-xl font-semibold py-4 rounded-2xl outline-none border border-[#D1D5DB] focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2"
-                style={inputStyle}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Password */}
         <div className="relative">
           <input
             name="password"
@@ -164,7 +131,6 @@ export default function AccountInfoPage() {
           </button>
         </div>
 
-        {/* Confirm Password */}
         <div className="relative">
           <input
             name="confirmPassword"
@@ -186,7 +152,6 @@ export default function AccountInfoPage() {
           </button>
         </div>
 
-        {/* Back & Submit */}
         <div className="flex gap-3 mt-1">
           <button
             type="button"
@@ -207,7 +172,7 @@ export default function AccountInfoPage() {
               cursor: isDisabled ? "not-allowed" : "pointer",
             }}
           >
-            Finish Setup
+            {loading ? "Sending code…" : "Continue"}
           </button>
         </div>
 

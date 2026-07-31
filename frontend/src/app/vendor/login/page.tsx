@@ -3,19 +3,45 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function VendorLoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const router  = useRouter();
+  const setAuth = useAuthStore((s) => s.setAuth);
 
-  function handleSubmit(e: React.FormEvent) {
+  const [email,        setEmail]        = useState("");
+  const [password,     setPassword]     = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error,        setError]        = useState("");
+  const [loading,      setLoading]      = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    router.push("/dashboard");
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string } }>(
+        "/api/vendor/auth/login",
+        { email: email.trim(), password },
+      );
+
+      if (!res.success || !res.accessToken || !res.vendor) {
+        setError(res.message ?? "Login failed. Please try again.");
+        return;
+      }
+
+      setAuth(res.accessToken, res.vendor);
+      router.push("/vendor/dashboard");
+    } catch {
+      setError("Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const isDisabled = !email || !password;
+  const isDisabled = !email || !password || loading;
 
   return (
     <div className="flex flex-1 min-h-screen items-center justify-center bg-white px-4 py-16">
@@ -39,6 +65,13 @@ export default function VendorLoginPage() {
         <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
           Sign in to your Business Center.
         </p>
+
+        {/* Error */}
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "#FEE2E2", color: "#B91C1C" }}>
+            {error}
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
@@ -75,20 +108,8 @@ export default function VendorLoginPage() {
             </button>
           </div>
 
-          {/* Forgot Password */}
+          {/* Links */}
           <p className="text-left mt-2 text-sm" style={{ color: "var(--fg-muted)" }}>
-            Forgot password?{" "}
-            <a
-              href="/auth/forgot-password"
-              className="font-medium hover:underline"
-              style={{ color: "var(--primary)" }}
-            >
-              Reset it
-            </a>
-          </p>
-
-          {/* Register */}
-          <p className="text-left text-sm -mt-2" style={{ color: "var(--fg-muted)" }}>
             Don&apos;t have a business account?{" "}
             <a
               href="/vendor/onboarding/business-info"
@@ -111,7 +132,7 @@ export default function VendorLoginPage() {
               cursor: isDisabled ? "not-allowed" : "pointer",
             }}
           >
-            Sign in
+            {loading ? "Signing in…" : "Sign in"}
           </button>
 
         </form>

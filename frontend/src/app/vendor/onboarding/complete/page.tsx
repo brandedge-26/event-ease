@@ -39,7 +39,7 @@ export default function OnboardingCompletePage() {
 
       {/* Go to Dashboard */}
       <Link
-        href="/dashboard"
+        href="/vendor/dashboard"
         className="w-full flex items-center justify-center py-4 rounded-2xl text-base font-semibold cursor-pointer transition-opacity hover:opacity-90"
         style={{ background: "var(--primary)", color: "#ffffff" }}
       >

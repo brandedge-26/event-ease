@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Vendor } from "@/lib/vendorData";
 import { useStore } from "@/store/useStore";
 
@@ -9,11 +9,125 @@ type Tab = "about" | "gallery" | "halls" | "reviews";
 const PRIMARY    = "#FF3B6B";
 const STAR_COLOR = "#F59E0B";
 
-export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }) {
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
+
+type InquiryForm = { name: string; phone: string; message: string; eventDate: string; eventType: string; guests: string };
+
+export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor: Vendor; vendorId: string }) {
   const { vendorProfile } = useStore();
   const vendor = vendorProfile.slug === vendorProp.slug ? vendorProfile : vendorProp;
   const [tab, setTab] = useState<Tab>("about");
+  const [slide, setSlide] = useState(0);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const [loadedGalleryImages, setLoadedGalleryImages] = useState<Set<number>>(new Set());
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") setLightboxIndex(i => i !== null ? (i + 1) % vendor.gallery.length : null);
+      if (e.key === "ArrowLeft")  setLightboxIndex(i => i !== null ? (i - 1 + vendor.gallery.length) % vendor.gallery.length : null);
+      if (e.key === "Escape")     setLightboxIndex(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxIndex, vendor.gallery.length]);
   const minPrice = vendor.halls.length > 0 ? Math.min(...vendor.halls.map(h => h.price)) : 0;
+
+  // Local reviews state (starts with server-fetched reviews, updated optimistically)
+  const [localReviews, setLocalReviews] = useState(vendor.reviews);
+
+  // Review modal + form state
+  const [reviewOpen,    setReviewOpen]    = useState(false);
+  const [alreadyReviewed, setAlreadyReviewed] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ name: "", rating: 0, text: "" });
+  const [reviewSending, setReviewSending] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+
+  useEffect(() => {
+    if (vendorId && localStorage.getItem(`reviewed_${vendorId}`)) {
+      setAlreadyReviewed(true);
+    }
+  }, [vendorId]);
+
+  // Inquiry modal state
+  const [inquiryOpen, setInquiryOpen] = useState(false);
+  const [inquiryForm, setInquiryForm] = useState<InquiryForm>({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "" });
+  const [inquirySending, setInquirySending] = useState(false);
+  const [inquiryDone,    setInquiryDone]    = useState(false);
+  const [inquiryError,   setInquiryError]   = useState("");
+
+  async function submitInquiry(e: React.FormEvent) {
+    e.preventDefault();
+    setInquiryError("");
+    setInquirySending(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/vendor/inquiry/${vendorId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name:      inquiryForm.name,
+          phone:     inquiryForm.phone,
+          message:   inquiryForm.message || undefined,
+          eventDate: inquiryForm.eventDate || undefined,
+          eventType: inquiryForm.eventType || undefined,
+          guests:    Number(inquiryForm.guests),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setInquiryDone(true);
+      } else {
+        setInquiryError(data.message ?? "Failed to send inquiry.");
+      }
+    } catch {
+      setInquiryError("Could not connect to server.");
+    } finally {
+      setInquirySending(false);
+    }
+  }
+
+  function openInquiry() {
+    setInquiryDone(false);
+    setInquiryError("");
+    setInquiryForm({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "" });
+    setInquiryOpen(true);
+  }
+
+  async function submitReview(e: React.FormEvent) {
+    e.preventDefault();
+    if (reviewForm.rating === 0) { setReviewError("Please select a rating."); return; }
+    setReviewError("");
+    setReviewSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/vendor/review/${vendorId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: reviewForm.name, rating: reviewForm.rating, text: reviewForm.text }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const now = new Date().toLocaleString("en-US", { month: "short", year: "numeric" });
+        setLocalReviews(prev => [{ name: reviewForm.name, rating: reviewForm.rating, text: reviewForm.text, date: now }, ...prev]);
+        if (vendorId) localStorage.setItem(`reviewed_${vendorId}`, "1");
+        setAlreadyReviewed(true);
+        setReviewOpen(false);
+        setReviewForm({ name: "", rating: 0, text: "" });
+      } else {
+        setReviewError(data.message ?? "Failed to submit review.");
+      }
+    } catch {
+      setReviewError("Could not connect to server.");
+    } finally {
+      setReviewSending(false);
+    }
+  }
+
+  const galleryImages = vendor.gallery.filter(g => g.imageUrl);
+  const hasGallery = galleryImages.length > 0;
+  const prevSlide = () => setSlide(s => (s - 1 + galleryImages.length) % galleryImages.length);
+  const nextSlide = () => setSlide(s => (s + 1) % galleryImages.length);
+  const currentGalleryImg = hasGallery ? galleryImages[slide % galleryImages.length] : null;
 
   return (
     <div className="min-h-screen" style={{ background: "#F9FAFB" }}>
@@ -45,14 +159,38 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
 
           {/* Mobile: full-width cover image */}
           <div className="lg:hidden relative rounded-2xl overflow-hidden mb-4" style={{ aspectRatio: "16/9" }}>
-            <div className="absolute inset-0" style={{ background: vendor.coverGradient }} />
-            <div className="absolute inset-0 opacity-10"
-              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+            {hasGallery && currentGalleryImg ? (
+              <img src={currentGalleryImg.imageUrl!} alt={currentGalleryImg.label} className="absolute inset-0 w-full h-full object-cover" />
+            ) : (
+              <>
+                <div className="absolute inset-0" style={{ background: vendor.coverGradient }} />
+                <div className="absolute inset-0 opacity-10"
+                  style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+              </>
+            )}
             <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.35) 0%, transparent 60%)" }} />
-            <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-white text-[11px] font-semibold"
-              style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }}>
-              1 / {vendor.gallery.length}
-            </span>
+            {hasGallery && (
+              <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-white text-[11px] font-semibold"
+                style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(6px)" }}>
+                {slide + 1} / {galleryImages.length}
+              </span>
+            )}
+            {galleryImages.length > 1 && (
+              <>
+                <button
+                  onClick={prevSlide}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                  style={{ background: "rgba(0,0,0,0.4)" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button
+                  onClick={nextSlide}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                  style={{ background: "rgba(0,0,0,0.4)" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </>
+            )}
           </div>
 
           {/* Desktop two-column / Mobile single-column */}
@@ -62,9 +200,26 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
             <div className="flex flex-col justify-center">
               {/* Avatar + name row */}
               <div className="flex items-start gap-3 mb-3 lg:mb-5">
-                <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-xl lg:rounded-2xl flex items-center justify-center text-lg lg:text-2xl font-black text-white shrink-0"
+                <div className="relative w-12 h-12 lg:w-16 lg:h-16 rounded-xl lg:rounded-2xl shrink-0 overflow-hidden"
                   style={{ background: vendor.coverGradient }}>
-                  {vendor.name[0]}
+                  {vendor.logoUrl ? (
+                    <>
+                      <img
+                        src={vendor.logoUrl}
+                        alt={vendor.name}
+                        className="w-full h-full object-cover"
+                        ref={(el) => { if (el?.complete) setLogoLoaded(true); }}
+                        onLoad={() => setLogoLoaded(true)}
+                      />
+                      {!logoLoaded && (
+                        <div className="absolute inset-0 animate-pulse bg-gray-200" />
+                      )}
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-lg lg:text-2xl font-black text-white">
+                      {vendor.name[0]}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0 pt-0.5">
                   <div className="flex items-center gap-1.5 flex-wrap mb-1">
@@ -106,16 +261,40 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
 
             {/* Right: cover image — desktop only */}
             <div className="hidden lg:block relative rounded-3xl overflow-hidden" style={{ minHeight: 300 }}>
-              <div className="absolute inset-0" style={{ background: vendor.coverGradient }} />
-              <div className="absolute inset-0 opacity-[0.08]"
-                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+              {hasGallery && currentGalleryImg ? (
+                <img src={currentGalleryImg.imageUrl!} alt={currentGalleryImg.label} className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <>
+                  <div className="absolute inset-0" style={{ background: vendor.coverGradient }} />
+                  <div className="absolute inset-0 opacity-[0.08]"
+                    style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+                </>
+              )}
               <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 55%)" }} />
-              <span className="absolute top-4 right-4 px-3 py-1.5 rounded-xl text-white text-xs font-semibold"
-                style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)" }}>
-                1 / {vendor.gallery.length}
-              </span>
+              {hasGallery && (
+                <span className="absolute top-4 right-4 px-3 py-1.5 rounded-xl text-white text-xs font-semibold"
+                  style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(8px)" }}>
+                  {slide + 1} / {galleryImages.length}
+                </span>
+              )}
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    onClick={prevSlide}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                    style={{ background: "rgba(0,0,0,0.4)" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+                    style={{ background: "rgba(0,0,0,0.4)" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                </>
+              )}
               <div className="absolute bottom-0 left-0 right-0 p-5">
-                <p className="text-white/70 text-xs mb-0.5 font-medium">Main Banquet Hall</p>
+                <p className="text-white/70 text-xs mb-0.5 font-medium">{currentGalleryImg?.label ?? "Main Banquet Hall"}</p>
                 <p className="text-white font-bold text-sm">{vendor.name}</p>
               </div>
             </div>
@@ -155,7 +334,7 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
                     ? { background: "#fff", color: PRIMARY, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }
                     : { color: "#6B7280" }
                   }>
-                  {t === "halls" ? <><span className="lg:hidden">Pricing</span><span className="hidden lg:inline">Halls & Pricing</span></> : (t.charAt(0).toUpperCase() + t.slice(1))}
+                  {t === "halls" ? "Pricing" : (t.charAt(0).toUpperCase() + t.slice(1))}
                 </button>
               ))}
             </div>
@@ -163,34 +342,40 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
             {/* ── About ── */}
             {tab === "about" && (
               <div className="space-y-3 lg:space-y-5">
-                <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
-                  <Label>About</Label>
-                  <p className="text-sm leading-relaxed" style={{ color: "#374151" }}>{vendor.about}</p>
-                </div>
-                <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
-                  <Label>Services</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {vendor.services.map(s => (
-                      <span key={s} className="text-xs font-medium px-3 py-1.5 rounded-full"
-                        style={{ background: "#F3F4F6", color: "#374151" }}>
-                        {s}
-                      </span>
-                    ))}
+                {vendor.about && (
+                  <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
+                    <Label>About</Label>
+                    <p className="text-sm leading-relaxed" style={{ color: "#374151" }}>{vendor.about}</p>
                   </div>
-                </div>
-                <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
-                  <Label>Amenities & Facilities</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {vendor.amenities.map(a => (
-                      <div key={a} className="flex items-center gap-2.5 py-2 px-3 rounded-xl" style={{ background: "#F9FAFB" }}>
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: "#F3F4F6" }}>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                )}
+                {vendor.services.length > 0 && (
+                  <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
+                    <Label>Services</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {vendor.services.map(s => (
+                        <span key={s} className="text-xs font-medium px-3 py-1.5 rounded-full"
+                          style={{ background: "#F3F4F6", color: "#374151" }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {vendor.amenities.length > 0 && (
+                  <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
+                    <Label>Amenities & Facilities</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {vendor.amenities.map(a => (
+                        <div key={a} className="flex items-center gap-2.5 py-2 px-3 rounded-xl" style={{ background: "#F9FAFB" }}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: "#F3F4F6" }}>
+                            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                          </div>
+                          <span className="text-sm" style={{ color: "#374151" }}>{a}</span>
                         </div>
-                        <span className="text-sm" style={{ color: "#374151" }}>{a}</span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
                   <Label>Contact Information</Label>
                   <div className="space-y-2.5">
@@ -220,129 +405,192 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
             {/* ── Gallery ── */}
             {tab === "gallery" && (
               <div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-3">
-                  {vendor.gallery.map((g, i) => (
-                    <div key={i} className="rounded-2xl overflow-hidden relative group cursor-pointer" style={{ aspectRatio: "4/3" }}>
-                      {g.imageUrl
-                        ? <img src={g.imageUrl} alt={g.label} className="absolute inset-0 w-full h-full object-cover" />
-                        : <>
-                            <div className="absolute inset-0" style={{ background: g.gradient }} />
-                            <div className="absolute inset-0 opacity-[0.07]"
-                              style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
-                          </>
-                      }
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200" />
-                      <div className="absolute bottom-0 left-0 right-0 h-2/3" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)" }} />
-                      <div className="absolute bottom-0 left-0 right-0 p-3">
-                        <p className="text-white font-semibold text-xs sm:text-sm leading-tight">{g.label}</p>
-                        {g.sublabel && <p className="text-white/65 text-[10px] sm:text-xs mt-0.5">{g.sublabel}</p>}
-                      </div>
+                {vendor.gallery.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-sm font-medium text-black mb-1">No photos yet</p>
+                    <p className="text-xs" style={{ color: "#9CA3AF" }}>Gallery photos will appear here once added.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-3">
+                      {vendor.gallery.map((g, i) => (
+                        <div key={i} onClick={() => setLightboxIndex(i)} className="rounded-2xl overflow-hidden relative group cursor-pointer" style={{ aspectRatio: "4/3" }}>
+                          {g.imageUrl ? (
+                            <>
+                              {!loadedGalleryImages.has(i) && (
+                                <div className="absolute inset-0 animate-pulse bg-gray-200" />
+                              )}
+                              <img
+                                src={g.imageUrl}
+                                alt={g.label}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                onLoad={() => setLoadedGalleryImages(prev => new Set(prev).add(i))}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <div className="absolute inset-0" style={{ background: g.gradient }} />
+                              <div className="absolute inset-0 opacity-[0.07]"
+                                style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+                            </>
+                          )}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)" }}>
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                            </div>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 h-2/3" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 100%)" }} />
+                          <div className="absolute bottom-0 left-0 right-0 p-3">
+                            <p className="text-white font-semibold text-xs sm:text-sm leading-tight">{g.label}</p>
+                            {g.sublabel && <p className="text-white/65 text-[10px] sm:text-xs mt-0.5">{g.sublabel}</p>}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <p className="text-center text-xs mt-3" style={{ color: "#9CA3AF" }}>{vendor.gallery.length} event highlights</p>
+                    <p className="text-center text-xs mt-3" style={{ color: "#9CA3AF" }}>{vendor.gallery.length} event highlights</p>
+                  </>
+                )}
               </div>
             )}
 
             {/* ── Halls & Pricing ── */}
             {tab === "halls" && (
               <div className="space-y-3 lg:space-y-4">
-                {vendor.halls.map((hall, i) => (
-                  <div key={i} className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #F0F0F0" }}>
-                    <div className="p-4 lg:p-5">
-                      <div className="flex items-start justify-between gap-3 mb-2.5">
-                        <div className="min-w-0">
-                          <h4 className="text-sm lg:text-base font-bold text-black">{hall.name}</h4>
-                          <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "#6B7280" }}>
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                            Up to {hall.capacity} guests
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-lg lg:text-xl font-bold text-black">Rs. {hall.price.toLocaleString("en-PK")}</p>
-                          <p className="text-[10px]" style={{ color: "#9CA3AF" }}>per event</p>
-                        </div>
-                      </div>
-                      <p className="text-xs lg:text-sm leading-relaxed mb-3 lg:mb-4" style={{ color: "#6B7280" }}>{hall.desc}</p>
-                      <div className="flex flex-col sm:flex-row gap-2 pt-3" style={{ borderTop: "1px solid #F3F4F6" }}>
-                        <a href={`tel:${vendor.phone}`}
-                          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-center transition-opacity hover:opacity-90"
-                          style={{ background: PRIMARY, color: "#fff" }}>
-                          Book This Hall
-                        </a>
-                        <a href={`https://wa.me/${vendor.whatsapp}?text=Hi! I'm interested in ${hall.name} at ${vendor.name}.`}
-                          target="_blank" rel="noopener noreferrer"
-                          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-center border transition-colors hover:bg-gray-50"
-                          style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
-                          WhatsApp Enquiry
-                        </a>
-                      </div>
-                    </div>
+                {vendor.halls.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-8 text-center" style={{ border: "1px solid #F0F0F0" }}>
+                    <p className="text-sm font-semibold text-black mb-1">No halls listed yet</p>
+                    <p className="text-xs mb-4" style={{ color: "#9CA3AF" }}>Pricing and hall details will appear here once added.</p>
+                    <a href={`tel:${vendor.phone}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+                      style={{ background: PRIMARY, color: "#fff" }}>
+                      <PhoneIcon /> Contact for Pricing
+                    </a>
                   </div>
-                ))}
-                <div className="rounded-2xl p-5 text-center" style={{ background: vendor.coverGradient }}>
-                  <p className="text-white font-bold text-sm mb-1">Not sure which hall fits your event?</p>
-                  <p className="text-white/80 text-xs mb-4">Our team is happy to help you choose the perfect space.</p>
-                  <a href={`tel:${vendor.phone}`}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold"
-                    style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)" }}>
-                    <PhoneIcon /> {vendor.phone}
-                  </a>
-                </div>
+                ) : (
+                  <>
+                    {vendor.halls.map((hall, i) => (
+                      <div key={i} className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #F0F0F0" }}>
+                        <div className="p-4 lg:p-5">
+                          <div className="flex items-start justify-between gap-3 mb-2.5">
+                            <div className="min-w-0">
+                              <h4 className="text-sm lg:text-base font-bold text-black">{hall.name}</h4>
+                              <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "#6B7280" }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                                Up to {hall.capacity} guests
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-lg lg:text-xl font-bold text-black">Rs. {hall.price.toLocaleString("en-PK")}</p>
+                              <p className="text-[10px]" style={{ color: "#9CA3AF" }}>per event</p>
+                            </div>
+                          </div>
+                          {hall.desc && <p className="text-xs lg:text-sm leading-relaxed" style={{ color: "#6B7280" }}>{hall.desc}</p>}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="rounded-2xl p-5 text-center" style={{ background: vendor.coverGradient }}>
+                      <p className="text-white font-bold text-sm mb-1">Not sure which hall fits your event?</p>
+                      <p className="text-white/80 text-xs mb-4">Our team is happy to help you choose the perfect space.</p>
+                      <a href={`tel:${vendor.phone}`}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+                        style={{ background: "#fff", color: PRIMARY }}>
+                        <PhoneIcon /> {vendor.phone}
+                      </a>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {/* ── Reviews ── */}
             {tab === "reviews" && (
               <div className="space-y-3 lg:space-y-4">
-                <div className="bg-white rounded-2xl p-4 lg:p-5 flex flex-col sm:flex-row items-center gap-4 lg:gap-8" style={{ border: "1px solid #F0F0F0" }}>
-                  <div className="text-center shrink-0">
-                    <p className="text-4xl lg:text-5xl font-black leading-none text-black">{vendor.rating}</p>
-                    <div className="flex justify-center gap-0.5 my-2">
-                      {[1,2,3,4,5].map(n => (
-                        <svg key={n} width="13" height="13" viewBox="0 0 24 24" fill={n <= Math.round(vendor.rating) ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                      ))}
-                    </div>
-                    <p className="text-xs" style={{ color: "#9CA3AF" }}>{vendor.reviewCount} reviews</p>
-                  </div>
-                  <div className="flex-1 w-full space-y-1.5">
-                    {[5,4,3,2,1].map(star => {
-                      const pct = star === 5 ? 72 : star === 4 ? 20 : star === 3 ? 5 : star === 2 ? 2 : 1;
+
+                {/* Header row: count + Write a Review button */}
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-black">
+                    {localReviews.length} Review{localReviews.length !== 1 ? "s" : ""}
+                  </p>
+                  {alreadyReviewed ? (
+                    <span className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold"
+                      style={{ background: "#D1FAE5", color: "#065F46" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                      Reviewed
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => { setReviewError(""); setReviewForm({ name: "", rating: 0, text: "" }); setReviewOpen(true); }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors hover:bg-pink-50 cursor-pointer"
+                      style={{ background: "#FFF0F4", color: PRIMARY, borderColor: "#FFD0DC" }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                      Write a Review
+                    </button>
+                  )}
+                </div>
+
+                {/* Rating summary + individual reviews */}
+                {localReviews.length > 0 ? (
+                  <>
+                    {(() => {
+                      const localCount  = localReviews.length;
+                      const localRating = Math.round((localReviews.reduce((s, r) => s + r.rating, 0) / localCount) * 10) / 10;
+                      const starCounts  = [5,4,3,2,1].map(star => localReviews.filter(r => r.rating === star).length);
+                      const pcts        = starCounts.map(c => Math.round((c / localCount) * 100));
                       return (
-                        <div key={star} className="flex items-center gap-2">
-                          <span className="text-xs w-2 text-right shrink-0" style={{ color: "#9CA3AF" }}>{star}</span>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill={STAR_COLOR} stroke="none" className="shrink-0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                          <div className="flex-1 h-1.5 rounded-full" style={{ background: "#F3F4F6" }}>
-                            <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: "#D1D5DB" }} />
+                        <div className="bg-white rounded-2xl p-4 lg:p-5 flex flex-col sm:flex-row items-center gap-4 lg:gap-8" style={{ border: "1px solid #F0F0F0" }}>
+                          <div className="text-center shrink-0">
+                            <p className="text-4xl lg:text-5xl font-black leading-none text-black">{localRating}</p>
+                            <div className="flex justify-center gap-0.5 my-2">
+                              {[1,2,3,4,5].map(n => (
+                                <svg key={n} width="13" height="13" viewBox="0 0 24 24" fill={n <= Math.round(localRating) ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                              ))}
+                            </div>
+                            <p className="text-xs" style={{ color: "#9CA3AF" }}>{localCount} review{localCount !== 1 ? "s" : ""}</p>
                           </div>
-                          <span className="text-[10px] w-5 text-right shrink-0" style={{ color: "#9CA3AF" }}>{pct}%</span>
+                          <div className="flex-1 w-full space-y-1.5">
+                            {[5,4,3,2,1].map((star, idx) => (
+                              <div key={star} className="flex items-center gap-2">
+                                <span className="text-xs w-2 text-right shrink-0" style={{ color: "#9CA3AF" }}>{star}</span>
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill={STAR_COLOR} stroke="none" className="shrink-0"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                <div className="flex-1 h-1.5 rounded-full" style={{ background: "#F3F4F6" }}>
+                                  <div className="h-1.5 rounded-full" style={{ width: `${pcts[idx]}%`, background: "#D1D5DB" }} />
+                                </div>
+                                <span className="text-[10px] w-5 text-right shrink-0" style={{ color: "#9CA3AF" }}>{pcts[idx]}%</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       );
-                    })}
-                  </div>
-                </div>
-                {vendor.reviews.map((r, i) => (
-                  <div key={i} className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0"
-                          style={{ background: vendor.coverGradient }}>
-                          {r.name[0]}
+                    })()}
+                    {localReviews.map((r, i) => (
+                      <div key={i} className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full flex items-center justify-center font-bold text-white text-sm shrink-0"
+                              style={{ background: vendor.coverGradient }}>
+                              {r.name[0]}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-black">{r.name}</p>
+                              <p className="text-[10px]" style={{ color: "#9CA3AF" }}>{r.date}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-0.5 shrink-0">
+                            {[1,2,3,4,5].map(n => (
+                              <svg key={n} width="11" height="11" viewBox="0 0 24 24" fill={n <= r.rating ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            ))}
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-black">{r.name}</p>
-                          <p className="text-[10px]" style={{ color: "#9CA3AF" }}>{r.date}</p>
-                        </div>
+                        <p className="text-sm leading-relaxed" style={{ color: "#6B7280" }}>{r.text}</p>
                       </div>
-                      <div className="flex gap-0.5 shrink-0">
-                        {[1,2,3,4,5].map(n => (
-                          <svg key={n} width="11" height="11" viewBox="0 0 24 24" fill={n <= r.rating ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: "#6B7280" }}>{r.text}</p>
+                    ))}
+                  </>
+                ) : (
+                  <div className="bg-white rounded-2xl p-8 lg:p-10 text-center" style={{ border: "1px solid #F0F0F0" }}>
+                    <p className="text-sm font-semibold text-black mb-1">No reviews yet</p>
+                    <p className="text-xs" style={{ color: "#9CA3AF" }}>Be the first to share your experience!</p>
                   </div>
-                ))}
+                )}
               </div>
             )}
 
@@ -353,22 +601,30 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
             <div className="sticky top-16 rounded-2xl overflow-hidden" style={{ border: "1px solid #E5E7EB", background: "#fff" }}>
               <div className="p-5">
                 <p className="text-[11px] font-medium mb-1" style={{ color: "#9CA3AF" }}>Starting from</p>
-                <p className="text-3xl font-black leading-tight" style={{ color: PRIMARY }}>
-                  Rs. {minPrice.toLocaleString("en-PK")}
-                </p>
-                <p className="text-xs mt-0.5 mb-5" style={{ color: "#9CA3AF" }}>
-                  per event · {vendor.halls.length} hall{vendor.halls.length > 1 ? "s" : ""} available
-                </p>
+                {vendor.halls.length > 0 ? (
+                  <>
+                    <p className="text-3xl font-black leading-tight" style={{ color: PRIMARY }}>Rs. {minPrice.toLocaleString("en-PK")}</p>
+                    <p className="text-xs mt-0.5 mb-5" style={{ color: "#9CA3AF" }}>per event · {vendor.halls.length} hall{vendor.halls.length > 1 ? "s" : ""} available</p>
+                  </>
+                ) : (
+                  <p className="text-xl font-bold mb-5" style={{ color: PRIMARY }}>Contact for pricing</p>
+                )}
                 <a href={`tel:${vendor.phone}`}
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold mb-2.5 transition-opacity hover:opacity-90"
                   style={{ background: PRIMARY, color: "#fff" }}>
                   <PhoneIcon /> Call Now
                 </a>
                 <a href={`https://wa.me/${vendor.whatsapp}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50 mb-2.5"
                   style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
                   <WhatsAppIcon /> WhatsApp
                 </a>
+                <button
+                  onClick={openInquiry}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50 cursor-pointer"
+                  style={{ background: "#fff", color: PRIMARY, borderColor: "#FFD0DC" }}>
+                  <InquiryIcon /> Send Inquiry
+                </button>
                 <div className="mt-5 pt-5 space-y-3" style={{ borderTop: "1px solid #F3F4F6" }}>
                   {[
                     { k: "Max Guests",    v: `${vendor.maxCapacity} pax` },
@@ -397,25 +653,325 @@ export default function PublicProfile({ vendor: vendorProp }: { vendor: Vendor }
         <div className="h-24 lg:hidden" />
       </div>
 
+      {/* ── Lightbox ── */}
+      {lightboxIndex !== null && (() => {
+        const g    = vendor.gallery[lightboxIndex];
+        const prev = () => setLightboxIndex((lightboxIndex - 1 + vendor.gallery.length) % vendor.gallery.length);
+        const next = () => setLightboxIndex((lightboxIndex + 1) % vendor.gallery.length);
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.92)" }}
+            onClick={() => setLightboxIndex(null)}>
+
+            {/* Close */}
+            <button onClick={() => setLightboxIndex(null)}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center z-10 cursor-pointer transition-colors hover:bg-white/10"
+              style={{ color: "#fff" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            {/* Counter */}
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-semibold text-white z-10"
+              style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}>
+              {lightboxIndex + 1} / {vendor.gallery.length}
+            </div>
+
+            {/* Prev */}
+            {vendor.gallery.length > 1 && (
+              <button onClick={(e) => { e.stopPropagation(); prev(); }}
+                className="absolute left-3 lg:left-6 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer transition-colors hover:bg-white/10 z-10"
+                style={{ color: "#fff", background: "rgba(255,255,255,0.1)" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+              </button>
+            )}
+
+            {/* Image */}
+            <div className="relative max-w-4xl max-h-[80vh] w-full mx-16 lg:mx-24 flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}>
+              {g.imageUrl ? (
+                <img src={g.imageUrl} alt={g.label}
+                  className="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl"
+                  style={{ userSelect: "none" }} />
+              ) : (
+                <div className="w-full rounded-2xl flex items-center justify-center text-white text-lg font-bold"
+                  style={{ aspectRatio: "4/3", background: g.gradient, maxHeight: "80vh" }}>
+                  {g.label}
+                </div>
+              )}
+              {/* Caption */}
+              <div className="absolute bottom-0 left-0 right-0 px-5 py-4 rounded-b-2xl"
+                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)" }}>
+                <p className="text-white font-semibold text-sm">{g.label}</p>
+                {g.sublabel && <p className="text-white/70 text-xs mt-0.5">{g.sublabel}</p>}
+              </div>
+            </div>
+
+            {/* Next */}
+            {vendor.gallery.length > 1 && (
+              <button onClick={(e) => { e.stopPropagation(); next(); }}
+                className="absolute right-3 lg:right-6 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer transition-colors hover:bg-white/10 z-10"
+                style={{ color: "#fff", background: "rgba(255,255,255,0.1)" }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            )}
+
+            {/* Dot indicators */}
+            {vendor.gallery.length > 1 && (
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                {vendor.gallery.map((_, i) => (
+                  <button key={i} onClick={(e) => { e.stopPropagation(); setLightboxIndex(i); }}
+                    className="rounded-full transition-all cursor-pointer"
+                    style={{ width: i === lightboxIndex ? 20 : 6, height: 6, background: i === lightboxIndex ? "#fff" : "rgba(255,255,255,0.35)" }} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Review Modal ── */}
+      {reviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setReviewOpen(false); }}>
+          <div className="bg-white w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl overflow-hidden"
+            style={{ maxHeight: "92vh", overflowY: "auto" }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#F3F4F6" }}>
+              <h2 className="text-base font-bold text-black">Write a Review</h2>
+              <button onClick={() => setReviewOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer"
+                style={{ color: "#6B7280" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div className="p-5">
+              <form onSubmit={submitReview} className="flex flex-col gap-4">
+                {/* Star selector */}
+                <div>
+                  <p className="text-xs font-semibold mb-2" style={{ color: "#6B7280" }}>Your Rating *</p>
+                  <div className="flex gap-2">
+                    {[1,2,3,4,5].map(n => (
+                      <button key={n} type="button"
+                        onClick={() => setReviewForm(f => ({ ...f, rating: n }))}
+                        className="cursor-pointer transition-transform hover:scale-110"
+                        style={{ lineHeight: 0 }}>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill={n <= reviewForm.rating ? STAR_COLOR : "#E5E7EB"} stroke="none">
+                          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Your Name *</label>
+                  <input
+                    required
+                    value={reviewForm.name}
+                    onChange={e => setReviewForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="Your name"
+                    className="w-full px-4 py-3 rounded-xl text-sm border outline-none focus:ring-2"
+                    style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Your Review *</label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={reviewForm.text}
+                    onChange={e => setReviewForm(f => ({ ...f, text: e.target.value }))}
+                    placeholder="Share your experience with this venue..."
+                    className="w-full px-4 py-3 rounded-xl text-sm border outline-none focus:ring-2 resize-none"
+                    style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+                  />
+                </div>
+                {reviewError && (
+                  <div className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "#FEE2E2", color: "#B91C1C" }}>
+                    {reviewError}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={reviewSending}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90 cursor-pointer disabled:opacity-50"
+                  style={{ background: PRIMARY }}>
+                  {reviewSending ? "Submitting…" : "Submit Review"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Inquiry Modal ── */}
+      {inquiryOpen && (
+        <div className="fixed inset-0 z-50 flex items-end lg:items-center justify-center p-0 lg:p-6"
+          style={{ background: "rgba(0,0,0,0.45)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setInquiryOpen(false); }}>
+          <div className="bg-white w-full lg:max-w-lg rounded-t-3xl lg:rounded-3xl overflow-hidden"
+            style={{ maxHeight: "92vh", overflowY: "auto" }}>
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#F3F4F6" }}>
+              <h2 className="text-base font-bold text-black">Send Inquiry</h2>
+              <button onClick={() => setInquiryOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 cursor-pointer"
+                style={{ color: "#6B7280" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div className="p-5">
+              {inquiryDone ? (
+                <div className="text-center py-8">
+                  <p className="text-4xl mb-3">✅</p>
+                  <p className="text-base font-bold text-black mb-1">Inquiry Sent!</p>
+                  <p className="text-sm mb-5" style={{ color: "#6B7280" }}>
+                    {vendor.name} will get back to you soon.
+                  </p>
+                  <button
+                    onClick={() => setInquiryOpen(false)}
+                    className="px-6 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer transition-opacity hover:opacity-90"
+                    style={{ background: PRIMARY }}>
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={submitInquiry} className="flex flex-col gap-3">
+                  {inquiryError && (
+                    <div className="px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "#FEE2E2", color: "#B91C1C" }}>
+                      {inquiryError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Full Name *</label>
+                      <input
+                        required
+                        value={inquiryForm.name}
+                        onChange={e => setInquiryForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="Your name"
+                        className="w-full px-3 py-2.5 rounded-xl text-sm border outline-none focus:ring-2"
+                        style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Phone *</label>
+                      <input
+                        required
+                        value={inquiryForm.phone}
+                        onChange={e => setInquiryForm(f => ({ ...f, phone: e.target.value }))}
+                        placeholder="03xx-xxxxxxx"
+                        className="w-full px-3 py-2.5 rounded-xl text-sm border outline-none focus:ring-2"
+                        style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Event Type</label>
+                      <select
+                        value={inquiryForm.eventType}
+                        onChange={e => setInquiryForm(f => ({ ...f, eventType: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl text-sm border outline-none focus:ring-2"
+                        style={{ borderColor: "#E5E7EB", background: "#F9FAFB", color: inquiryForm.eventType ? "#111" : "#9CA3AF" }}
+                      >
+                        <option value="">Select type</option>
+                        <option>Wedding</option>
+                        <option>Engagement</option>
+                        <option>Birthday</option>
+                        <option>Corporate</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Event Date</label>
+                      <input
+                        type="date"
+                        value={inquiryForm.eventDate}
+                        onChange={e => setInquiryForm(f => ({ ...f, eventDate: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl text-sm border outline-none focus:ring-2"
+                        style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Estimated Guests *</label>
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      value={inquiryForm.guests}
+                      onChange={e => setInquiryForm(f => ({ ...f, guests: e.target.value }))}
+                      placeholder="e.g. 300"
+                      className="w-full px-3 py-2.5 rounded-xl text-sm border outline-none focus:ring-2"
+                      style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Message (optional)</label>
+                    <textarea
+                      rows={3}
+                      value={inquiryForm.message}
+                      onChange={e => setInquiryForm(f => ({ ...f, message: e.target.value }))}
+                      placeholder="Tell us about your event requirements..."
+                      className="w-full px-3 py-2.5 rounded-xl text-sm border outline-none focus:ring-2 resize-none"
+                      style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={inquirySending}
+                    className="w-full py-3 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90 cursor-pointer disabled:opacity-50"
+                    style={{ background: PRIMARY }}
+                  >
+                    {inquirySending ? "Sending…" : "Send Inquiry"}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Mobile Sticky Bottom CTA ── */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white z-30" style={{ borderTop: "1px solid #E5E7EB", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex items-center gap-2.5 px-4 py-3">
           <div className="flex-1 min-w-0">
             <p className="text-[10px]" style={{ color: "#9CA3AF" }}>Starting from</p>
-            <p className="text-sm font-bold leading-tight truncate" style={{ color: PRIMARY }}>
-              Rs. {minPrice.toLocaleString("en-PK")}
-            </p>
+            {vendor.halls.length > 0 ? (
+              <p className="text-sm font-bold leading-tight truncate" style={{ color: PRIMARY }}>
+                Rs. {minPrice.toLocaleString("en-PK")}
+              </p>
+            ) : (
+              <p className="text-sm font-bold leading-tight truncate" style={{ color: PRIMARY }}>
+                Contact for pricing
+              </p>
+            )}
           </div>
           <a href={`tel:${vendor.phone}`}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90 shrink-0"
             style={{ background: PRIMARY, color: "#fff" }}>
-            <PhoneIcon /> Call Now
+            <PhoneIcon /> Call
           </a>
           <a href={`https://wa.me/${vendor.whatsapp}`} target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-center w-10 h-10 rounded-xl border transition-colors hover:bg-gray-50 shrink-0"
             style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
             <WhatsAppIcon />
           </a>
+          <button
+            onClick={openInquiry}
+            className="flex items-center justify-center w-10 h-10 rounded-xl border transition-colors hover:bg-pink-50 shrink-0 cursor-pointer"
+            style={{ background: "#FFF0F4", color: PRIMARY, borderColor: "#FFD0DC" }}>
+            <InquiryIcon />
+          </button>
         </div>
       </div>
 
@@ -461,6 +1017,9 @@ function GalleryTypeIcon({ index }: { index: number }) {
   return icons[index % icons.length];
 }
 
+function InquiryIcon() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
+}
 function PhoneIcon() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.67A2 2 0 012 .84h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.64a16 16 0 006.29 6.29l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>;
 }

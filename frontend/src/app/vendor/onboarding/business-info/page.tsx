@@ -33,6 +33,7 @@ export default function BusinessInfoPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    sessionStorage.setItem("ob_step1", JSON.stringify(form));
     router.push("/vendor/onboarding/halls");
   }
 

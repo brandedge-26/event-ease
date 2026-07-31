@@ -9,12 +9,14 @@ const validateEnv = () => {
         'ACCESS_TOKEN_SECRET',
         'REFRESH_TOKEN_SECRET',
         'DB_URL',
-        'GOOGLE_CLIENT_ID',
-        'GOOGLE_CLIENT_SECRET',
-        'GOOGLE_CALLBACK_URL',
         'CLIENT_URL',
-        // 'SENDER_EMAIL',
-        // 'SENDER_PASS',
+        // Google OAuth — uncomment when implementing OAuth login
+        // 'GOOGLE_CLIENT_ID',
+        // 'GOOGLE_CLIENT_SECRET',
+        // 'GOOGLE_CALLBACK_URL',
+        // Email OTP — required only in production
+        // 'EMAIL_USER',
+        // 'EMAIL_PASS',
     ];
 
     const missing = required.filter(key => !process.env[key]);
@@ -51,5 +53,9 @@ export const ENV = {
 
     ACCESS_TOKEN_SECRET: process.env.ACCESS_TOKEN_SECRET,
     REFRESH_TOKEN_SECRET: process.env.REFRESH_TOKEN_SECRET,
+
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET
 
 }

@@ -6,5 +6,5 @@ export default async function ProfilePage() {
   const h    = await headers();
   const slug = h.get("x-vendor-slug") ?? "royalbanquet";
   const vendor = getVendor(slug);
-  return <PublicProfile vendor={vendor} />;
+  return <PublicProfile vendor={vendor} vendorId="" />;
 }

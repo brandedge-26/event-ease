@@ -30,6 +30,7 @@ export type Vendor = {
   accentLight: string;
   coverGradient: string;
   about: string;
+  logoUrl?: string | null;
   halls: Hall[];
   services: string[];
   amenities: string[];

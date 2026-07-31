@@ -1,7 +1,8 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-
+import apiRoutes from "./routes/index.js";
+import { globalErrorHandler } from "./middleware/errorHandler.js";
 
 
 
@@ -33,7 +34,18 @@ app.use(cors({
 
 
 
+// ROUTES
+app.use("/api", apiRoutes);
+
 // API HEALTH
 app.get("/", (req, res) => {
     res.end("Welcome to Event Ease Server...");
 });
+
+
+
+
+
+
+// Error Handling Middleware
+app.use(globalErrorHandler);

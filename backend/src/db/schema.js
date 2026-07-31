@@ -1,25 +1,46 @@
 import { pgTable, text, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
-export const bookingStatusEnum = pgEnum("booking_status", ["confirmed", "pending", "cancelled"]);
-export const paymentMethodEnum = pgEnum("payment_method", ["Cash", "Bank Transfer", "Cheque", "Online"]);
-export const paymentStatusEnum = pgEnum("payment_status", ["paid", "partial", "pending", "overdue"]);
+export const bookingStatusEnum  = pgEnum("booking_status",  ["confirmed", "pending", "cancelled"]);
+export const paymentMethodEnum  = pgEnum("payment_method",  ["Cash", "Bank Transfer", "Cheque", "Online"]);
+export const paymentStatusEnum  = pgEnum("payment_status",  ["paid", "partial", "pending", "overdue"]);
+export const vendorTypeEnum     = pgEnum("vendor_type",     ["Banquet Hall", "Ballroom", "Marquee"]);
 
 // ─── Vendors ──────────────────────────────────────────────────────────────────
 export const vendors = pgTable("vendors", {
-    id:          text("id").primaryKey(),
-    name:        text("name").notNull(),
-    slug:        text("slug").notNull().unique(),
-    tagline:     text("tagline"),
-    email:       text("email").notNull().unique(),
-    phone:       text("phone"),
-    whatsapp:    text("whatsapp"),
-    location:    text("location"),
-    about:       text("about"),
-    established: integer("established"),
-    isVerified:  boolean("is_verified").default(false),
-    createdAt:   timestamp("created_at").defaultNow(),
-    updatedAt:   timestamp("updated_at").defaultNow(),
+    id:            text("id").primaryKey(),
+    // Business
+    name:          text("name").notNull(),               // businessName
+    slug:          text("slug").notNull().unique(),
+    businessType:  vendorTypeEnum("business_type").notNull(),
+    tagline:       text("tagline"),
+    // Owner / Auth
+    ownerName:     text("owner_name").notNull(),
+    email:         text("email").notNull().unique(),
+    passwordHash:  text("password_hash").notNull(),
+    // Contact
+    phone:         text("phone").notNull(),
+    whatsapp:      text("whatsapp"),
+    // Location
+    city:          text("city").notNull(),
+    area:          text("area").notNull(),
+    address:       text("address").notNull(),
+    // Identity
+    cnic:          text("cnic"),
+    // Profile
+    about:         text("about"),
+    services:      text("services").array(),
+    amenities:     text("amenities").array(),
+    established:   integer("established"),
+    // Auth session
+    refreshToken:  text("refresh_token"),
+    // Media
+    logoUrl:       text("logo_url"),
+    galleryImages: text("gallery_images").array(),
+    // Status
+    isVerified:    boolean("is_verified").default(false),
+    createdAt:     timestamp("created_at").defaultNow(),
+    updatedAt:     timestamp("updated_at").defaultNow(),
 });
 
 // ─── Halls ────────────────────────────────────────────────────────────────────
@@ -92,6 +113,21 @@ export const packages = pgTable("packages", {
     updatedAt:   timestamp("updated_at").defaultNow(),
 });
 
+// ─── Inquiries ────────────────────────────────────────────────────────────────
+export const inquiries = pgTable("inquiries", {
+    id:        text("id").primaryKey(),
+    vendorId:  text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    name:      text("name").notNull(),
+    phone:     text("phone").notNull(),
+    email:     text("email"),
+    message:   text("message").notNull(),
+    eventDate: text("event_date"),
+    eventType: text("event_type"),
+    guests:    integer("guests"),
+    status:    text("status").default("new"),   // new | read | replied
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ─── Staff ────────────────────────────────────────────────────────────────────
 export const staff = pgTable("staff", {
     id:          text("id").primaryKey(),
@@ -109,4 +145,14 @@ export const staff = pgTable("staff", {
     avatarColor: text("avatar_color"),
     createdAt:   timestamp("created_at").defaultNow(),
     updatedAt:   timestamp("updated_at").defaultNow(),
+});
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+export const reviews = pgTable("reviews", {
+    id:        text("id").primaryKey(),
+    vendorId:  text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    name:      text("name").notNull(),
+    rating:    integer("rating").notNull(),
+    text:      text("text").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
 });

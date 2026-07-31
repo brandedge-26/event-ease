@@ -3,17 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const nav = [
   { label: "Dashboard", href: "/vendor/dashboard", icon: <GridIcon /> },
   { label: "Calendar", href: "/vendor/dashboard/calendar", icon: <CalendarIcon /> },
   { label: "Bookings", href: "/vendor/dashboard/bookings", icon: <BookIcon /> },
+  { label: "Inquiries", href: "/vendor/dashboard/inquiries", icon: <InboxIcon /> },
   { label: "Customers", href: "/vendor/dashboard/customers", icon: <UsersIcon /> },
   { label: "Payments", href: "/vendor/dashboard/payments", icon: <PaymentIcon /> },
   { label: "Quotations", href: "/vendor/dashboard/quotations", icon: <FileIcon /> },
   { label: "Packages", href: "/vendor/dashboard/packages", icon: <PackageIcon /> },
-  { label: "Hall Management", href: "/vendor/dashboard/halls", icon: <BuildingIcon /> },
+  { label: "Manage Profile", href: "/vendor/dashboard/profile", icon: <BuildingIcon /> },
   { label: "Staff", href: "/vendor/dashboard/staff", icon: <StaffIcon /> },
   { label: "Reports", href: "/vendor/dashboard/reports", icon: <ChartIcon /> },
 ];
@@ -27,25 +30,38 @@ const bottomNavMain = [
 
 // Shown in "More" modal
 const bottomNavMore = [
+  { label: "Inquiries", href: "/vendor/dashboard/inquiries", icon: <InboxIcon /> },
   { label: "Customers", href: "/vendor/dashboard/customers", icon: <UsersIcon /> },
   { label: "Payments", href: "/vendor/dashboard/payments", icon: <PaymentIcon /> },
   { label: "Quotations", href: "/vendor/dashboard/quotations", icon: <FileIcon /> },
   { label: "Packages", href: "/vendor/dashboard/packages", icon: <PackageIcon /> },
-  { label: "Hall Management", href: "/vendor/dashboard/halls", icon: <BuildingIcon /> },
+  { label: "Manage Profile", href: "/vendor/dashboard/profile", icon: <BuildingIcon /> },
   { label: "Staff", href: "/vendor/dashboard/staff", icon: <StaffIcon /> },
   { label: "Reports", href: "/vendor/dashboard/reports", icon: <ChartIcon /> },
 ];
 
-const BUSINESS_NAME = "Royal Banquet Hall";
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [avatarOpen, setAvatarOpen] = useState(false);
+  const pathname  = usePathname();
+  const router    = useRouter();
+  const [collapsed,   setCollapsed]   = useState(false);
+  const [mobileOpen,  setMobileOpen]  = useState(false);
+  const [moreOpen,    setMoreOpen]    = useState(false);
+  const [isMobile,    setIsMobile]    = useState(false);
+  const [avatarOpen,  setAvatarOpen]  = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
+  const { vendor, clearAuth, isLoading } = useAuthStore();
+
+  async function handleLogout() {
+    await api.post("/api/vendor/auth/logout", {});
+    clearAuth();
+    router.push("/vendor/login");
+  }
+
+  const businessName = vendor?.name      ?? "Business";
+  const ownerName    = vendor?.ownerName ?? businessName;
+  const vendorEmail  = vendor?.email     ?? "";
+  const vendorSlug   = vendor?.slug      ?? "";
+  const initials     = ownerName.charAt(0).toUpperCase();
 
   useEffect(() => {
     function checkMobile() {
@@ -83,12 +99,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const show = mobile ? true : !collapsed;
     return (
       <>
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10 shrink-0" style={{ minHeight: 60 }}>
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10 shrink-0" style={{ minHeight: collapsed && !mobile ? 60 : "auto" }}>
           <Image src="/logo/logo-icon.svg" alt="Event Ease" width={24} height={24} className="rounded-lg shrink-0" />
           {show && (
-            <span className="text-sm font-semibold truncate" style={{ color: "var(--sidebar-fg)" }}>
-              {BUSINESS_NAME}
-            </span>
+            <div className="min-w-0 flex-1">
+              {isLoading ? (
+                <>
+                  <div className="h-4 w-28 rounded-md animate-pulse" style={{ background: "rgba(255,255,255,0.15)" }} />
+                  <div className="h-3 w-16 rounded-md mt-1 animate-pulse" style={{ background: "rgba(255,255,255,0.10)" }} />
+                </>
+              ) : (
+                <>
+                  <span className="text-sm font-semibold truncate block" style={{ color: "var(--sidebar-fg)" }}>
+                    {businessName}
+                  </span>
+                  <span className="text-xs truncate block" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    {ownerName}
+                  </span>
+                </>
+              )}
+            </div>
           )}
         </div>
         <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5" style={{ overflowY: "auto", scrollbarWidth: "none" }}>
@@ -112,6 +142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
         <div className="px-2 pb-4 border-t border-white/10 pt-3 shrink-0">
           <button
+            onClick={handleLogout}
             title={!show ? "Logout" : undefined}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm w-full cursor-pointer hover:bg-white/10 transition-colors"
             style={{ color: "var(--sidebar-fg)", opacity: 0.6, justifyContent: !show ? "center" : undefined }}
@@ -187,30 +218,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main */}
       <div
-        className="flex-1 flex flex-col min-h-screen transition-all duration-200"
-        style={{ marginLeft: isMobile ? 0 : desktopW, paddingBottom: isMobile ? 64 : 0 }}
+        className="flex-1 flex flex-col min-h-screen transition-all duration-200 pb-16 lg:pb-0"
+        style={{ marginLeft: isMobile ? 0 : desktopW }}
       >
         {/* Top Bar */}
         <header
           className="sticky top-0 z-10 flex items-center justify-between px-4 lg:px-6 border-b"
           style={{ background: "#ffffff", height: 60, borderColor: "#E5E7EB" }}
         >
+          {/* Mobile hamburger — always opens drawer */}
           <button
-            onClick={() => isMobile ? setMobileOpen(!mobileOpen) : setCollapsed(!collapsed)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
+            style={{ color: "var(--fg-muted)" }}
+          >
+            <HamburgerIcon />
+          </button>
+          {/* Desktop hamburger — collapses sidebar to icons */}
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden lg:flex w-9 h-9 items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
             style={{ color: "var(--fg-muted)" }}
           >
             <HamburgerIcon />
           </button>
 
           <div className="relative" ref={avatarRef}>
+            {isLoading ? (
+              <div className="w-9 h-9 rounded-full animate-pulse" style={{ background: "#E5E7EB" }} />
+            ) : (
             <button
               onClick={() => setAvatarOpen(!avatarOpen)}
               className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer transition-opacity hover:opacity-80"
               style={{ background: "var(--primary-light)", color: "var(--primary)", border: "1.5px solid var(--primary-muted)" }}
             >
-              R
+              {initials}
             </button>
+            )}
 
             {avatarOpen && (
               <div
@@ -218,8 +262,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 style={{ background: "#ffffff", borderColor: "#E5E7EB" }}
               >
                 <div className="px-4 py-3 border-b" style={{ borderColor: "#F4F4F5" }}>
-                  <p className="text-sm font-semibold text-black truncate">{BUSINESS_NAME}</p>
-                  <p className="text-xs mt-0.5 truncate" style={{ color: "var(--fg-muted)" }}>owner@royalbanquet.com</p>
+                  {isLoading ? (
+                    <>
+                      <div className="h-3.5 w-32 rounded bg-gray-200 animate-pulse mb-1.5" />
+                      <div className="h-3 w-40 rounded bg-gray-100 animate-pulse" />
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-black truncate">{businessName}</p>
+                      <p className="text-xs mt-0.5 truncate" style={{ color: "var(--fg-muted)" }}>{vendorEmail}</p>
+                    </>
+                  )}
                 </div>
                 <div className="p-1.5">
                   <Link href="/vendor/dashboard/profile" onClick={() => setAvatarOpen(false)}
@@ -227,13 +280,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     style={{ color: "var(--fg)" }}>
                     <ProfileIcon /> Business Profile
                   </Link>
+                  {vendorSlug && (
+                    <a href={`/profile/${vendorSlug}`} target="_blank" rel="noopener noreferrer"
+                      onClick={() => setAvatarOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl hover:bg-gray-50 transition-colors"
+                      style={{ color: "var(--fg)" }}>
+                      <ExternalLinkIcon /> View Profile
+                    </a>
+                  )}
                   <Link href="/vendor/dashboard/settings" onClick={() => setAvatarOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl hover:bg-gray-50 transition-colors"
                     style={{ color: "var(--fg)" }}>
                     <SettingsIcon /> Settings
                   </Link>
                   <div className="border-t my-1.5 mx-1" style={{ borderColor: "#F4F4F5" }} />
-                  <button className="flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl w-full text-left hover:bg-red-50 transition-colors cursor-pointer" style={{ color: "var(--danger)" }}>
+                  <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl w-full text-left hover:bg-red-50 transition-colors cursor-pointer" style={{ color: "var(--danger)" }}>
                     <LogoutIcon /> Logout
                   </button>
                 </div>
@@ -316,6 +377,9 @@ function StaffIcon() {
 }
 function ChartIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>;
+}
+function ExternalLinkIcon() {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>;
 }
 function ProfileIcon() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;

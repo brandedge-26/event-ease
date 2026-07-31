@@ -7,10 +7,10 @@ export const metadata: Metadata = {
 };
 
 const steps = [
-  { label: "Business Info", path: "/vendor/onboarding/business-info" },
-  { label: "Hall Details", path: "/vendor/onboarding/halls" },
-  { label: "Account Info", path: "/vendor/onboarding/account" },
-  { label: "Complete", path: "/vendor/onboarding/complete" },
+  { label: "Business Info" },
+  { label: "Hall Details" },
+  { label: "Account Info" },
+  { label: "Verify Email" },
 ];
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
