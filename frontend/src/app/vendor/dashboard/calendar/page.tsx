@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { NewBookingModal, EMPTY_FORM } from "../_components/NewBookingModal";
-import type { BookingStatus } from "../_components/NewBookingModal";
+import { useState, useEffect } from "react";
+import { NewBookingModal } from "../_components/NewBookingModal";
+import { useAuthStore } from "@/store/useAuthStore";
+import { api } from "@/lib/api";
 
 type Booking = {
   id: string;
@@ -16,43 +17,20 @@ type Booking = {
 
 type BookingMap = Record<string, Booking[]>;
 
-const BOOKINGS: BookingMap = {
-  "2026-07-02": [
-    { id: "b1", customerName: "Ahmed Khan", event: "Wedding", hall: "Hall A", guests: 350, time: "6:00 PM", status: "confirmed" },
-  ],
-  "2026-07-05": [
-    { id: "b2", customerName: "Sara Malik", event: "Birthday Party", hall: "Hall B", guests: 80, time: "4:00 PM", status: "confirmed" },
-    { id: "b3", customerName: "Raza Corp", event: "Corporate Dinner", hall: "Hall C", guests: 120, time: "7:30 PM", status: "confirmed" },
-  ],
-  "2026-07-10": [
-    { id: "b4", customerName: "Nadia Shah", event: "Wedding", hall: "Hall A", guests: 400, time: "5:00 PM", status: "pending" },
-  ],
-  "2026-07-14": [
-    { id: "b5", customerName: "Usman Ali", event: "Engagement", hall: "Hall B", guests: 200, time: "7:00 PM", status: "confirmed" },
-  ],
-  "2026-07-18": [
-    { id: "b6", customerName: "Hina Baig", event: "Wedding", hall: "Hall A", guests: 500, time: "6:30 PM", status: "confirmed" },
-    { id: "b7", customerName: "Tariq & Co", event: "Conference", hall: "Hall C", guests: 60, time: "10:00 AM", status: "confirmed" },
-  ],
-  "2026-07-20": [
-    { id: "b8", customerName: "Maintenance", event: "Hall Closed", hall: "Hall A", guests: 0, time: "All Day", status: "blocked" },
-  ],
-  "2026-07-24": [
-    { id: "b9", customerName: "Bilal Raza", event: "Birthday Party", hall: "Hall B", guests: 90, time: "5:00 PM", status: "pending" },
-  ],
-  "2026-07-28": [
-    { id: "b10", customerName: "Fatima Malik", event: "Wedding", hall: "Hall A", guests: 450, time: "6:00 PM", status: "confirmed" },
-  ],
-  "2026-08-03": [
-    { id: "b11", customerName: "Omar Sheikh", event: "Corporate Event", hall: "Hall C", guests: 150, time: "11:00 AM", status: "confirmed" },
-  ],
-  "2026-08-08": [
-    { id: "b12", customerName: "Zara Ahmed", event: "Engagement", hall: "Hall B", guests: 180, time: "7:00 PM", status: "pending" },
-  ],
-  "2026-08-15": [
-    { id: "b13", customerName: "Ali Hassan", event: "Wedding", hall: "Hall A", guests: 380, time: "6:00 PM", status: "confirmed" },
-  ],
+type DbBooking = {
+  id: string; customerName: string; event: string; hall: string;
+  guests: number; timeFrom: string | null; status: "confirmed" | "pending" | "cancelled" | "blocked";
+  date: string;
 };
+
+function fmt12h(t: string | null): string {
+  if (!t) return "—";
+  if (/[AP]M/i.test(t)) return t;
+  const [h, m] = t.split(":").map(Number);
+  if (isNaN(h)) return "—";
+  const ampm = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS_FULL = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -155,10 +133,49 @@ function DayDetailModal({ dateKey, bookings, onClose, onNewBooking, onCloseHall 
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CalendarPage() {
+  const { accessToken } = useAuthStore();
   const today = new Date();
   const [year, setYear]     = useState(today.getFullYear());
   const [month, setMonth]   = useState(today.getMonth());
   const [modalKey, setModalKey] = useState<string | null>(null);
+  const [bookingMap, setBookingMap] = useState<BookingMap>({});
+  const [hallNames,  setHallNames]  = useState<string[]>([]);
+  const [loading,    setLoading]    = useState(true);
+
+  // Load real bookings from API
+  useEffect(() => {
+    if (!accessToken) return;
+    (async () => {
+      try {
+        const [bRes, hRes] = await Promise.all([
+          api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken),
+          api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
+        ]);
+        if (bRes.success) {
+          const map: BookingMap = {};
+          bRes.bookings
+            .filter(b => b.status !== "cancelled")
+            .forEach(b => {
+              const entry: Booking = {
+                id:           b.id,
+                customerName: b.customerName,
+                event:        b.event,
+                hall:         b.hall,
+                guests:       b.guests ?? 0,
+                time:         fmt12h(b.timeFrom),
+                status:       b.status as "confirmed" | "pending",
+              };
+              if (!map[b.date]) map[b.date] = [];
+              map[b.date].push(entry);
+            });
+          setBookingMap(map);
+        }
+        if (hRes.success && hRes.halls.length > 0)
+          setHallNames(hRes.halls.map(h => h.name));
+      } catch { /* silently ignore */ }
+      finally { setLoading(false); }
+    })();
+  }, [accessToken]);
 
   function prevMonth() { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); }
   function nextMonth() { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); }
@@ -185,15 +202,46 @@ export default function CalendarPage() {
 
   const todayKey = toKey(today.getFullYear(), today.getMonth(), today.getDate());
   const prefix   = `${year}-${String(month + 1).padStart(2, "0")}`;
-  const monthEntries    = Object.entries(BOOKINGS).filter(([k]) => k.startsWith(prefix));
-  const allMonthBookings = monthEntries.flatMap(([, b]) => b);
-  const confirmedCount  = allMonthBookings.filter(b => b.status === "confirmed").length;
-  const pendingCount    = allMonthBookings.filter(b => b.status === "pending").length;
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingDefaultDate, setBookingDefaultDate] = useState("");
   const [extraBookings, setExtraBookings] = useState<BookingMap>({});
-  const allBookings = (key: string) => [...(BOOKINGS[key] || []), ...(extraBookings[key] || [])];
-  const modalBookings   = modalKey ? allBookings(modalKey) : [];
+  const allBookings = (key: string) => [...(bookingMap[key] || []), ...(extraBookings[key] || [])];
+
+  const monthEntries     = Object.entries({ ...bookingMap, ...extraBookings }).filter(([k]) => k.startsWith(prefix));
+  const allMonthBookings = monthEntries.flatMap(([, b]) => b);
+  const confirmedCount   = allMonthBookings.filter(b => b.status === "confirmed").length;
+  const pendingCount     = allMonthBookings.filter(b => b.status === "pending").length;
+  const bookedDates      = new Set(Object.keys(bookingMap).filter(k => (bookingMap[k] ?? []).length > 0));
+
+  const modalBookings = modalKey ? allBookings(modalKey) : [];
+
+  async function handleCloseHall(key: string) {
+    setModalKey(null);
+    if (!accessToken) return;
+    try {
+      const res = await api.post<{ id: string }>("/api/vendor/bookings", {
+        customerName: "Maintenance",
+        event:        "Hall Closed",
+        hall:         hallNames[0] || "Hall",
+        date:         key,
+        status:       "blocked",
+        guests:       0,
+        amount:       0,
+      }, accessToken);
+      if (res.success) {
+        const entry: Booking = {
+          id:           res.id,
+          customerName: "Maintenance",
+          event:        "Hall Closed",
+          hall:         hallNames[0] || "Hall",
+          guests:       0,
+          time:         "All Day",
+          status:       "blocked",
+        };
+        setBookingMap(prev => ({ ...prev, [key]: [...(prev[key] ?? []), entry] }));
+      }
+    } catch { /* ignore */ }
+  }
 
   return (
     <>
@@ -209,6 +257,8 @@ export default function CalendarPage() {
         open={bookingModalOpen}
         onClose={() => setBookingModalOpen(false)}
         defaultDate={bookingDefaultDate}
+        halls={hallNames}
+        bookedDates={bookedDates}
         onSubmit={(_form, _status, _services) => {
           setBookingModalOpen(false);
         }}
@@ -224,22 +274,7 @@ export default function CalendarPage() {
             setModalKey(null);
             setBookingModalOpen(true);
           }}
-          onCloseHall={() => {
-            const key = modalKey!;
-            setExtraBookings(prev => ({
-              ...prev,
-              [key]: [...(prev[key] || []), {
-                id: `blocked-${key}`,
-                customerName: "Maintenance",
-                event: "Hall Closed",
-                hall: "Hall A",
-                guests: 0,
-                time: "All Day",
-                status: "blocked",
-              }],
-            }));
-            setModalKey(null);
-          }}
+          onCloseHall={() => handleCloseHall(modalKey!)}
         />
       )}
 
@@ -262,16 +297,25 @@ export default function CalendarPage() {
 
         {/* Month Summary */}
         <div className="grid grid-cols-3 gap-2 lg:gap-3">
-          {[
-            { value: monthEntries.length, label: "Booked Days", color: "text-black" },
-            { value: confirmedCount,      label: "Confirmed",   color: "#16A34A" },
-            { value: pendingCount,        label: "Pending",     color: "#D97706" },
-          ].map(s => (
-            <div key={s.label} className="bg-white rounded-2xl p-3 lg:p-4 shadow-sm text-center">
-              <p className="text-xl lg:text-2xl font-semibold" style={{ color: typeof s.color === "string" && s.color.startsWith("#") ? s.color : undefined }} >{s.value}</p>
-              <p className="text-[10px] lg:text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>{s.label}</p>
-            </div>
-          ))}
+          {loading ? (
+            ["Booked Days", "Confirmed", "Pending"].map(label => (
+              <div key={label} className="bg-white rounded-2xl p-3 lg:p-4 shadow-sm text-center">
+                <div className="h-7 w-8 rounded-lg animate-pulse mx-auto mb-1.5" style={{ background: "#E5E7EB" }} />
+                <div className="h-3 w-16 rounded animate-pulse mx-auto" style={{ background: "#F3F4F6" }} />
+              </div>
+            ))
+          ) : (
+            [
+              { value: monthEntries.length, label: "Booked Days", color: "text-black" },
+              { value: confirmedCount,      label: "Confirmed",   color: "#16A34A" },
+              { value: pendingCount,        label: "Pending",     color: "#D97706" },
+            ].map(s => (
+              <div key={s.label} className="bg-white rounded-2xl p-3 lg:p-4 shadow-sm text-center">
+                <p className="text-xl lg:text-2xl font-semibold" style={{ color: typeof s.color === "string" && s.color.startsWith("#") ? s.color : undefined }}>{s.value}</p>
+                <p className="text-[10px] lg:text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>{s.label}</p>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Calendar */}
@@ -305,20 +349,42 @@ export default function CalendarPage() {
 
           {/* Day cells */}
           <div className="grid grid-cols-7 flex-1" style={{ gridTemplateRows: `repeat(${weeks}, 1fr)` }}>
-            {cells.map((cell, i) => {
-              const bookings    = allBookings(cell.key);
-              const isToday     = cell.key === todayKey && cell.currentMonth;
-              const hasConfirmed = cell.currentMonth && bookings.some(b => b.status === "confirmed");
-              const hasPending   = cell.currentMonth && bookings.some(b => b.status === "pending");
-              const hasBlocked   = cell.currentMonth && bookings.some(b => b.status === "blocked");
-              const hasAny       = cell.currentMonth && bookings.length > 0;
+            {loading ? (
+              // Skeleton cells — 35 placeholder tiles
+              Array.from({ length: 35 }).map((_, i) => {
+                const hasBar1 = [2, 5, 9, 14, 18, 22, 27, 30].includes(i);
+                const hasBar2 = [5, 18].includes(i);
+                return (
+                  <div key={i} className="p-1.5 lg:p-2" style={{ border: "1px solid #F0F0F0", minHeight: 60 }}>
+                    {/* Day number skeleton */}
+                    <div className="w-6 h-6 rounded-full animate-pulse mb-1.5" style={{ background: "#E5E7EB" }} />
+                    {/* Booking bar skeletons — desktop only */}
+                    {hasBar1 && <div className="hidden lg:block h-3 rounded-md animate-pulse mb-1" style={{ background: "#E5E7EB", width: "80%" }} />}
+                    {hasBar1 && <div className="hidden lg:block h-2.5 rounded-md animate-pulse" style={{ background: "#F3F4F6", width: "60%" }} />}
+                    {hasBar2 && <div className="hidden lg:block h-2.5 rounded-md animate-pulse mt-1" style={{ background: "#F3F4F6", width: "50%" }} />}
+                    {/* Mobile dot skeleton */}
+                    {hasBar1 && <div className="flex justify-center gap-1 mt-1 lg:hidden"><div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#E5E7EB" }} /></div>}
+                  </div>
+                );
+              })
+            ) : cells.map((cell, i) => {
+              const bookings     = allBookings(cell.key);
+              const isToday      = cell.key === todayKey && cell.currentMonth;
+              const isPast       = cell.currentMonth && cell.key < todayKey;
+              const hasConfirmed = cell.currentMonth && !isPast && bookings.some(b => b.status === "confirmed");
+              const hasPending   = cell.currentMonth && !isPast && bookings.some(b => b.status === "pending");
+              const hasBlocked   = cell.currentMonth && !isPast && bookings.some(b => b.status === "blocked");
+              const hasAny       = cell.currentMonth && !isPast && bookings.length > 0;
+              const clickable    = cell.currentMonth && !isPast;
 
               // Today + any event → always full primary (even if pending)
               const isTodayEvent = isToday && (hasConfirmed || hasPending);
 
-              let cellBg = "transparent";
+              let cellBg     = "transparent";
               let cellBorder = "transparent";
-              if (cell.currentMonth) {
+              if (isPast) {
+                cellBg = "#FAFAFA"; cellBorder = "#F0F0F0";
+              } else if (cell.currentMonth) {
                 if (isTodayEvent)                          { cellBg = "var(--primary)";       cellBorder = "var(--primary-hover)"; }
                 else if (hasConfirmed && !hasBlocked)      { cellBg = "var(--primary-light)"; cellBorder = "#F9A8C9"; }
                 else if (hasPending && !hasBlocked)        { cellBg = "#FFFBEB";              cellBorder = "#FCD34D"; }
@@ -326,9 +392,11 @@ export default function CalendarPage() {
                 else                                       { cellBg = "#F0FDF4";              cellBorder = "#BBF7D0"; }
               }
 
-              const onWhite = isTodayEvent; // text is white when on full primary
+              const onWhite = isTodayEvent;
               const dayColor = !cell.currentMonth
                 ? "#D1D5DB"
+                : isPast
+                ? "#C4C4C4"
                 : onWhite
                 ? "#ffffff"
                 : hasConfirmed
@@ -342,16 +410,17 @@ export default function CalendarPage() {
               return (
                 <div
                   key={i}
-                  onClick={() => cell.currentMonth && setModalKey(cell.key)}
+                  onClick={() => clickable && setModalKey(cell.key)}
                   className={`flex flex-col transition-colors${isTodayEvent ? " today-pulse" : ""}`}
                   style={{
-                    cursor: cell.currentMonth ? "pointer" : "default",
+                    cursor: clickable ? "pointer" : "default",
                     background: cellBg,
                     border: `1px solid ${cell.currentMonth ? cellBorder : "#F0F0F0"}`,
                     margin: cell.currentMonth ? 2 : 0,
                     borderRadius: cell.currentMonth ? 10 : 0,
                     minHeight: 60,
                     padding: "6px 4px 4px 6px",
+                    opacity: isPast ? 0.5 : 1,
                   }}
                 >
                   {/* Day number — centered on mobile, left on desktop */}

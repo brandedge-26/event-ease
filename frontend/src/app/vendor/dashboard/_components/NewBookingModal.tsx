@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export type BookingStatus = "confirmed" | "pending" | "cancelled";
 
@@ -44,10 +44,11 @@ function dateKey(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
-export function DatePicker({ value, onChange, hasError }: {
+export function DatePicker({ value, onChange, hasError, bookedDates }: {
   value: string;
   onChange: (v: string) => void;
   hasError?: boolean;
+  bookedDates?: Set<string>;
 }) {
   const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
   const todayKey  = dateKey(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
@@ -125,19 +126,23 @@ export function DatePicker({ value, onChange, hasError }: {
       {/* Cells */}
       <div className="grid grid-cols-7 px-2 pb-3 gap-y-0.5">
         {cells.map((cell, i) => {
-          const isPast     = cell.current && cell.key < todayKey;
-          const isToday    = cell.key === todayKey && cell.current;
-          const isSelected = cell.key === value && cell.current;
-          const isOther    = !cell.current;
-          const clickable  = cell.current && !isPast;
+          const isPast      = cell.current && cell.key < todayKey;
+          const isToday     = cell.key === todayKey && cell.current;
+          const isSelected  = cell.key === value && cell.current;
+          const isOther     = !cell.current;
+          const isBooked    = !!bookedDates?.has(cell.key) && cell.current && !isPast;
+          const clickable   = cell.current && !isPast && !isBooked;
 
           let bg        = "transparent";
           let textColor = "var(--fg)";
           let opacity   = 1;
+          let cursor    = "pointer";
 
-          if (isSelected)   { bg = "var(--primary)"; textColor = "#fff"; }
-          else if (isToday) { bg = "var(--primary-light)"; textColor = "var(--primary)"; }
-          else if (isPast || isOther) { textColor = "#D1D5DB"; opacity = 0.6; }
+          if (isSelected)                         { bg = "var(--primary)"; textColor = "#fff"; }
+          else if (isBooked)                      { bg = "var(--primary)"; textColor = "#fff"; opacity = 0.7; cursor = "not-allowed"; }
+          else if (isToday)                       { bg = "var(--primary-light)"; textColor = "var(--primary)"; }
+          else if (cell.current && !isPast)       { bg = "#F0FDF4"; textColor = "#16A34A"; }
+          else if (isPast || isOther)             { bg = "transparent"; textColor = "#D1D5DB"; opacity = 0.6; cursor = "default"; }
 
           return (
             <div key={i} className="flex items-center justify-center py-0.5">
@@ -150,8 +155,8 @@ export function DatePicker({ value, onChange, hasError }: {
                   background: bg,
                   color: textColor,
                   opacity,
-                  cursor: clickable ? "pointer" : "default",
-                  fontWeight: isSelected || isToday ? 700 : 400,
+                  cursor: !cell.current ? "default" : cursor,
+                  fontWeight: isSelected || isToday || isBooked ? 700 : 400,
                 }}
               >
                 {cell.day}
@@ -160,6 +165,20 @@ export function DatePicker({ value, onChange, hasError }: {
           );
         })}
       </div>
+
+      {/* Legend */}
+      {bookedDates && bookedDates.size > 0 && (
+        <div className="flex items-center gap-4 px-4 pb-3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full inline-block" style={{ background: "var(--primary)", opacity: 0.7 }} />
+            <span className="text-[10px]" style={{ color: "var(--fg-muted)" }}>Booked</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full inline-block" style={{ background: "#F0FDF4", border: "1.5px solid #86EFAC" }} />
+            <span className="text-[10px]" style={{ color: "var(--fg-muted)" }}>Available</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -240,14 +259,19 @@ function FieldError({ msg }: { msg: string }) {
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
-export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
+export function NewBookingModal({ open, onClose, onSubmit, defaultDate, submitting = false, halls: hallsProp, bookedDates }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (form: typeof EMPTY_FORM, status: BookingStatus, services: ServiceEntry[]) => void;
   defaultDate?: string;
+  submitting?: boolean;
+  halls?: string[];
+  bookedDates?: Set<string>;
 }) {
+  const activeHalls = hallsProp?.length ? hallsProp : HALLS;
+
   const [step, setStep]           = useState(1);
-  const [form, setForm]           = useState({ ...EMPTY_FORM, date: defaultDate || "" });
+  const [form, setForm]           = useState({ ...EMPTY_FORM, hall: activeHalls[0], date: defaultDate || "" });
   const [formStatus, setFormStatus] = useState<"confirmed" | "pending">("pending");
   const [timeFrom, setTimeFrom]   = useState<{ h: string; m: string; ampm: "AM" | "PM" }>({ h: "06", m: "00", ampm: "PM" });
   const [timeTo,   setTimeTo]     = useState<{ h: string; m: string; ampm: "AM" | "PM" }>({ h: "11", m: "00", ampm: "PM" });
@@ -256,7 +280,7 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
 
   function reset() {
     setStep(1);
-    setForm({ ...EMPTY_FORM, date: defaultDate || "" });
+    setForm({ ...EMPTY_FORM, hall: activeHalls[0], date: defaultDate || "" });
     setFormStatus("pending");
     setTimeFrom({ h: "06", m: "00", ampm: "PM" });
     setTimeTo({ h: "11", m: "00", ampm: "PM" });
@@ -264,7 +288,10 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
     setErrors({});
   }
 
-  function handleClose() { reset(); onClose(); }
+  // Reset when modal closes so next open always starts fresh
+  useEffect(() => { if (!open) reset(); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleClose() { onClose(); }
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value } = e.target;
     setForm(f => ({ ...f, [name]: value }));
@@ -314,7 +341,6 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
     const servicesTotal = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
     const grandTotal    = (Number(form.amount) || 0) + servicesTotal;
     onSubmit({ ...form, timeFrom: timeFromStr, timeTo: timeToStr, amount: String(grandTotal) }, formStatus, services);
-    reset();
   }
 
   if (!open) return null;
@@ -424,9 +450,15 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
                   {errors.event && <FieldError msg={errors.event} />}
                 </div>
 
-                <select name="hall" value={form.hall} onChange={handleChange} className={inp} style={inpStyle}>
-                  {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
-                </select>
+                {activeHalls.length > 0 ? (
+                  <select name="hall" value={form.hall} onChange={handleChange} className={inp} style={inpStyle}>
+                    {activeHalls.map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                ) : (
+                  <p className="text-xs px-4 py-3 rounded-xl" style={{ background: "#FFFBEB", color: "#D97706", border: "1px solid #FDE68A" }}>
+                    No halls configured — go to Hall Management to add halls first.
+                  </p>
+                )}
 
                 <div>
                   <label className="text-xs font-medium mb-1 block" style={{ color: "var(--fg-muted)" }}>Event Date *</label>
@@ -434,6 +466,7 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
                     value={form.date}
                     onChange={v => { setForm(f => ({ ...f, date: v })); if (errors.date) setErrors(p => ({ ...p, date: "" })); }}
                     hasError={!!errors.date}
+                    bookedDates={bookedDates}
                   />
                   {errors.date && <FieldError msg={errors.date} />}
                 </div>
@@ -569,9 +602,7 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
                 </div>
                 {servicesTotal > 0 && (
                   <div className="flex items-center justify-between px-4 py-2.5 border-t" style={{ background: "var(--bg-subtle)", borderColor: "#E5E7EB" }}>
-                    <span className="text-xs" style={{ color: "var(--fg-muted)" }}>
-                      Services ({services.length})
-                    </span>
+                    <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Services ({services.length})</span>
                     <span className="text-xs font-medium text-black">+ Rs. {servicesTotal.toLocaleString("en-PK")}</span>
                   </div>
                 )}
@@ -580,7 +611,9 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
                   <span className="text-sm font-bold" style={{ color: "var(--primary)" }}>Rs. {grandTotal.toLocaleString("en-PK")}</span>
                 </div>
                 <div className="flex items-center justify-between px-4 py-2.5 border-t" style={{ background: "var(--bg-subtle)", borderColor: "#E5E7EB" }}>
-                  <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Balance Due</span>
+                  <span className="text-xs" style={{ color: "var(--fg-muted)" }}>
+                    {paidAmt > 0 ? `Advance: Rs. ${paidAmt.toLocaleString("en-PK")} · ` : ""}Balance Due
+                  </span>
                   <span className="text-sm font-bold" style={{ color: balanceDue > 0 ? "#D97706" : "#16A34A" }}>
                     Rs. {balanceDue.toLocaleString("en-PK")}
                   </span>
@@ -609,52 +642,10 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
                   placeholder="Any special instructions or notes..."
                   value={form.notes}
                   onChange={handleChange}
-                  rows={4}
+                  rows={3}
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none border resize-none leading-relaxed"
-                  style={{ ...inpStyle, minHeight: "100px" }}
+                  style={{ ...inpStyle }}
                 />
-              </div>
-
-              {/* Booking summary — always last */}
-              <div className="rounded-2xl p-4 flex flex-col gap-2.5" style={{ background: "var(--primary-light)", border: "1px solid var(--primary-muted)" }}>
-                <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--primary)" }}>Booking Summary</p>
-                <div className="h-px" style={{ background: "var(--primary-muted)" }} />
-                {[
-                  { label: "Customer", value: form.customerName || "—" },
-                  { label: "Event",    value: form.event ? `${form.event} — ${form.hall}` : "—" },
-                  { label: "Date",     value: form.date ? new Date(form.date + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—" },
-                  { label: "Time",     value: `${timeFrom.h}:${timeFrom.m} ${timeFrom.ampm} → ${timeTo.h}:${timeTo.m} ${timeTo.ampm}` },
-                  { label: "Guests",   value: form.guests ? `${form.guests} guests` : "—" },
-                  { label: "Services", value: services.length > 0 ? services.map(s => s.customName || s.label).join(", ") : "None" },
-                ].map(r => (
-                  <div key={r.label} className="flex items-start justify-between gap-2">
-                    <span className="text-xs shrink-0" style={{ color: "var(--fg-muted)" }}>{r.label}</span>
-                    <span className="text-xs font-semibold text-black text-right">{r.value}</span>
-                  </div>
-                ))}
-                <div className="h-px" style={{ background: "var(--primary-muted)" }} />
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Hall Amount</span>
-                  <span className="text-xs font-semibold text-black">Rs. {hallAmt.toLocaleString("en-PK")}</span>
-                </div>
-                {servicesTotal > 0 && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Services</span>
-                    <span className="text-xs font-semibold text-black">+ Rs. {servicesTotal.toLocaleString("en-PK")}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold" style={{ color: "var(--primary)" }}>Total Amount</span>
-                  <span className="text-sm font-bold" style={{ color: "var(--primary)" }}>Rs. {grandTotal.toLocaleString("en-PK")}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: "var(--fg-muted)" }}>Advance Paid</span>
-                  <span className="text-xs font-semibold" style={{ color: "#16A34A" }}>Rs. {paidAmt.toLocaleString("en-PK")}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Balance Due</span>
-                  <span className="text-sm font-bold" style={{ color: balanceDue > 0 ? "#D97706" : "#16A34A" }}>Rs. {balanceDue.toLocaleString("en-PK")}</span>
-                </div>
               </div>
             </>
             );
@@ -677,10 +668,15 @@ export function NewBookingModal({ open, onClose, onSubmit, defaultDate }: {
               Next <ChevRightIcon />
             </button>
           ) : (
-            <button type="button" onClick={handleSubmit}
-              className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90"
+            <button type="button" onClick={handleSubmit} disabled={submitting}
+              className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-70 flex items-center justify-center gap-2"
               style={{ background: "var(--primary)", color: "#ffffff" }}>
-              Create Booking
+              {submitting ? (
+                <>
+                  <svg className="animate-spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" strokeOpacity="0.3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                  Creating…
+                </>
+              ) : "Create Booking"}
             </button>
           )}
         </div>

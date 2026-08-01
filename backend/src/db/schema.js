@@ -1,7 +1,7 @@
 import { pgTable, text, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
-export const bookingStatusEnum  = pgEnum("booking_status",  ["confirmed", "pending", "cancelled"]);
+export const bookingStatusEnum  = pgEnum("booking_status",  ["confirmed", "pending", "cancelled", "blocked"]);
 export const paymentMethodEnum  = pgEnum("payment_method",  ["Cash", "Bank Transfer", "Cheque", "Online"]);
 export const paymentStatusEnum  = pgEnum("payment_status",  ["paid", "partial", "pending", "overdue"]);
 export const vendorTypeEnum     = pgEnum("vendor_type",     ["Banquet Hall", "Ballroom", "Marquee"]);
@@ -78,9 +78,11 @@ export const bookings = pgTable("bookings", {
     timeTo:      text("time_to"),
     guests:      integer("guests").default(0),
     amount:      integer("amount").default(0),
+    hallAmount:  integer("hall_amount").default(0),
     paid:        integer("paid").default(0),
     status:      bookingStatusEnum("status").default("pending"),
     notes:       text("notes"),
+    services:    text("services"),   // JSON-encoded BookingService[]
     createdAt:   timestamp("created_at").defaultNow(),
     updatedAt:   timestamp("updated_at").defaultNow(),
 });

@@ -1,10 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NewBookingModal, DatePicker, EMPTY_FORM } from "../_components/NewBookingModal";
 import type { BookingStatus, ServiceEntry } from "../_components/NewBookingModal";
-import { useStore } from "@/store/useStore";
 import type { Booking, PaymentRecord, PaymentMethod } from "@/store/useStore";
+import { api } from "@/lib/api";
+import { useAuthStore } from "@/store/useAuthStore";
+
+// ─── DB response types ────────────────────────────────────────────────────────
+type DbPayment = {
+  id: string; bookingId: string; vendorId: string;
+  amount: number; method: string; note: string | null;
+  date: string | null; createdAt: string;
+};
+type DbBooking = {
+  id: string; vendorId: string; customerId: string | null;
+  customerName: string; phone: string; event: string; hall: string;
+  date: string; timeFrom: string | null; timeTo: string | null;
+  guests: number; amount: number; hallAmount: number; paid: number;
+  status: BookingStatus | "blocked"; notes: string | null;
+  services: { label: string; unit?: string; price?: string }[] | null;
+  payments: DbPayment[]; createdAt: string; updatedAt: string;
+};
+
+function dbToLocal(b: DbBooking): Booking {
+  return {
+    id:           b.id,
+    customerName: b.customerName,
+    phone:        b.phone ?? "",
+    event:        b.event,
+    hall:         b.hall,
+    date:         b.date,
+    timeFrom:     b.timeFrom  ?? "",
+    timeTo:       b.timeTo    ?? "",
+    guests:       b.guests    ?? 0,
+    amount:       b.amount    ?? 0,
+    hallAmount:   b.hallAmount ?? 0,
+    paid:         b.paid      ?? 0,
+    status:       b.status    ?? "pending",
+    notes:        b.notes     ?? "",
+    services:     (b.services ?? []).map(s => ({ label: s.label, unit: s.unit ?? "", price: s.price ?? "" })),
+    payments:     (b.payments ?? []).map(p => ({
+      id:     p.id,
+      amount: p.amount,
+      date:   p.date ?? new Date().toISOString().slice(0, 10),
+      note:   p.note ?? "",
+      method: (p.method ?? "Cash") as PaymentMethod,
+    })),
+  };
+}
 
 type Status = BookingStatus;
 
@@ -34,8 +78,8 @@ const FILTER_TABS: { label: string; value: "all" | Status }[] = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
-const HALLS       = ["Hall A", "Hall B", "Hall C"];
-const EVENT_TYPES = ["Wedding", "Engagement", "Birthday Party", "Corporate Event", "Conference", "Anniversary", "Other"];
+const HALLS_FALLBACK = ["Hall A", "Hall B", "Hall C"];
+const EVENT_TYPES    = ["Wedding", "Engagement", "Birthday Party", "Corporate Event", "Conference", "Anniversary", "Other"];
 
 const METHOD_CONFIG: Record<PaymentMethod, { color: string; bg: string }> = {
   "Cash":          { color: "#16A34A", bg: "#F0FDF4" },
@@ -68,10 +112,12 @@ function fromTimeInput(t: string): string {
 }
 
 // ─── Edit Booking Modal ───────────────────────────────────────────────────────
-function EditBookingModal({ booking, onClose, onSave }: {
+function EditBookingModal({ booking, onClose, onSave, halls = HALLS_FALLBACK, bookedDates }: {
   booking: Booking;
   onClose: () => void;
   onSave: (b: Booking) => void;
+  halls?: string[];
+  bookedDates?: Set<string>;
 }) {
   const [form, setForm] = useState({
     customerName: booking.customerName,
@@ -155,7 +201,7 @@ function EditBookingModal({ booking, onClose, onSave }: {
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
           <p className="text-sm font-bold text-black">Edit Booking</p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>{booking.id}</p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>{booking.customerName} · {booking.event}</p>
         </div>
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100" style={{ color: "var(--fg-muted)" }}><XIcon /></button>
       </div>
@@ -182,11 +228,11 @@ function EditBookingModal({ booking, onClose, onSave }: {
             {errors.event && <p className="text-xs font-medium mt-0.5" style={{ color: "#DC2626" }}>{errors.event}</p>}
           </div>
           <select name="hall" value={form.hall} onChange={handleChange} className={inp} style={inpSt}>
-            {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
+            {halls.map(h => <option key={h} value={h}>{h}</option>)}
           </select>
           <div>
             <label className="text-xs font-medium mb-1 block" style={{ color: "var(--fg-muted)" }}>Event Date *</label>
-            <DatePicker value={form.date} onChange={v => { set("date", v); }} hasError={!!errors.date} />
+            <DatePicker value={form.date} onChange={v => { set("date", v); }} hasError={!!errors.date} bookedDates={bookedDates} />
             {errors.date && <p className="text-xs font-medium mt-0.5" style={{ color: "#DC2626" }}>{errors.date}</p>}
           </div>
           <div>
@@ -356,7 +402,7 @@ function formatTime(t: string) {
 
 function generateBookingPDF(b: Booking) {
   const balance  = b.amount - b.paid;
-  const paidPct  = b.amount > 0 ? Math.round((b.paid / b.amount) * 100) : 0;
+  const paidPct  = b.amount > 0 ? Math.min(100, Math.round((b.paid / b.amount) * 100)) : 0;
   const fmtAmt   = (n: number) => "Rs. " + n.toLocaleString("en-PK");
   const servicesTotal = (b.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
 
@@ -389,7 +435,7 @@ function generateBookingPDF(b: Booking) {
   .footer{margin-top:36px;padding-top:16px;border-top:1px solid #f0f0f0;display:flex;justify-content:space-between;font-size:11px;color:#bbb}
   @media print{body{padding:20px}}</style></head><body>
   <div class="header"><div><div class="brand-name">Royal Banquet Hall</div><div class="brand-sub">Event Ease</div></div>
-  <div><div class="doc-id">${b.id}</div><span class="badge">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</span></div></div>
+  <div style="text-align:right"><span class="badge">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</span><div style="font-size:11px;color:#bbb;margin-top:4px">${new Date(b.date+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</div></div></div>
   <div class="customer-card"><div class="avatar">${b.customerName[0].toUpperCase()}</div><div><div style="font-size:15px;font-weight:700">${b.customerName}</div><div style="font-size:12px;color:#888">${b.phone||"—"}</div></div></div>
   <div class="section"><div class="section-title">Event Details</div>
   <div class="row"><span class="label">Event</span><span class="value">${b.event}</span></div>
@@ -411,17 +457,43 @@ function generateBookingPDF(b: Booking) {
 }
 
 // ─── Booking Detail ───────────────────────────────────────────────────────────
-function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment }: {
+function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment, onEditPayment, onDeletePayment, onDeleteBooking }: {
   b: Booking;
   onClose: () => void;
   onCancel: (id: string) => void;
   onEdit: () => void;
-  onAddPayment: (id: string, amount: number, note: string, method: PaymentMethod) => void;
+  onAddPayment:    (bookingId: string, amount: number, note: string, method: PaymentMethod) => void;
+  onEditPayment:   (bookingId: string, paymentId: string, amount: number, note: string, method: PaymentMethod) => void;
+  onDeletePayment: (bookingId: string, paymentId: string) => void;
+  onDeleteBooking: (id: string) => void;
 }) {
   const [showPayForm, setShowPayForm] = useState(false);
   const [payAmt, setPayAmt]           = useState("");
   const [payNote, setPayNote]         = useState("");
   const [payMethod, setPayMethod]     = useState<PaymentMethod>("Cash");
+
+  // Edit-payment state (tracks which payment is being edited)
+  const [editPayId,     setEditPayId]     = useState<string | null>(null);
+  const [editPayAmt,    setEditPayAmt]    = useState("");
+  const [editPayNote,   setEditPayNote]   = useState("");
+  const [editPayMethod, setEditPayMethod] = useState<PaymentMethod>("Cash");
+  const [deleteConfirm,        setDeleteConfirm]        = useState<string | null>(null); // paymentId awaiting confirm
+  const [deleteBookingConfirm, setDeleteBookingConfirm] = useState(false);
+
+  function openEditPay(p: PaymentRecord) {
+    setEditPayId(p.id);
+    setEditPayAmt(String(p.amount));
+    setEditPayNote(p.note ?? "");
+    setEditPayMethod(p.method ?? "Cash");
+    setDeleteConfirm(null);
+  }
+  function cancelEditPay() { setEditPayId(null); }
+  function saveEditPay() {
+    const amt = Number(editPayAmt);
+    if (!amt || amt <= 0 || !editPayId) return;
+    onEditPayment(b.id, editPayId, amt, editPayNote, editPayMethod);
+    setEditPayId(null);
+  }
 
   const servicesTotal = (b.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
   const hallAmount    = b.hallAmount ?? (b.amount - servicesTotal);
@@ -432,7 +504,7 @@ function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment }: {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
-          <p className="text-sm font-bold text-black">{b.id}</p>
+          <p className="text-sm font-bold text-black">Booking Details</p>
           <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: STATUS_CONFIG[b.status].bg, color: STATUS_CONFIG[b.status].color }}>
             {STATUS_CONFIG[b.status].label}
           </span>
@@ -548,12 +620,93 @@ function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment }: {
               <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: "var(--fg-subtle)" }}>Payment History</p>
               <div className="flex flex-col gap-1.5">
                 {(b.payments ?? []).map(p => (
-                  <div key={p.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: "var(--bg-subtle)", border: "1px solid #E5E7EB" }}>
-                    <div>
-                      <p className="text-xs font-semibold text-black">{p.note}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: "var(--fg-muted)" }}>{formatDate(p.date)}{p.method ? ` · ${p.method}` : ""}</p>
-                    </div>
-                    <span className="text-xs font-semibold" style={{ color: "#16A34A" }}>+ {fmt(p.amount)}</span>
+                  <div key={p.id}>
+                    {/* Normal row */}
+                    {editPayId !== p.id && deleteConfirm !== p.id && (
+                      <div className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: "var(--bg-subtle)", border: "1px solid #E5E7EB" }}>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-black truncate">{p.note || "—"}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: "var(--fg-muted)" }}>{formatDate(p.date)}{p.method ? ` · ${p.method}` : ""}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-xs font-semibold" style={{ color: "#16A34A" }}>+ {fmt(p.amount)}</span>
+                          {b.status !== "cancelled" && (
+                            <>
+                              <button type="button" onClick={() => openEditPay(p)}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-200"
+                                style={{ color: "var(--fg-muted)" }}>
+                                <EditSmIcon />
+                              </button>
+                              <button type="button" onClick={() => { setDeleteConfirm(p.id); setEditPayId(null); }}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg cursor-pointer hover:bg-red-50"
+                                style={{ color: "#DC2626" }}>
+                                <TrashSmIcon />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delete confirmation */}
+                    {deleteConfirm === p.id && (
+                      <div className="rounded-xl px-3 py-3 flex flex-col gap-2" style={{ background: "#FEF2F2", border: "1px solid #FCA5A5" }}>
+                        <p className="text-xs font-semibold" style={{ color: "#DC2626" }}>Delete this payment of {fmt(p.amount)}?</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setDeleteConfirm(null)}
+                            className="flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+                            style={{ background: "#fff", color: "var(--fg-muted)", border: "1px solid #E5E7EB" }}>
+                            Keep
+                          </button>
+                          <button onClick={() => { onDeletePayment(b.id, p.id); setDeleteConfirm(null); }}
+                            className="flex-1 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
+                            style={{ background: "#DC2626", color: "#fff" }}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Inline edit form */}
+                    {editPayId === p.id && (
+                      <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "var(--bg-subtle)", border: "1.5px solid var(--primary)" }}>
+                        <p className="text-xs font-bold text-black">Edit Payment</p>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{ color: "var(--fg-muted)" }}>Rs.</span>
+                          <input type="number" placeholder="Amount *" value={editPayAmt} onChange={e => setEditPayAmt(e.target.value)}
+                            min={1} className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none border"
+                            style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }} autoFocus />
+                        </div>
+                        <input type="text" placeholder="Note" value={editPayNote} onChange={e => setEditPayNote(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl text-sm outline-none border"
+                          style={{ background: "#fff", borderColor: "#D1D5DB", color: "var(--fg)" }} />
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["Cash", "Bank Transfer", "Cheque", "Online"] as PaymentMethod[]).map(m => (
+                            <button key={m} type="button" onClick={() => setEditPayMethod(m)}
+                              className="py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all"
+                              style={{
+                                background: editPayMethod === m ? METHOD_CONFIG[m].bg : "#fff",
+                                color: editPayMethod === m ? METHOD_CONFIG[m].color : "var(--fg-muted)",
+                                border: `1.5px solid ${editPayMethod === m ? METHOD_CONFIG[m].color : "#E5E7EB"}`,
+                              }}>
+                              {m}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={cancelEditPay}
+                            className="flex-1 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                            style={{ background: "#fff", color: "var(--fg-muted)", border: "1px solid #E5E7EB" }}>
+                            Cancel
+                          </button>
+                          <button onClick={saveEditPay}
+                            className="flex-1 py-2 rounded-xl text-xs font-semibold cursor-pointer"
+                            style={{ background: "var(--primary)", color: "#fff" }}>
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -627,34 +780,65 @@ function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment }: {
         )}
 
         {/* Actions */}
-        {b.status !== "cancelled" && (
-          <div className="flex flex-col gap-2 pt-1">
-            <button onClick={onEdit} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80" style={{ background: "var(--bg-subtle)", color: "var(--fg)" }}>
-              Edit Booking
+        <div className="flex flex-col gap-2 pt-1">
+          {b.status !== "cancelled" && (
+            <>
+              <button onClick={onEdit} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80" style={{ background: "var(--bg-subtle)", color: "var(--fg)" }}>
+                Edit Booking
+              </button>
+              <button onClick={() => { onCancel(b.id); onClose(); }} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80" style={{ background: "#FEF2F2", color: "#DC2626" }}>
+                Cancel Booking
+              </button>
+            </>
+          )}
+
+          {/* Delete booking */}
+          {!deleteBookingConfirm ? (
+            <button onClick={() => setDeleteBookingConfirm(true)}
+              className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80 flex items-center justify-center gap-2"
+              style={{ background: "var(--bg-subtle)", color: "#6B7280" }}>
+              <TrashSmIcon /> Delete Booking
             </button>
-            <button onClick={() => { onCancel(b.id); onClose(); }} className="w-full py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-80" style={{ background: "#FEF2F2", color: "#DC2626" }}>
-              Cancel Booking
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="rounded-2xl p-4 flex flex-col gap-3" style={{ background: "#FEF2F2", border: "1px solid #FCA5A5" }}>
+              <p className="text-sm font-semibold text-center" style={{ color: "#DC2626" }}>Permanently delete this booking?</p>
+              <p className="text-xs text-center" style={{ color: "#6B7280" }}>All payments linked to it will also be deleted. This cannot be undone.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setDeleteBookingConfirm(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ background: "#fff", color: "var(--fg-muted)", border: "1px solid #E5E7EB" }}>
+                  Cancel
+                </button>
+                <button onClick={() => { onDeleteBooking(b.id); onClose(); }}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+                  style={{ background: "#DC2626", color: "#fff" }}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function DetailModal({ b, onClose, onCancel, onEdit, onAddPayment }: {
+function DetailModal({ b, onClose, onCancel, onEdit, onAddPayment, onEditPayment, onDeletePayment, onDeleteBooking }: {
   b: Booking; onClose: () => void; onCancel: (id: string) => void; onEdit: () => void;
-  onAddPayment: (id: string, amount: number, note: string, method: PaymentMethod) => void;
+  onAddPayment:    (bookingId: string, amount: number, note: string, method: PaymentMethod) => void;
+  onEditPayment:   (bookingId: string, paymentId: string, amount: number, note: string, method: PaymentMethod) => void;
+  onDeletePayment: (bookingId: string, paymentId: string) => void;
+  onDeleteBooking: (id: string) => void;
 }) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed z-50 bottom-0 left-0 right-0 rounded-t-3xl bg-white flex flex-col overflow-hidden lg:hidden" style={{ maxHeight: "92dvh", boxShadow: "0 -4px 40px rgba(0,0,0,0.12)" }}>
         <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} /></div>
-        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} onAddPayment={onAddPayment} />
+        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} onAddPayment={onAddPayment} onEditPayment={onEditPayment} onDeletePayment={onDeletePayment} onDeleteBooking={onDeleteBooking} />
       </div>
       <div className="hidden lg:flex fixed z-50 right-0 top-0 bottom-0 w-[560px] bg-white flex-col overflow-hidden rounded-l-3xl" style={{ boxShadow: "-4px 0 40px rgba(0,0,0,0.12)" }}>
-        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} onAddPayment={onAddPayment} />
+        <BookingDetail b={b} onClose={onClose} onCancel={onCancel} onEdit={onEdit} onAddPayment={onAddPayment} onEditPayment={onEditPayment} onDeletePayment={onDeletePayment} onDeleteBooking={onDeleteBooking} />
       </div>
     </>
   );
@@ -662,18 +846,51 @@ function DetailModal({ b, onClose, onCancel, onEdit, onAddPayment }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function BookingsPage() {
-  const { bookings, addBooking, updateBooking, cancelBooking: storeCancelBooking, addPaymentToBooking } = useStore();
+  const { accessToken } = useAuthStore();
 
-  const [filter, setFilter]       = useState<"all" | Status>("all");
-  const [search, setSearch]       = useState("");
-  const [page, setPage]           = useState(1);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [bookings,   setBookings]   = useState<Booking[]>([]);
+  const [hallNames,  setHallNames]  = useState<string[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [apiError,   setApiError]   = useState<string | null>(null);
+  const [saving,     setSaving]     = useState(false);
+  const [toast,      setToast]      = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  const [filter,     setFilter]     = useState<"all" | Status>("all");
+  const [search,     setSearch]     = useState("");
+  const [page,       setPage]       = useState(1);
+  const [modalOpen,  setModalOpen]  = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [editOpen, setEditOpen]     = useState(false);
+  const [editOpen,   setEditOpen]   = useState(false);
 
-  // Always derive selected from live store data
+  // Always derive selected from live local state
   const selected = selectedId ? bookings.find(b => b.id === selectedId) ?? null : null;
+
+  // Load bookings + halls from API on mount
+  useEffect(() => {
+    if (!accessToken) return;
+    (async () => {
+      try {
+        const [bookingsRes, hallsRes] = await Promise.all([
+          api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken),
+          api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
+        ]);
+        if (bookingsRes.success) setBookings(bookingsRes.bookings.filter(b => b.status !== "blocked").map(dbToLocal));
+        else setApiError(bookingsRes.message ?? "Failed to load bookings.");
+        if (hallsRes.success && hallsRes.halls.length > 0)
+          setHallNames(hallsRes.halls.map(h => h.name));
+      } catch {
+        setApiError("Network error — could not reach the server.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [accessToken]);
 
   const filtered = bookings.filter(b => {
     const matchFilter = filter === "all" || b.status === filter;
@@ -703,57 +920,238 @@ export default function BookingsPage() {
   const totalRevenue = bookings.filter(b => b.status !== "cancelled").reduce((s, b) => s + b.amount, 0);
   const collected    = bookings.filter(b => b.status !== "cancelled").reduce((s, b) => s + b.paid, 0);
 
-  function handleCreate(form: typeof EMPTY_FORM, status: Status, services: ServiceEntry[]) {
-    const servicesTotal = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-    const grandTotal    = Number(form.amount) || 0;
-    const hallAmt       = grandTotal - servicesTotal;
-    const advancePaid   = Number(form.paid) || 0;
-    const today         = new Date().toISOString().slice(0, 10);
-    const initialPayments = advancePaid > 0
-      ? [{ id: `PR-${Date.now()}`, amount: advancePaid, date: today, note: "Advance", method: "Cash" as PaymentMethod }]
-      : [];
-    const newBooking: Booking = {
-      id: "BK-" + String(bookings.length + 1).padStart(3, "0"),
-      customerName: form.customerName,
-      phone: form.phone,
-      event: form.event,
-      hall: form.hall,
-      date: form.date,
-      timeFrom: form.timeFrom || "",
-      timeTo: form.timeTo || "",
-      guests: Number(form.guests) || 0,
-      amount: grandTotal,
-      hallAmount: hallAmt,
-      paid: advancePaid,
-      notes: form.notes,
-      status,
-      services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
-      payments: initialPayments.length > 0 ? initialPayments : [],
-    };
-    addBooking(newBooking);
-    setModalOpen(false);
-    setSelectedId(newBooking.id);
-    setPage(1);
+  async function handleCreate(form: typeof EMPTY_FORM, status: Status, services: ServiceEntry[]) {
+    if (!accessToken || saving) return;
+    setSaving(true);
+    try {
+      const servicesTotal = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      const grandTotal    = Number(form.amount) || 0;
+      const hallAmt       = grandTotal - servicesTotal;
+      const advancePaid   = Number(form.paid) || 0;
+      const today         = new Date().toISOString().slice(0, 10);
+
+      const payload = {
+        customerName: form.customerName,
+        phone:        form.phone || "",
+        event:        form.event,
+        hall:         form.hall,
+        date:         form.date,
+        ...(toTimeInput(form.timeFrom) ? { timeFrom: toTimeInput(form.timeFrom) } : {}),
+        ...(toTimeInput(form.timeTo)   ? { timeTo:   toTimeInput(form.timeTo)   } : {}),
+        guests:     Number(form.guests) || 0,
+        amount:     grandTotal,
+        hallAmount: hallAmt,
+        paid:       advancePaid,
+        status,
+        notes:    form.notes || undefined,
+        services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
+      };
+
+      const res = await api.post<{ id: string }>("/api/vendor/bookings", payload, accessToken);
+      if (!res.success) { setApiError(res.message ?? "Failed to create booking."); return; }
+
+      const initialPayments: PaymentRecord[] = advancePaid > 0
+        ? [{ id: `pr-${Date.now()}`, amount: advancePaid, date: today, note: "Advance", method: "Cash" }]
+        : [];
+
+      const newBooking: Booking = {
+        id:           res.id,
+        customerName: form.customerName,
+        phone:        form.phone || "",
+        event:        form.event,
+        hall:         form.hall,
+        date:         form.date,
+        timeFrom:     toTimeInput(form.timeFrom),
+        timeTo:       toTimeInput(form.timeTo),
+        guests:       Number(form.guests) || 0,
+        amount:       grandTotal,
+        hallAmount:   hallAmt,
+        paid:         advancePaid,
+        notes:        form.notes || "",
+        status,
+        services:     services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
+        payments:     initialPayments,
+      };
+
+      setBookings(prev => [newBooking, ...prev]);
+      setModalOpen(false);
+      setSelectedId(newBooking.id);
+      setDetailOpen(true);
+      setPage(1);
+      showToast("Booking created successfully!");
+    } catch {
+      setApiError("Network error — booking was not saved.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleCancelBooking(id: string) {
-    storeCancelBooking(id);
+  async function handleCancelBooking(id: string) {
+    if (!accessToken) return;
+    const snapshot = bookings;
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "cancelled" as Status } : b));
+    try {
+      const res = await api.patch(`/api/vendor/bookings/${id}/cancel`, {}, accessToken);
+      if (!res.success) {
+        setBookings(snapshot);
+        setApiError(res.message ?? "Failed to cancel booking.");
+      }
+    } catch {
+      setBookings(snapshot);
+      setApiError("Network error — cancellation was not saved.");
+    }
   }
 
-  function handleSaveEdit(updated: Booking) {
-    updateBooking(updated);
-    setEditOpen(false);
+  async function handleSaveEdit(updated: Booking) {
+    if (!accessToken) return;
+    setSaving(true);
+    try {
+      const services = updated.services ?? [];
+      const payload = {
+        customerName: updated.customerName,
+        phone:        updated.phone,
+        event:        updated.event,
+        hall:         updated.hall,
+        date:         updated.date,
+        ...(toTimeInput(updated.timeFrom) ? { timeFrom: toTimeInput(updated.timeFrom) } : { timeFrom: "" }),
+        ...(toTimeInput(updated.timeTo)   ? { timeTo:   toTimeInput(updated.timeTo)   } : { timeTo:   "" }),
+        guests:     updated.guests,
+        amount:     updated.amount,
+        hallAmount: updated.hallAmount ?? 0,
+        paid:       updated.paid,
+        status:     updated.status,
+        notes:      updated.notes || undefined,
+        services,
+      };
+
+      const res = await api.patch(`/api/vendor/bookings/${updated.id}`, payload, accessToken);
+      if (!res.success) { setApiError(res.message ?? "Failed to save changes."); return; }
+
+      // Normalise times back to 24h for local state
+      const normalised: Booking = {
+        ...updated,
+        timeFrom: toTimeInput(updated.timeFrom),
+        timeTo:   toTimeInput(updated.timeTo),
+      };
+      setBookings(prev => prev.map(b => b.id === normalised.id ? normalised : b));
+      setEditOpen(false);
+    } catch {
+      setApiError("Network error — changes were not saved.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function handleAddPayment(id: string, amount: number, note: string, method: PaymentMethod) {
-    addPaymentToBooking(id, amount, note, method);
+  async function handleAddPayment(id: string, amount: number, note: string, method: PaymentMethod) {
+    if (!accessToken) return;
+    try {
+      const today  = new Date().toISOString().slice(0, 10);
+      const res    = await api.post<{ id: string; newPaid: number }>(
+        `/api/vendor/bookings/${id}/payments`,
+        { amount, method, note: note || undefined, date: today },
+        accessToken,
+      );
+      if (!res.success) { setApiError(res.message ?? "Failed to record payment."); return; }
+
+      const record: PaymentRecord = { id: res.id, amount, date: today, note: note || "Payment", method };
+      setBookings(prev => prev.map(b => {
+        if (b.id !== id) return b;
+        return { ...b, paid: res.newPaid, payments: [...(b.payments ?? []), record] };
+      }));
+    } catch {
+      setApiError("Network error — payment was not recorded.");
+    }
+  }
+
+  async function handleEditPayment(bookingId: string, paymentId: string, amount: number, note: string, method: PaymentMethod) {
+    if (!accessToken) return;
+    try {
+      const res = await api.patch<{ newPaid?: number }>(
+        `/api/vendor/bookings/${bookingId}/payments/${paymentId}`,
+        { amount, method, note: note || undefined },
+        accessToken,
+      );
+      if (!res.success) { setApiError(res.message ?? "Failed to edit payment."); return; }
+
+      setBookings(prev => prev.map(b => {
+        if (b.id !== bookingId) return b;
+        const updatedPayments = (b.payments ?? []).map(p =>
+          p.id === paymentId ? { ...p, amount, note, method } : p
+        );
+        return { ...b, paid: res.newPaid ?? b.paid, payments: updatedPayments };
+      }));
+    } catch {
+      setApiError("Network error — payment was not updated.");
+    }
+  }
+
+  async function handleDeletePayment(bookingId: string, paymentId: string) {
+    if (!accessToken) return;
+    const snapshot = bookings;
+    // Optimistic: remove payment and recalculate paid
+    setBookings(prev => prev.map(b => {
+      if (b.id !== bookingId) return b;
+      const removed  = (b.payments ?? []).find(p => p.id === paymentId);
+      const newPaid  = Math.max(0, b.paid - (removed?.amount ?? 0));
+      return { ...b, paid: newPaid, payments: (b.payments ?? []).filter(p => p.id !== paymentId) };
+    }));
+    try {
+      const res = await api.delete<{ newPaid: number }>(
+        `/api/vendor/bookings/${bookingId}/payments/${paymentId}`,
+        accessToken,
+      );
+      if (!res.success) {
+        setBookings(snapshot);
+        setApiError(res.message ?? "Failed to delete payment.");
+      }
+    } catch {
+      setBookings(snapshot);
+      setApiError("Network error — payment was not deleted.");
+    }
+  }
+
+  async function handleDeleteBooking(id: string) {
+    if (!accessToken) return;
+    // Optimistic: remove instantly so list updates before API responds
+    const snapshot = bookings;
+    setBookings(prev => prev.filter(b => b.id !== id));
+    setSelectedId(null);
+    setDetailOpen(false);
+    try {
+      const res = await api.delete(`/api/vendor/bookings/${id}`, accessToken);
+      if (!res.success) {
+        setBookings(snapshot); // revert on failure
+        setApiError(res.message ?? "Failed to delete booking.");
+      }
+    } catch {
+      setBookings(snapshot); // revert on network error
+      setApiError("Network error — booking was not deleted.");
+    }
   }
 
   function openDetail(b: Booking) { setSelectedId(b.id); setDetailOpen(true); }
 
+  if (loading) {
+    return (
+      <div className="p-4 lg:p-8 flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--primary)", borderTopColor: "transparent" }} />
+          <p className="text-sm" style={{ color: "var(--fg-muted)" }}>Loading bookings…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      <NewBookingModal open={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleCreate} />
+      <NewBookingModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleCreate}
+        submitting={saving}
+        halls={hallNames}
+        bookedDates={new Set(bookings.filter(b => b.status !== "cancelled").map(b => b.date))}
+      />
 
       {selected && detailOpen && !editOpen && (
         <DetailModal
@@ -762,21 +1160,51 @@ export default function BookingsPage() {
           onCancel={(id) => { handleCancelBooking(id); setDetailOpen(false); }}
           onEdit={() => setEditOpen(true)}
           onAddPayment={handleAddPayment}
+          onEditPayment={handleEditPayment}
+          onDeletePayment={handleDeletePayment}
+          onDeleteBooking={handleDeleteBooking}
         />
       )}
 
       {selected && editOpen && (
-        <EditBookingModal booking={selected} onClose={() => setEditOpen(false)} onSave={handleSaveEdit} />
+        <EditBookingModal
+          booking={selected}
+          onClose={() => setEditOpen(false)}
+          onSave={handleSaveEdit}
+          halls={hallNames.length ? hallNames : HALLS_FALLBACK}
+          bookedDates={new Set(bookings.filter(b => b.status !== "cancelled" && b.id !== selected.id).map(b => b.date))}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div
+          className="fixed bottom-6 right-4 lg:right-8 z-[200] flex items-center gap-3 px-4 py-3.5 rounded-2xl shadow-xl"
+          style={{ background: "#16A34A", color: "#fff", maxWidth: "340px", animation: "slideUp 0.25s ease" }}>
+          <CheckCircleIcon />
+          <span className="text-sm font-semibold flex-1">{toast}</span>
+          <button onClick={() => setToast(null)} className="shrink-0 opacity-70 hover:opacity-100 cursor-pointer">
+            <XIcon />
+          </button>
+        </div>
       )}
 
       <div className="p-4 lg:p-8">
+        {apiError && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between"
+            style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FCA5A5" }}>
+            <span>{apiError}</span>
+            <button onClick={() => setApiError(null)} className="ml-3 text-xs underline cursor-pointer">Dismiss</button>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl lg:text-2xl font-semibold text-black tracking-tight">Bookings</h1>
             <p className="text-sm mt-1" style={{ color: "var(--fg-muted)" }}>Manage all event bookings</p>
           </div>
-          <button onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-90"
+          <button onClick={() => setModalOpen(true)} disabled={saving}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-60"
             style={{ background: "var(--primary)", color: "#ffffff" }}>
             <PlusIcon /> New Booking
           </button>
@@ -820,8 +1248,10 @@ export default function BookingsPage() {
               {paginated.length === 0 && (
                 <div className="bg-white rounded-2xl shadow-sm py-16 flex flex-col items-center text-center">
                   <EmptyIcon />
-                  <p className="text-sm font-medium mt-3 text-black">No bookings found</p>
-                  <p className="text-xs mt-1" style={{ color: "var(--fg-muted)" }}>Try changing the filter or search</p>
+                  <p className="text-sm font-medium mt-3 text-black">{bookings.length === 0 ? "No bookings yet" : "No bookings found"}</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--fg-muted)" }}>
+                    {bookings.length === 0 ? "Click \"New Booking\" to create your first booking" : "Try changing the filter or search"}
+                  </p>
                 </div>
               )}
               {paginated.map(b => {
@@ -874,8 +1304,7 @@ export default function BookingsPage() {
                       </div>
                     </div>
                     <div className="mt-2 pt-2 border-t flex items-center justify-between" style={{ borderColor: "#F4F4F5" }}>
-                      <span className="text-[10px] font-mono font-medium" style={{ color: "var(--fg-subtle)" }}>{b.id}</span>
-                      <span className="text-[10px]" style={{ color: "var(--fg-subtle)" }}>View details →</span>
+                      <span className="text-[10px] shrink-0" style={{ color: "var(--fg-subtle)" }}>View details →</span>
                     </div>
                   </div>
                 );
@@ -923,3 +1352,6 @@ function EmptyIcon()      { return <svg width="40" height="40" viewBox="0 0 24 2
 function ChevLeftIcon()   { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>; }
 function ChevRightIcon()  { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6" /></svg>; }
 function PdfIcon()        { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>; }
+function EditSmIcon()     { return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>; }
+function TrashSmIcon()      { return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>; }
+function CheckCircleIcon()  { return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>; }

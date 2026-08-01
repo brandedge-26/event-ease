@@ -1,9 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { useStore } from "@/store/useStore";
-import type { Hall, GalleryItem } from "@/lib/vendorData";
+import { useAuthStore } from "@/store/useAuthStore";
+import { api } from "@/lib/api";
+import type { GalleryItem } from "@/lib/vendorData";
+
+type DbHall = { id: string; name: string; capacity: number; price: number; desc: string | null };
 
 type Tab = "basic" | "about" | "halls" | "gallery";
 
@@ -48,9 +52,10 @@ function SaveBtn({ onClick, saved }: { onClick: () => void; saved: boolean }) {
 }
 
 // ─── Hall Modal ───────────────────────────────────────────────────────────────
-function HallModal({ initial, onSave, onClose }: { initial?: Hall; onSave: (h: Hall) => void; onClose: () => void }) {
-  const [form, setForm] = useState<Hall>(initial ?? { name: "", capacity: 0, price: 0, desc: "" });
-  const f = (k: keyof Hall, v: string | number) => setForm(p => ({ ...p, [k]: v }));
+type HallForm = { name: string; capacity: number; price: number; desc: string };
+function HallModal({ initial, onSave, onClose }: { initial?: DbHall; onSave: (h: HallForm) => void; onClose: () => void }) {
+  const [form, setForm] = useState<HallForm>({ name: initial?.name ?? "", capacity: initial?.capacity ?? 0, price: initial?.price ?? 0, desc: initial?.desc ?? "" });
+  const f = (k: keyof HallForm, v: string | number) => setForm(p => ({ ...p, [k]: v }));
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-0 sm:px-4">
       <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-2xl shadow-xl overflow-hidden">
@@ -213,6 +218,7 @@ function GalleryModal({ initial, onSave, onClose }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function HallManagementPage() {
   const { vendorProfile, updateVendorProfile } = useStore();
+  const { accessToken } = useAuthStore();
   const [tab, setTab]   = useState<Tab>("basic");
   const [saved, setSaved] = useState<Tab | null>(null);
 
@@ -228,16 +234,65 @@ export default function HallManagementPage() {
   const [about,     setAbout]     = useState(vendorProfile.about);
   const [services,  setServices]  = useState<string[]>(vendorProfile.services);
   const [amenities, setAmenities] = useState<string[]>(vendorProfile.amenities);
-  const [halls,     setHalls]     = useState<Hall[]>(vendorProfile.halls);
   const [gallery,   setGallery]   = useState<GalleryItem[]>(vendorProfile.gallery);
-  const [hallModal,    setHallModal]    = useState<{ open: boolean; editIdx?: number }>({ open: false });
+
+  // ── Halls — real API ──────────────────────────────────────────────────────
+  const [halls,        setHalls]        = useState<DbHall[]>([]);
+  const [hallsLoading, setHallsLoading] = useState(true);
+  const [hallError,    setHallError]    = useState<string | null>(null);
+  const [hallSaving,   setHallSaving]   = useState(false);
+  const [hallModal,    setHallModal]    = useState<{ open: boolean; editHall?: DbHall }>({ open: false });
   const [galleryModal, setGalleryModal] = useState<{ open: boolean; editIdx?: number }>({ open: false });
+
+  useEffect(() => {
+    if (!accessToken) return;
+    (async () => {
+      try {
+        const res = await api.get<{ halls: DbHall[] }>("/api/vendor/halls", accessToken);
+        if (res.success) setHalls(res.halls);
+      } catch { /* ignore */ }
+      finally { setHallsLoading(false); }
+    })();
+  }, [accessToken]);
+
+  async function handleAddHall(data: { name: string; capacity: number; price: number; desc: string }) {
+    if (!accessToken || hallSaving) return;
+    setHallSaving(true);
+    setHallError(null);
+    try {
+      const res = await api.post<{ hall: DbHall }>("/api/vendor/halls", data, accessToken);
+      if (res.success) setHalls(prev => [...prev, res.hall]);
+      else setHallError(res.message ?? "Failed to add hall.");
+    } catch { setHallError("Network error."); }
+    finally { setHallSaving(false); }
+  }
+
+  async function handleUpdateHall(id: string, data: { name: string; capacity: number; price: number; desc: string }) {
+    if (!accessToken || hallSaving) return;
+    setHallSaving(true);
+    setHallError(null);
+    try {
+      const res = await api.patch(`/api/vendor/halls/${id}`, data, accessToken);
+      if (res.success) setHalls(prev => prev.map(h => h.id === id ? { ...h, ...data } : h));
+      else setHallError(res.message ?? "Failed to update hall.");
+    } catch { setHallError("Network error."); }
+    finally { setHallSaving(false); }
+  }
+
+  async function handleDeleteHall(id: string) {
+    if (!accessToken) return;
+    const snapshot = halls;
+    setHalls(prev => prev.filter(h => h.id !== id));
+    try {
+      const res = await api.delete(`/api/vendor/halls/${id}`, accessToken);
+      if (!res.success) { setHalls(snapshot); setHallError(res.message ?? "Failed to delete hall."); }
+    } catch { setHalls(snapshot); setHallError("Network error."); }
+  }
 
   function flash(t: Tab) { setSaved(t); setTimeout(() => setSaved(null), 2000); }
 
   function saveBasic()   { updateVendorProfile({ ...basic, established: Number(basic.established) }); flash("basic"); }
   function saveAbout()   { updateVendorProfile({ about, services, amenities }); flash("about"); }
-  function saveHalls()   { updateVendorProfile({ halls }); flash("halls"); }
   function saveGallery() { updateVendorProfile({ gallery }); flash("gallery"); }
 
   const TABS: { key: Tab; label: string }[] = [
@@ -246,6 +301,7 @@ export default function HallManagementPage() {
     { key: "halls",   label: `Halls (${halls.length})` },
     { key: "gallery", label: `Gallery (${gallery.length})` },
   ];
+
 
   return (
     <div className="p-4 lg:p-6 min-h-screen" style={{ background: "var(--bg-subtle, #F4F4F5)" }}>
@@ -383,15 +439,25 @@ export default function HallManagementPage() {
       {tab === "halls" && (
         <Card>
           <CardHead title="Halls & Pricing" subtitle="Add and manage your venue's halls" />
+          {hallError && (
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm flex items-center justify-between" style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FCA5A5" }}>
+              <span>{hallError}</span>
+              <button onClick={() => setHallError(null)} className="text-xs underline cursor-pointer ml-2">Dismiss</button>
+            </div>
+          )}
           <div className="flex flex-col gap-3 mb-4">
-            {halls.length === 0 && (
+            {hallsLoading ? (
+              <div className="py-12 flex items-center justify-center gap-2">
+                <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--primary)", borderTopColor: "transparent" }} />
+                <span className="text-sm" style={{ color: "#9CA3AF" }}>Loading halls…</span>
+              </div>
+            ) : halls.length === 0 ? (
               <div className="py-12 text-center rounded-2xl" style={{ background: "#F9FAFB" }}>
                 <p className="text-sm font-semibold" style={{ color: "#374151" }}>No halls added yet</p>
                 <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>Click "Add Hall" to get started</p>
               </div>
-            )}
-            {halls.map((h, i) => (
-              <div key={i} className="flex items-start justify-between gap-3 p-4 rounded-2xl border" style={{ borderColor: "#F3F4F6", background: "#FAFAFA" }}>
+            ) : halls.map(h => (
+              <div key={h.id} className="flex items-start justify-between gap-3 p-4 rounded-2xl border" style={{ borderColor: "#F3F4F6", background: "#FAFAFA" }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate" style={{ color: "#111827" }}>{h.name}</p>
                   <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -401,20 +467,18 @@ export default function HallManagementPage() {
                   {h.desc && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: "#9CA3AF" }}>{h.desc}</p>}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => setHallModal({ open: true, editIdx: i })} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-blue-50 transition-colors" style={{ color: "#2563EB" }}><EditIcon size={14}/></button>
-                  <button onClick={() => setHalls(p => p.filter((_, j) => j !== i))} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 transition-colors" style={{ color: "#EF4444" }}><TrashIcon size={14}/></button>
+                  <button onClick={() => setHallModal({ open: true, editHall: h })} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-blue-50 transition-colors" style={{ color: "#2563EB" }}><EditIcon size={14}/></button>
+                  <button onClick={() => handleDeleteHall(h.id)} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 transition-colors" style={{ color: "#EF4444" }}><TrashIcon size={14}/></button>
                 </div>
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setHallModal({ open: true })}
-              className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold border-2 border-dashed transition-colors hover:bg-gray-50"
-              style={{ borderColor: "#D1D5DB", color: "#374151" }}
-            ><PlusIcon size={15}/> Add Hall</button>
-            <SaveBtn onClick={saveHalls} saved={saved === "halls"} />
-          </div>
+          <button
+            onClick={() => setHallModal({ open: true })}
+            disabled={hallSaving}
+            className="flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-semibold border-2 border-dashed transition-colors hover:bg-gray-50 disabled:opacity-60"
+            style={{ borderColor: "#D1D5DB", color: "#374151" }}
+          ><PlusIcon size={15}/> Add Hall</button>
         </Card>
       )}
 
@@ -460,8 +524,11 @@ export default function HallManagementPage() {
       {/* Modals */}
       {hallModal.open && (
         <HallModal
-          initial={hallModal.editIdx !== undefined ? halls[hallModal.editIdx] : undefined}
-          onSave={h => hallModal.editIdx !== undefined ? setHalls(p => p.map((x, i) => i === hallModal.editIdx ? h : x)) : setHalls(p => [...p, h])}
+          initial={hallModal.editHall}
+          onSave={data => {
+            if (hallModal.editHall) handleUpdateHall(hallModal.editHall.id, data);
+            else handleAddHall(data);
+          }}
           onClose={() => setHallModal({ open: false })}
         />
       )}

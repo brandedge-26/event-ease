@@ -29,6 +29,9 @@ export const api = {
 
   patch: <T = unknown>(path: string, body: unknown, token?: string) =>
     request<T>("PATCH", path, body, token),
+
+  delete: <T = unknown>(path: string, token?: string) =>
+    request<T>("DELETE", path, undefined, token),
 };
 
 export type VendorSession = {

@@ -1,7 +1,22 @@
-import { eq } from "drizzle-orm";
+import { eq, asc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { halls } from "../db/schema.js";
+
+// GET /api/vendor/halls
+export async function getHalls(req, res) {
+    try {
+        const vendorHalls = await db
+            .select()
+            .from(halls)
+            .where(eq(halls.vendorId, req.vendor.id))
+            .orderBy(asc(halls.createdAt));
+        return res.status(200).json({ success: true, halls: vendorHalls });
+    } catch (err) {
+        console.error("[getHalls]", err);
+        return res.status(500).json({ success: false, message: "Failed to fetch halls." });
+    }
+}
 
 // POST /api/vendor/halls
 export async function createHall(req, res) {

@@ -37,6 +37,12 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
   // Local reviews state (starts with server-fetched reviews, updated optimistically)
   const [localReviews, setLocalReviews] = useState(vendor.reviews);
 
+  // Derived stats — reactive to localReviews so stat boxes update after submission
+  const localCount  = localReviews.length;
+  const localRating = localCount > 0
+    ? Math.round((localReviews.reduce((s, r) => s + r.rating, 0) / localCount) * 10) / 10
+    : 0;
+
   // Review modal + form state
   const [reviewOpen,    setReviewOpen]    = useState(false);
   const [alreadyReviewed, setAlreadyReviewed] = useState(false);
@@ -234,10 +240,10 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                     </span>
                     <span className="flex items-center gap-0.5">
                       {[1,2,3,4,5].map(n => (
-                        <svg key={n} width="10" height="10" viewBox="0 0 24 24" fill={n <= Math.round(vendor.rating) ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        <svg key={n} width="10" height="10" viewBox="0 0 24 24" fill={n <= Math.round(localRating) ? STAR_COLOR : "#E5E7EB"} stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                       ))}
-                      <strong className="text-black ml-1">{vendor.rating}</strong>
-                      <span className="ml-0.5">({vendor.reviewCount})</span>
+                      <strong className="text-black ml-1">{localRating}</strong>
+                      <span className="ml-0.5">({localCount})</span>
                     </span>
                     <span>Est. {vendor.established}</span>
                   </div>
@@ -304,8 +310,8 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
           {/* Stats row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-3 mt-4 lg:mt-0">
             {[
-              { label: "Rating",        value: vendor.rating.toString(),            suffix: "/5"   },
-              { label: "Reviews",       value: vendor.reviewCount.toString(),        suffix: ""     },
+              { label: "Rating",        value: localRating.toString(),               suffix: "/5"   },
+              { label: "Reviews",       value: localCount.toString(),                suffix: ""     },
               { label: "Events Hosted", value: vendor.totalEvents.toLocaleString(), suffix: "+"    },
               { label: "Max Capacity",  value: vendor.maxCapacity.toString(),       suffix: " pax" },
             ].map(s => (
@@ -532,8 +538,6 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                 {localReviews.length > 0 ? (
                   <>
                     {(() => {
-                      const localCount  = localReviews.length;
-                      const localRating = Math.round((localReviews.reduce((s, r) => s + r.rating, 0) / localCount) * 10) / 10;
                       const starCounts  = [5,4,3,2,1].map(star => localReviews.filter(r => r.rating === star).length);
                       const pcts        = starCounts.map(c => Math.round((c / localCount) * 100));
                       return (
@@ -629,7 +633,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                   {[
                     { k: "Max Guests",    v: `${vendor.maxCapacity} pax` },
                     { k: "Events Hosted", v: `${vendor.totalEvents.toLocaleString()}+` },
-                    { k: "Rating",        v: `${vendor.rating} / 5` },
+                    { k: "Rating",        v: `${localRating} / 5` },
                     { k: "Established",   v: `${vendor.established}` },
                   ].map(row => (
                     <div key={row.k} className="flex items-center justify-between">
