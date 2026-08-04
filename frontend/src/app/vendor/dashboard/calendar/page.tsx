@@ -23,6 +23,20 @@ type DbBooking = {
   date: string;
 };
 
+/** Convert "06:00 PM" or "HH:MM" → "HH:MM" (24h) for the backend */
+function toTimeInput(t: string): string {
+  if (!t) return "";
+  if (/[AP]M/i.test(t)) {
+    const [timePart, ampm] = t.split(" ");
+    const [hStr, mStr] = timePart.split(":");
+    let h = parseInt(hStr);
+    if (ampm.toUpperCase() === "PM" && h !== 12) h += 12;
+    if (ampm.toUpperCase() === "AM" && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${mStr || "00"}`;
+  }
+  return t;
+}
+
 function fmt12h(t: string | null): string {
   if (!t) return "—";
   if (/[AP]M/i.test(t)) return t;
@@ -204,6 +218,7 @@ export default function CalendarPage() {
   const prefix   = `${year}-${String(month + 1).padStart(2, "0")}`;
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingDefaultDate, setBookingDefaultDate] = useState("");
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [extraBookings, setExtraBookings] = useState<BookingMap>({});
   const allBookings = (key: string) => [...(bookingMap[key] || []), ...(extraBookings[key] || [])];
 
@@ -259,8 +274,49 @@ export default function CalendarPage() {
         defaultDate={bookingDefaultDate}
         halls={hallNames}
         bookedDates={bookedDates}
-        onSubmit={(_form, _status, _services) => {
-          setBookingModalOpen(false);
+        submitting={bookingSubmitting}
+        onSubmit={async (form, status, services) => {
+          if (!accessToken || bookingSubmitting) return;
+          setBookingSubmitting(true);
+          try {
+            const servicesTotal = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+            const grandTotal    = Number(form.amount) || 0;
+            const tfFrom        = toTimeInput(form.timeFrom);
+            const tfTo          = toTimeInput(form.timeTo);
+            const res = await api.post<{ id: string }>("/api/vendor/bookings", {
+              customerName: form.customerName,
+              phone:        form.phone || "",
+              event:        form.event,
+              hall:         form.hall,
+              date:         form.date,
+              ...(tfFrom ? { timeFrom: tfFrom } : {}),
+              ...(tfTo   ? { timeTo:   tfTo   } : {}),
+              guests:     Number(form.guests) || 0,
+              amount:     grandTotal,
+              hallAmount: grandTotal - servicesTotal,
+              paid:       Number(form.paid) || 0,
+              status,
+              notes:    form.notes || undefined,
+              services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
+            }, accessToken);
+            if (res.success) {
+              const entry: Booking = {
+                id:           res.id,
+                customerName: form.customerName,
+                event:        form.event,
+                hall:         form.hall,
+                guests:       Number(form.guests) || 0,
+                time:         tfFrom ? fmt12h(tfFrom) : "—",
+                status:       status as "confirmed" | "pending",
+              };
+              setBookingMap(prev => ({
+                ...prev,
+                [form.date]: [...(prev[form.date] ?? []), entry],
+              }));
+              setBookingModalOpen(false);
+            }
+          } catch { /* ignore */ }
+          finally { setBookingSubmitting(false); }
         }}
       />
 

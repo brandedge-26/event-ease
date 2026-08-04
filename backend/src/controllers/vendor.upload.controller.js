@@ -24,6 +24,19 @@ export async function uploadLogo(req, res, next) {
     }
 }
 
+// POST /api/vendor/upload/staff-avatar
+export async function uploadStaffAvatarHandler(req, res, next) {
+    try {
+        if (!req.file?.path) {
+            return res.status(400).json({ success: false, message: "No image file provided." });
+        }
+        const avatarUrl = req.file.path; // Cloudinary secure URL
+        return res.status(200).json({ success: true, avatarUrl });
+    } catch (err) {
+        next(err);
+    }
+}
+
 // POST /api/vendor/upload/gallery
 // Protected — multer (uploadVendorGallery.array) runs before this
 export async function uploadGallery(req, res, next) {

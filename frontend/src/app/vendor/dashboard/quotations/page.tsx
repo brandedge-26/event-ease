@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuthStore } from "@/store/useAuthStore";
+import { api } from "@/lib/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type QuotationStatus = "pending" | "accepted" | "rejected";
@@ -25,7 +27,6 @@ type Quotation = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 6;
 
-const HALLS       = ["Hall A", "Hall B", "Hall C"];
 const EVENT_TYPES = ["Wedding", "Engagement", "Birthday Party", "Corporate Event", "Anniversary", "Conference", "Other"];
 
 const STATUS_CONFIG: Record<QuotationStatus, { label: string; color: string; bg: string }> = {
@@ -60,112 +61,6 @@ const PRESET_SVCS: PresetSvc[] = [
   { id: "custom", label: "Custom" },
 ];
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const INITIAL_QUOTATIONS: Quotation[] = [
-  {
-    id: "QT-001", customerName: "Ahmed Khan", phone: "0300-1234567", email: "ahmed.khan@gmail.com",
-    event: "Wedding", hall: "Hall A", date: "2026-08-02", guests: 350, hallAmount: 250000, status: "accepted",
-    services: [
-      { id: "drink", label: "Drink Service", unit: "350 pax", price: "35000" },
-      { id: "music", label: "Music",         unit: "1",       price: "20000" },
-    ],
-    notes: "Client has requested extra floral arrangements at entrance.",
-  },
-  {
-    id: "QT-002", customerName: "Sara Malik", phone: "0312-9876543", email: "sara.malik@hotmail.com",
-    event: "Birthday Party", hall: "Hall B", date: "2026-08-05", guests: 80, hallAmount: 60000, status: "accepted",
-    services: [
-      { id: "music", label: "Music", unit: "1", price: "12000" },
-    ],
-    notes: "Birthday theme: Pastel pink and gold.",
-  },
-  {
-    id: "QT-003", customerName: "Nadia Shah", phone: "0321-4567890", email: "nadia.shah@yahoo.com",
-    event: "Wedding", hall: "Hall A", date: "2026-08-10", guests: 400, hallAmount: 250000, status: "pending",
-    services: [
-      { id: "drink", label: "Drink Service", unit: "400 pax", price: "40000" },
-      { id: "music", label: "Music",         unit: "1",       price: "25000" },
-      { id: "table", label: "Table Service", unit: "35 tables", price: "28000" },
-    ],
-    notes: "Menu tasting scheduled for 2 Aug. Client may request vegetarian options.",
-  },
-  {
-    id: "QT-004", customerName: "Bilal Raza", phone: "0333-1122334", email: "bilal.raza@gmail.com",
-    event: "Corporate Event", hall: "Hall C", date: "2026-08-14", guests: 120, hallAmount: 70000, status: "accepted",
-    services: [
-      { id: "table", label: "Table Service", unit: "10 tables", price: "8000" },
-    ],
-    notes: "Corporate branding banners to be set up. Client will bring their own standees.",
-  },
-  {
-    id: "QT-005", customerName: "Hina Baig", phone: "0345-6677889", email: "hina.baig@gmail.com",
-    event: "Engagement", hall: "Hall B", date: "2026-08-18", guests: 200, hallAmount: 90000, status: "pending",
-    services: [
-      { id: "drink", label: "Drink Service", unit: "200 pax", price: "20000" },
-      { id: "music", label: "Music",         unit: "1",       price: "15000" },
-    ],
-    notes: "Guests travelling from Lahore. Require accommodation referrals.",
-  },
-  {
-    id: "QT-006", customerName: "Tariq Butt", phone: "0302-3344556", email: "tariq.butt@outlook.com",
-    event: "Wedding", hall: "Hall A", date: "2026-08-22", guests: 500, hallAmount: 280000, status: "pending",
-    services: [
-      { id: "drink", label: "Drink Service", unit: "500 pax", price: "50000" },
-      { id: "music", label: "Music",         unit: "1",       price: "30000" },
-    ],
-    notes: "Draft pending confirmation of exact guest count and menu preferences.",
-  },
-  {
-    id: "QT-007", customerName: "Usman Ali", phone: "0311-9988776", email: "usman.ali@gmail.com",
-    event: "Anniversary", hall: "Hall B", date: "2026-09-05", guests: 60, hallAmount: 55000, status: "rejected",
-    services: [],
-    notes: "Client rejected due to budget constraints. May revisit in future.",
-  },
-  {
-    id: "QT-008", customerName: "Fatima Malik", phone: "0321-5566778", email: "fatima.malik@gmail.com",
-    event: "Wedding", hall: "Hall A", date: "2026-09-01", guests: 450, hallAmount: 260000, status: "accepted",
-    services: [
-      { id: "drink", label: "Drink Service", unit: "450 pax", price: "45000" },
-      { id: "music", label: "Music",         unit: "1",       price: "30000" },
-      { id: "table", label: "Table Service", unit: "40 tables", price: "32000" },
-    ],
-    notes: "VIP section required for 20 guests. Separate menu for VIP table.",
-  },
-  {
-    id: "QT-009", customerName: "Omar Sheikh", phone: "0300-8899001", email: "omar.sheikh@corp.pk",
-    event: "Conference", hall: "Hall C", date: "2026-09-10", guests: 150, hallAmount: 70000, status: "pending",
-    services: [
-      { id: "table", label: "Table Service", unit: "12 tables", price: "9600" },
-    ],
-    notes: "International speakers attending. Require proper AV testing 1 day prior.",
-  },
-  {
-    id: "QT-010", customerName: "Zara Ahmed", phone: "0312-2233445", email: "zara.ahmed@hotmail.com",
-    event: "Engagement", hall: "Hall B", date: "2026-09-15", guests: 180, hallAmount: 85000, status: "pending",
-    services: [
-      { id: "drink", label: "Drink Service", unit: "180 pax", price: "18000" },
-    ],
-    notes: "Family from Karachi arriving. Need to confirm catering headcount 3 days prior.",
-  },
-  {
-    id: "QT-011", customerName: "Ali Hassan", phone: "0333-7788990", email: "ali.hassan@gmail.com",
-    event: "Wedding", hall: "Hall A", date: "2026-09-20", guests: 380, hallAmount: 250000, status: "pending",
-    services: [
-      { id: "drink", label: "Drink Service", unit: "380 pax", price: "38000" },
-      { id: "music", label: "Music",         unit: "1",       price: "20000" },
-    ],
-    notes: "Awaiting family decision. Follow up scheduled for 1 Sep.",
-  },
-  {
-    id: "QT-012", customerName: "Raza Corp", phone: "0302-1122334", email: "events@razacorp.pk",
-    event: "Conference", hall: "Hall C", date: "2026-09-28", guests: 200, hallAmount: 70000, status: "rejected",
-    services: [
-      { id: "table", label: "Table Service", unit: "16 tables", price: "12800" },
-    ],
-    notes: "Client chose a competitor venue. Keep in contact for future events.",
-  },
-];
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmt(n: number) {
   return "Rs. " + n.toLocaleString("en-PK");
@@ -176,6 +71,9 @@ function formatDate(d: string) {
 }
 function calcTotal(q: Quotation) {
   return q.hallAmount + (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
+}
+function displayId(id: string) {
+  return "QT-" + id.slice(0, 8).toUpperCase();
 }
 
 // ─── FormState ────────────────────────────────────────────────────────────────
@@ -195,7 +93,7 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   customerName: "", phone: "", email: "",
-  event: EVENT_TYPES[0], hall: HALLS[0], date: "", guests: "",
+  event: EVENT_TYPES[0], hall: "", date: "", guests: "",
   hallAmount: "", notes: "", status: "pending",
   services: [],
 };
@@ -205,12 +103,16 @@ function QuotationForm({
   title,
   subtitle,
   initial,
+  halls,
+  submitting,
   onClose,
   onSubmit,
 }: {
   title: string;
   subtitle?: string;
   initial: FormState;
+  halls: string[];
+  submitting?: boolean;
   onClose: () => void;
   onSubmit: (f: FormState) => void;
 }) {
@@ -295,7 +197,7 @@ function QuotationForm({
                   {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <select value={f.hall} onChange={e => setField("hall", e.target.value)} className={inp} style={inpStyle} required>
-                  {HALLS.map(h => <option key={h} value={h}>{h}</option>)}
+                  {halls.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -422,10 +324,13 @@ function QuotationForm({
             />
           </div>
 
-          <button type="submit"
-            className="w-full py-3.5 rounded-2xl text-sm font-bold cursor-pointer transition-opacity hover:opacity-90 mt-1"
+          <button type="submit" disabled={submitting}
+            className="w-full py-3.5 rounded-2xl text-sm font-bold cursor-pointer transition-opacity hover:opacity-90 mt-1 disabled:opacity-60 flex items-center justify-center gap-2"
             style={{ background: "var(--primary)", color: "#ffffff" }}>
-            Save Quotation
+            {submitting && (
+              <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin inline-block" />
+            )}
+            {submitting ? "Saving…" : "Save Quotation"}
           </button>
         </form>
       </div>
@@ -439,6 +344,7 @@ function generatePDF(q: Quotation) {
   const total    = q.hallAmount + svcTotal;
   const fmtRs    = (n: number) => "Rs. " + n.toLocaleString("en-PK");
   const fmtDate  = (d: string) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "—";
+  const qId      = displayId(q.id);
 
   const servicesHTML = (q.services?.length ?? 0) > 0
     ? `<table class="table">
@@ -458,7 +364,7 @@ function generatePDF(q: Quotation) {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Quotation ${q.id} – Event Ease</title>
+  <title>Quotation ${qId} – Event Ease</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; color: #111; background: #fff; padding: 40px; font-size: 13px; }
@@ -497,7 +403,7 @@ function generatePDF(q: Quotation) {
   <div class="header">
     <div><div class="brand-name">Royal Banquet Hall</div><div class="brand-sub">Event Ease</div></div>
     <div class="quote-meta">
-      <div class="quote-id">${q.id}</div>
+      <div class="quote-id">${qId}</div>
       <span class="quote-status" style="background:${q.status==="accepted"?"#F0FDF4":q.status==="rejected"?"#FEF2F2":"#FFFBEB"};color:${q.status==="accepted"?"#16A34A":q.status==="rejected"?"#DC2626":"#D97706"}">
         ${q.status.charAt(0).toUpperCase()+q.status.slice(1)}
       </span>
@@ -557,7 +463,7 @@ function QuotationDetailContent({
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
-          <p className="text-sm font-bold text-black">{q.id}</p>
+          <p className="text-sm font-bold text-black">{displayId(q.id)}</p>
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -662,7 +568,7 @@ function QuotationDetailContent({
               disabled={q.status === "accepted"}
               className="flex-1 py-3 rounded-2xl text-sm font-semibold cursor-pointer transition-all disabled:opacity-40"
               style={{
-                background: q.status === "accepted" ? "#F0FDF4" : "#F0FDF4",
+                background: "#F0FDF4",
                 color: "#16A34A",
                 border: q.status === "accepted" ? "2px solid #16A34A" : "2px solid transparent",
               }}>
@@ -711,15 +617,35 @@ function DetailModal({ q, onClose, onStatusChange }: { q: Quotation; onClose: ()
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function QuotationsPage() {
-  const [quotations, setQuotations] = useState<Quotation[]>(INITIAL_QUOTATIONS);
-  const [filter, setFilter]         = useState<"all" | QuotationStatus>("all");
-  const [search, setSearch]         = useState("");
-  const [page, setPage]             = useState(1);
-  const [newModalOpen, setNewModalOpen] = useState(false);
-  const [detailTarget, setDetailTarget] = useState<Quotation | null>(null);
-  const [editTarget, setEditTarget]     = useState<Quotation | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Quotation | null>(null);
+  const { accessToken } = useAuthStore();
 
+  const [quotations, setQuotations]   = useState<Quotation[]>([]);
+  const [halls, setHalls]             = useState<string[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [formSubmitting, setFormSubmitting] = useState(false);
+
+  const [filter, setFilter]           = useState<"all" | QuotationStatus>("all");
+  const [search, setSearch]           = useState("");
+  const [page, setPage]               = useState(1);
+  const [newModalOpen, setNewModalOpen]   = useState(false);
+  const [detailTarget, setDetailTarget]   = useState<Quotation | null>(null);
+  const [editTarget, setEditTarget]       = useState<Quotation | null>(null);
+  const [deleteTarget, setDeleteTarget]   = useState<Quotation | null>(null);
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!accessToken) return;
+    setLoading(true);
+    Promise.all([
+      api.get<{ quotations: Quotation[] }>("/api/vendor/quotations", accessToken),
+      api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
+    ]).then(([qRes, hRes]) => {
+      if (qRes.success) setQuotations(qRes.quotations ?? []);
+      if (hRes.success && hRes.halls?.length) setHalls(hRes.halls.map(h => h.name));
+    }).finally(() => setLoading(false));
+  }, [accessToken]);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
   const filtered = quotations.filter(q => {
     const matchFilter = filter === "all" || q.status === filter;
     const s = search.toLowerCase();
@@ -727,7 +653,7 @@ export default function QuotationsPage() {
       q.customerName.toLowerCase().includes(s) ||
       q.event.toLowerCase().includes(s) ||
       q.hall.toLowerCase().includes(s) ||
-      q.id.toLowerCase().includes(s);
+      displayId(q.id).toLowerCase().includes(s);
     return matchFilter && matchSearch;
   });
 
@@ -747,78 +673,159 @@ export default function QuotationsPage() {
 
   const totalValue = quotations.filter(q => q.status === "accepted").reduce((s, q) => s + calcTotal(q), 0);
 
-  function handleCreate(f: FormState) {
-    const newQ: Quotation = {
-      id: "QT-" + String(quotations.length + 1).padStart(3, "0"),
-      customerName: f.customerName,
-      phone: f.phone,
-      email: f.email,
-      event: f.event,
-      hall: f.hall,
-      date: f.date,
-      guests: Number(f.guests) || 0,
-      hallAmount: Number(f.hallAmount) || 0,
-      status: f.status,
-      services: f.services,
-      notes: f.notes,
-    };
-    setQuotations(prev => [newQ, ...prev]);
-    setNewModalOpen(false);
-    setPage(1);
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  async function handleCreate(f: FormState) {
+    setFormSubmitting(true);
+    try {
+      const res = await api.post<{ id: string }>("/api/vendor/quotations", {
+        customerName: f.customerName,
+        phone:        f.phone || "",
+        email:        f.email || "",
+        event:        f.event,
+        hall:         f.hall,
+        date:         f.date || undefined,
+        guests:       Number(f.guests) || 0,
+        hallAmount:   Number(f.hallAmount) || 0,
+        notes:        f.notes || undefined,
+        services:     f.services,
+      }, accessToken ?? undefined);
+
+      if (res.success && res.id) {
+        const newQ: Quotation = {
+          id:           res.id,
+          customerName: f.customerName,
+          phone:        f.phone,
+          email:        f.email,
+          event:        f.event,
+          hall:         f.hall,
+          date:         f.date,
+          guests:       Number(f.guests) || 0,
+          hallAmount:   Number(f.hallAmount) || 0,
+          status:       "pending",
+          services:     f.services,
+          notes:        f.notes,
+        };
+        setQuotations(prev => [newQ, ...prev]);
+        setNewModalOpen(false);
+        setPage(1);
+      }
+    } finally {
+      setFormSubmitting(false);
+    }
   }
 
-  function handleEdit(f: FormState) {
+  async function handleEdit(f: FormState) {
     if (!editTarget) return;
-    setQuotations(prev => prev.map(q => q.id === editTarget.id ? {
-      ...q,
-      customerName: f.customerName,
-      phone: f.phone,
-      email: f.email,
-      event: f.event,
-      hall: f.hall,
-      date: f.date,
-      guests: Number(f.guests) || 0,
-      hallAmount: Number(f.hallAmount) || 0,
-      status: f.status,
-      services: f.services,
-      notes: f.notes,
-    } : q));
-    setEditTarget(null);
+    setFormSubmitting(true);
+    try {
+      const res = await api.patch(`/api/vendor/quotations/${editTarget.id}`, {
+        customerName: f.customerName,
+        phone:        f.phone,
+        email:        f.email,
+        event:        f.event,
+        hall:         f.hall,
+        date:         f.date || undefined,
+        guests:       Number(f.guests) || 0,
+        hallAmount:   Number(f.hallAmount) || 0,
+        notes:        f.notes || undefined,
+        services:     f.services,
+      }, accessToken ?? undefined);
+
+      if (res.success) {
+        setQuotations(prev => prev.map(q => q.id === editTarget.id ? {
+          ...q,
+          customerName: f.customerName,
+          phone:        f.phone,
+          email:        f.email,
+          event:        f.event,
+          hall:         f.hall,
+          date:         f.date,
+          guests:       Number(f.guests) || 0,
+          hallAmount:   Number(f.hallAmount) || 0,
+          services:     f.services,
+          notes:        f.notes,
+        } : q));
+        setEditTarget(null);
+      }
+    } finally {
+      setFormSubmitting(false);
+    }
   }
 
   function handleStatusChange(id: string, status: QuotationStatus) {
+    // optimistic update
     setQuotations(prev => prev.map(q => q.id === id ? { ...q, status } : q));
+    api.patch(`/api/vendor/quotations/${id}/status`, { status }, accessToken ?? undefined);
   }
 
   function handleDelete(id: string) {
     setQuotations(prev => prev.filter(q => q.id !== id));
     setDeleteTarget(null);
     if (detailTarget?.id === id) setDetailTarget(null);
+    api.delete(`/api/vendor/quotations/${id}`, accessToken ?? undefined);
   }
 
   function formFromQuotation(q: Quotation): FormState {
     return {
       customerName: q.customerName,
-      phone: q.phone,
-      email: q.email,
-      event: q.event,
-      hall: q.hall,
-      date: q.date,
-      guests: String(q.guests),
-      hallAmount: String(q.hallAmount),
-      notes: q.notes,
-      status: q.status,
-      services: q.services,
+      phone:        q.phone,
+      email:        q.email,
+      event:        q.event,
+      hall:         q.hall,
+      date:         q.date,
+      guests:       String(q.guests),
+      hallAmount:   String(q.hallAmount),
+      notes:        q.notes,
+      status:       q.status,
+      services:     q.services,
     };
+  }
+
+  // ── Loading skeleton ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="p-4 lg:p-8">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="h-7 w-32 rounded-xl bg-gray-200 animate-pulse mb-2" />
+            <div className="h-4 w-52 rounded-lg bg-gray-100 animate-pulse" />
+          </div>
+          <div className="h-10 w-36 rounded-2xl bg-gray-200 animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl p-4 shadow-sm animate-pulse">
+              <div className="h-8 w-10 rounded bg-gray-200 mb-2" />
+              <div className="h-3 w-24 rounded bg-gray-100" />
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-2">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl shadow-sm p-4 animate-pulse">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
+                <div>
+                  <div className="h-4 w-32 rounded bg-gray-200 mb-1.5" />
+                  <div className="h-3 w-24 rounded bg-gray-100" />
+                </div>
+              </div>
+              <div className="h-3 w-40 rounded bg-gray-100 mb-2" />
+              <div className="h-3 w-full rounded bg-gray-100" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
       {newModalOpen && (
-        <QuotationForm title="New Quotation" initial={EMPTY_FORM} onClose={() => setNewModalOpen(false)} onSubmit={handleCreate} />
+        <QuotationForm title="New Quotation" initial={{ ...EMPTY_FORM, hall: halls[0] ?? "" }} halls={halls} submitting={formSubmitting} onClose={() => setNewModalOpen(false)} onSubmit={handleCreate} />
       )}
       {editTarget && (
-        <QuotationForm title="Edit Quotation" subtitle={editTarget.id} initial={formFromQuotation(editTarget)} onClose={() => setEditTarget(null)} onSubmit={handleEdit} />
+        <QuotationForm title="Edit Quotation" subtitle={displayId(editTarget.id)} initial={formFromQuotation(editTarget)} halls={halls} submitting={formSubmitting} onClose={() => setEditTarget(null)} onSubmit={handleEdit} />
       )}
       {detailTarget && (
         <DetailModal q={quotations.find(q => q.id === detailTarget.id) ?? detailTarget} onClose={() => setDetailTarget(null)} onStatusChange={handleStatusChange} />
@@ -832,7 +839,7 @@ export default function QuotationsPage() {
             </div>
             <p className="text-base font-bold text-black text-center">Delete Quotation?</p>
             <p className="text-sm text-center mt-1 mb-5" style={{ color: "var(--fg-muted)" }}>
-              <span className="font-semibold text-black">{deleteTarget.id}</span> for{" "}
+              <span className="font-semibold text-black">{displayId(deleteTarget.id)}</span> for{" "}
               <span className="font-semibold text-black">{deleteTarget.customerName}</span> will be permanently deleted.
             </p>
             <div className="flex gap-2">
@@ -918,12 +925,14 @@ export default function QuotationsPage() {
             <div className="bg-white rounded-2xl shadow-sm py-16 flex flex-col items-center text-center">
               <EmptyIcon />
               <p className="text-sm font-medium mt-3 text-black">No quotations found</p>
-              <p className="text-xs mt-1" style={{ color: "var(--fg-muted)" }}>Try changing the filter or search</p>
+              <p className="text-xs mt-1" style={{ color: "var(--fg-muted)" }}>
+                {quotations.length === 0 ? "Create your first quotation" : "Try changing the filter or search"}
+              </p>
             </div>
           )}
           {paginated.map(q => {
-            const cfg   = STATUS_CONFIG[q.status];
-            const total = calcTotal(q);
+            const cfg      = STATUS_CONFIG[q.status];
+            const total    = calcTotal(q);
             const svcTotal = (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
             return (
               <div key={q.id} className="bg-white rounded-2xl shadow-sm p-4">
@@ -971,7 +980,7 @@ export default function QuotationsPage() {
                 </div>
                 {/* Row 5: ID + actions */}
                 <div className="flex items-center justify-between pt-2.5 border-t" style={{ borderColor: "#F4F4F5" }}>
-                  <span className="text-[10px] font-mono font-medium" style={{ color: "var(--fg-subtle)" }}>{q.id}</span>
+                  <span className="text-[10px] font-mono font-medium" style={{ color: "var(--fg-subtle)" }}>{displayId(q.id)}</span>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setDetailTarget(q)}
                       className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer hover:bg-blue-50"

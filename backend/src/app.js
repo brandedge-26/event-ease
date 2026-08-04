@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import helmet from "helmet";
 import apiRoutes from "./routes/index.js";
 import { globalErrorHandler } from "./middleware/errorHandler.js";
 
@@ -8,6 +9,11 @@ import { globalErrorHandler } from "./middleware/errorHandler.js";
 
 // EXPRESS APP
 export const app = express();
+
+
+
+// SECURITY HEADERS
+app.use(helmet());
 
 
 

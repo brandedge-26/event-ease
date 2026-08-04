@@ -63,6 +63,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const vendorSlug   = vendor?.slug      ?? "";
   const initials     = ownerName.charAt(0).toUpperCase();
 
+  // ── Auth Guard ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isLoading && !vendor) {
+      router.replace("/vendor/login");
+    }
+  }, [isLoading, vendor, router]);
+
   useEffect(() => {
     function checkMobile() {
       setIsMobile(window.innerWidth < 1024);
@@ -87,6 +94,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setMobileOpen(false);
     setMoreOpen(false);
   }, [pathname]);
+
+  // ── Guard rendering ─────────────────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center" style={{ background: "#F4F4F5" }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-[3px] animate-spin" style={{ borderColor: "var(--primary-light)", borderTopColor: "var(--primary)" }} />
+          <p className="text-sm font-medium" style={{ color: "var(--fg-muted)" }}>Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!vendor) return null;
 
   function isActive(href: string) {
     if (href === "/vendor/dashboard") return pathname === href;

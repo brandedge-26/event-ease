@@ -281,7 +281,7 @@ export default function ReportsPage() {
       {/* ── Revenue Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <StatCard
-          label="Total Revenue"
+          label="Total Sales"
           value={fmtRs(totalRevenue)}
           sub={revenueChange !== null ? `${revenueChange >= 0 ? "+" : ""}${revenueChange}% vs prev period` : undefined}
           subColor={revenueChange !== null ? (revenueChange >= 0 ? "#16A34A" : "#DC2626") : undefined}

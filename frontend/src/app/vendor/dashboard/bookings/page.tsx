@@ -1213,7 +1213,7 @@ export default function BookingsPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-2xl font-bold text-black">{counts.all}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Total Bookings</p></div>
           <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-2xl font-bold" style={{ color: "#16A34A" }}>{counts.confirmed}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Confirmed</p></div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-base font-bold text-black">{fmt(totalRevenue)}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Total Revenue</p></div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-base font-bold text-black">{fmt(totalRevenue)}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Total Sales</p></div>
           <div className="bg-white rounded-2xl p-4 shadow-sm"><p className="text-base font-bold" style={{ color: "#16A34A" }}>{fmt(collected)}</p><p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>Collected</p></div>
         </div>
 

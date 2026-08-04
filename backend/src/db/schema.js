@@ -145,6 +145,7 @@ export const staff = pgTable("staff", {
     address:     text("address"),
     notes:       text("notes"),
     avatarColor: text("avatar_color"),
+    avatarUrl:   text("avatar_url"),
     createdAt:   timestamp("created_at").defaultNow(),
     updatedAt:   timestamp("updated_at").defaultNow(),
 });
@@ -157,4 +158,25 @@ export const reviews = pgTable("reviews", {
     rating:    integer("rating").notNull(),
     text:      text("text").notNull(),
     createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ─── Quotations ───────────────────────────────────────────────────────────────
+export const quotationStatusEnum = pgEnum("quotation_status", ["pending", "accepted", "rejected"]);
+
+export const quotations = pgTable("quotations", {
+    id:           text("id").primaryKey(),
+    vendorId:     text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    customerName: text("customer_name").notNull(),
+    phone:        text("phone").default(""),
+    email:        text("email").default(""),
+    event:        text("event").notNull(),
+    hall:         text("hall").notNull(),
+    date:         text("date"),
+    guests:       integer("guests").default(0),
+    hallAmount:   integer("hall_amount").default(0),
+    services:     text("services"),   // JSON-encoded ServiceEntry[]
+    notes:        text("notes"),
+    status:       quotationStatusEnum("status").default("pending"),
+    createdAt:    timestamp("created_at").defaultNow(),
+    updatedAt:    timestamp("updated_at").defaultNow(),
 });
