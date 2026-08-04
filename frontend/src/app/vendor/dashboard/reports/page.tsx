@@ -62,6 +62,7 @@ const STATUS_CFG = {
   confirmed: { label: "Confirmed", color: "#16A34A", bg: "#F0FDF4" },
   pending:   { label: "Pending",   color: "#D97706", bg: "#FFFBEB" },
   cancelled: { label: "Cancelled", color: "#DC2626", bg: "#FEF2F2" },
+  blocked:   { label: "Blocked",   color: "#6B7280", bg: "#F3F4F6" },
 } as const;
 
 const EVENT_COLORS: Record<string, string> = {

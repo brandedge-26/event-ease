@@ -22,7 +22,7 @@ export default function VendorLoginPage() {
     setLoading(true);
 
     try {
-      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string } }>(
+      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string; ownerName: string; slug: string } }>(
         "/api/vendor/auth/login",
         { email: email.trim(), password },
       );

@@ -58,6 +58,7 @@ const STATUS_CONFIG: Record<Status, { label: string; color: string; bg: string }
   confirmed: { label: "Confirmed", color: "#16A34A", bg: "#F0FDF4" },
   pending:   { label: "Pending",   color: "#D97706", bg: "#FFFBEB" },
   cancelled: { label: "Cancelled", color: "#DC2626", bg: "#FEF2F2" },
+  blocked:   { label: "Blocked",   color: "#6B7280", bg: "#F3F4F6" },
 };
 
 const HALL_COLOR: Record<string, string> = {
@@ -76,6 +77,7 @@ const FILTER_TABS: { label: string; value: "all" | Status }[] = [
   { label: "Confirmed", value: "confirmed" },
   { label: "Pending",   value: "pending" },
   { label: "Cancelled", value: "cancelled" },
+  { label: "Blocked",   value: "blocked" },
 ];
 
 const HALLS_FALLBACK = ["Hall A", "Hall B", "Hall C"];
@@ -131,7 +133,7 @@ function EditBookingModal({ booking, onClose, onSave, halls = HALLS_FALLBACK, bo
     hallAmount:   String(booking.hallAmount ?? (booking.amount - (booking.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0))),
     paid:         String(booking.paid),
     notes:        booking.notes,
-    status:       booking.status as "confirmed" | "pending" | "cancelled",
+    status:       booking.status as BookingStatus,
   });
   const [services, setServices] = useState<{ label: string; unit: string; price: string }[]>(booking.services ?? []);
   const [errors, setErrors]     = useState<Record<string, string>>({});
@@ -915,6 +917,7 @@ export default function BookingsPage() {
     confirmed: bookings.filter(b => b.status === "confirmed").length,
     pending:   bookings.filter(b => b.status === "pending").length,
     cancelled: bookings.filter(b => b.status === "cancelled").length,
+    blocked:   bookings.filter(b => b.status === "blocked").length,
   };
 
   const totalRevenue = bookings.filter(b => b.status !== "cancelled").reduce((s, b) => s + b.amount, 0);

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-export type BookingStatus = "confirmed" | "pending" | "cancelled";
+export type BookingStatus = "confirmed" | "pending" | "cancelled" | "blocked";
 
 export type ServiceEntry = {
   id: string;

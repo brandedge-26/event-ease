@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { DEFAULT_VENDOR, type Vendor } from "@/lib/vendorData";
 
 // ─── Shared Types ─────────────────────────────────────────────────────────────
-export type BookingStatus = "confirmed" | "pending" | "cancelled";
+export type BookingStatus = "confirmed" | "pending" | "cancelled" | "blocked";
 export type PaymentMethod = "Cash" | "Bank Transfer" | "Cheque" | "Online";
 export type PaymentStatus = "paid" | "partial" | "pending" | "overdue";
 
