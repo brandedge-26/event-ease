@@ -31,6 +31,7 @@ export type Vendor = {
   coverGradient: string;
   about: string;
   logoUrl?: string | null;
+  mapUrl?: string | null;
   halls: Hall[];
   services: string[];
   amenities: string[];

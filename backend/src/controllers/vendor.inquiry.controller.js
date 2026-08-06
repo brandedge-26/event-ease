@@ -55,6 +55,29 @@ export async function getInquiries(req, res) {
     }
 }
 
+// DELETE /api/vendor/inquiry/:id — auth required
+export async function deleteInquiry(req, res) {
+    try {
+        const { id } = req.params;
+
+        const [row] = await db
+            .select({ id: inquiries.id, vendorId: inquiries.vendorId })
+            .from(inquiries)
+            .where(eq(inquiries.id, id))
+            .limit(1);
+
+        if (!row || row.vendorId !== req.vendor.id) {
+            return res.status(404).json({ success: false, message: "Inquiry not found." });
+        }
+
+        await db.delete(inquiries).where(eq(inquiries.id, id));
+        return res.status(200).json({ success: true });
+    } catch (err) {
+        console.error("[deleteInquiry]", err);
+        return res.status(500).json({ success: false, message: "Failed to delete inquiry." });
+    }
+}
+
 // PATCH /api/vendor/inquiry/:id/status — auth required
 export async function updateInquiryStatus(req, res) {
     try {

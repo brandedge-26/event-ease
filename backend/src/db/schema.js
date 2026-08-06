@@ -37,6 +37,7 @@ export const vendors = pgTable("vendors", {
     // Media
     logoUrl:       text("logo_url"),
     galleryImages: text("gallery_images").array(),
+    mapUrl:        text("map_url"),
     // Status
     isVerified:    boolean("is_verified").default(false),
     createdAt:     timestamp("created_at").defaultNow(),

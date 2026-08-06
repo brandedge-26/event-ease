@@ -1,6 +1,6 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, count, and, lt } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { vendors, halls, reviews } from "../db/schema.js";
+import { vendors, halls, reviews, bookings } from "../db/schema.js";
 
 // GET /api/vendor/profile/me — auth required
 export async function getOwnProfile(req, res) {
@@ -25,6 +25,7 @@ export async function getOwnProfile(req, res) {
                 established:   vendors.established,
                 logoUrl:       vendors.logoUrl,
                 galleryImages: vendors.galleryImages,
+                mapUrl:        vendors.mapUrl,
                 isVerified:    vendors.isVerified,
             })
             .from(vendors)
@@ -48,7 +49,7 @@ export async function getOwnProfile(req, res) {
 // PATCH /api/vendor/profile/me — auth required
 export async function updateOwnProfile(req, res) {
     try {
-        const { name, tagline, phone, whatsapp, city, area, address, about, services, amenities, established, galleryImages } = req.body;
+        const { name, tagline, phone, whatsapp, city, area, address, about, services, amenities, established, galleryImages, mapUrl } = req.body;
         const updates = { updatedAt: new Date() };
 
         if (name          !== undefined) updates.name          = String(name).trim();
@@ -63,6 +64,7 @@ export async function updateOwnProfile(req, res) {
         if (amenities     !== undefined) updates.amenities     = Array.isArray(amenities) ? amenities : [];
         if (established   !== undefined) updates.established   = established ? Number(established) : null;
         if (galleryImages !== undefined) updates.galleryImages = galleryImages;
+        if (mapUrl        !== undefined) updates.mapUrl        = mapUrl ? String(mapUrl).trim() : null;
 
         await db.update(vendors).set(updates).where(eq(vendors.id, req.vendor.id));
         return res.status(200).json({ success: true });
@@ -149,6 +151,7 @@ export async function getPublicProfile(req, res) {
                 established:  vendors.established,
                 logoUrl:       vendors.logoUrl,
                 galleryImages: vendors.galleryImages,
+                mapUrl:        vendors.mapUrl,
                 isVerified:    vendors.isVerified,
                 createdAt:    vendors.createdAt,
             })
@@ -184,11 +187,22 @@ export async function getPublicProfile(req, res) {
             .where(eq(reviews.vendorId, vendor.id))
             .orderBy(desc(reviews.createdAt));
 
+        const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+        const [{ confirmedCount }] = await db
+            .select({ confirmedCount: count() })
+            .from(bookings)
+            .where(and(
+                eq(bookings.vendorId, vendor.id),
+                eq(bookings.status, "confirmed"),
+                lt(bookings.date, today),
+            ));
+
         return res.status(200).json({
             success: true,
             vendor,
-            halls: vendorHalls,
-            reviews: vendorReviews,
+            halls:        vendorHalls,
+            reviews:      vendorReviews,
+            totalEvents:  confirmedCount ?? 0,
         });
     } catch (err) {
         console.error("[getPublicProfile]", err);

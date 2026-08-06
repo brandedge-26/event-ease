@@ -12,7 +12,7 @@ type DbVendor = {
   whatsapp: string | null; city: string; area: string; address: string;
   about: string | null; services: string[] | null; amenities: string[] | null;
   established: number | null; isVerified: boolean;
-  logoUrl: string | null; galleryImages: string[] | null;
+  logoUrl: string | null; galleryImages: string[] | null; mapUrl: string | null;
 };
 
 export default async function VendorProfilePage({
@@ -25,6 +25,7 @@ export default async function VendorProfilePage({
   let vendor: DbVendor | null = null;
   let dbHalls: DbHall[] = [];
   let dbReviews: DbReview[] = [];
+  let totalEvents = 0;
 
   try {
     const res = await fetch(`${API_BASE}/api/vendor/profile/${slug}`, {
@@ -32,9 +33,10 @@ export default async function VendorProfilePage({
     });
     const data = await res.json();
     if (data.success) {
-      vendor     = data.vendor;
-      dbHalls    = data.halls ?? [];
-      dbReviews  = data.reviews ?? [];
+      vendor      = data.vendor;
+      dbHalls     = data.halls    ?? [];
+      dbReviews   = data.reviews  ?? [];
+      totalEvents = data.totalEvents ?? 0;
     }
   } catch {
     // network error — show 404
@@ -78,13 +80,14 @@ export default async function VendorProfilePage({
     established:   vendor.established ?? new Date().getFullYear(),
     rating,
     reviewCount,
-    totalEvents:   0,
+    totalEvents,
     maxCapacity,
     accentColor:   "#FF3B6B",
     accentLight:   "#FFF0F4",
     coverGradient: "linear-gradient(135deg, #FF3B6B 0%, #FF8FA3 50%, #FFB3C1 100%)",
     about:         vendor.about ?? "",
     logoUrl:       vendor.logoUrl ?? null,
+    mapUrl:        vendor.mapUrl  ?? null,
     halls:         dbHalls.map((h) => ({
       name:     h.name,
       capacity: h.capacity,

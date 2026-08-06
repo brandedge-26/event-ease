@@ -20,6 +20,7 @@ type ProfileData = {
   name: string; tagline: string; phone: string; whatsapp: string;
   city: string; area: string; address: string; about: string;
   established: number | null; logoUrl: string | null; galleryImages: string[];
+  mapUrl: string;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -27,12 +28,12 @@ function Label({ children }: { children: React.ReactNode }) {
   return <label className="block text-sm font-semibold mb-2" style={{ color: "#374151" }}>{children}</label>;
 }
 function Card({ children }: { children: React.ReactNode }) {
-  return <div className="bg-white rounded-2xl p-5 lg:p-6 border" style={{ borderColor: "#E5E7EB" }}>{children}</div>;
+  return <div className="bg-white rounded-2xl p-4 sm:p-5 lg:p-6 border" style={{ borderColor: "#E5E7EB" }}>{children}</div>;
 }
 function CardHead({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="mb-5">
-      <h2 className="text-base font-bold" style={{ color: "#111827" }}>{title}</h2>
+    <div className="mb-4 sm:mb-5">
+      <h2 className="text-sm sm:text-base font-bold" style={{ color: "#111827" }}>{title}</h2>
       {sub && <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>{sub}</p>}
     </div>
   );
@@ -119,7 +120,7 @@ export default function ManageProfilePage() {
   const [profile, setProfile] = useState<ProfileData>({
     name: "", tagline: "", phone: "", whatsapp: "",
     city: "", area: "", address: "", about: "",
-    established: null, logoUrl: null, galleryImages: [],
+    established: null, logoUrl: null, galleryImages: [], mapUrl: "",
   });
   const [services,  setServices]  = useState<string[]>([]);
   const [amenities, setAmenities] = useState<string[]>([]);
@@ -161,6 +162,7 @@ export default function ManageProfilePage() {
           established:   v.established   ?? null,
           logoUrl:       v.logoUrl       ?? null,
           galleryImages: v.galleryImages ?? [],
+          mapUrl:        v.mapUrl        ?? "",
         });
         setServices(v.services   ?? []);
         setAmenities(v.amenities ?? []);
@@ -186,6 +188,7 @@ export default function ManageProfilePage() {
         area:        profile.area,
         address:     profile.address,
         established: profile.established,
+        mapUrl:      profile.mapUrl || null,
       }, accessToken!);
       if (res.success) flash("basic"); else setError((res as any).message ?? "Failed to save.");
     } finally { setSaving(false); }
@@ -305,7 +308,7 @@ export default function ManageProfilePage() {
       <button
         onClick={onClick}
         disabled={saving}
-        className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-semibold text-white transition-all cursor-pointer disabled:opacity-60"
+        className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-semibold text-white transition-all cursor-pointer disabled:opacity-60"
         style={{ background: isSaved ? "#16A34A" : "var(--primary)" }}
       >
         {isSaved ? <><CheckIcon /> Saved</> : saving ? "Saving…" : <><SaveIcon /> Save Changes</>}
@@ -325,16 +328,17 @@ export default function ManageProfilePage() {
     <div className="p-4 lg:p-6 max-w-4xl mx-auto min-h-screen" style={{ background: "var(--bg-subtle, #F4F4F5)" }}>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-3 mb-5 sm:mb-6">
         <div>
-          <h1 className="text-xl font-bold" style={{ color: "#111827" }}>Manage Profile</h1>
-          <p className="text-sm mt-0.5" style={{ color: "#6B7280" }}>Edit your public profile page</p>
+          <h1 className="text-lg sm:text-xl font-bold" style={{ color: "#111827" }}>Manage Profile</h1>
+          <p className="text-xs sm:text-sm mt-0.5" style={{ color: "#6B7280" }}>Edit your public profile page</p>
         </div>
         {authVendor?.slug && (
           <a href={`/profile/${authVendor.slug}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold border transition-colors hover:bg-white shrink-0"
+            className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl text-xs sm:text-sm font-semibold border transition-colors hover:bg-white shrink-0"
             style={{ borderColor: "#E5E7EB", color: "#374151", background: "#fff" }}>
-            <EyeIcon /> Preview Profile
+            <EyeIcon />
+            <span className="hidden sm:inline">Preview Profile</span>
           </a>
         )}
       </div>
@@ -346,10 +350,10 @@ export default function ManageProfilePage() {
       )}
 
       {/* Tab Bar */}
-      <div className="flex gap-1 p-1 rounded-2xl mb-5 overflow-x-auto" style={{ background: "#E5E7EB" }}>
+      <div className="flex gap-1 p-1 rounded-2xl mb-4 sm:mb-5 overflow-x-auto scrollbar-hide" style={{ background: "#E5E7EB" }}>
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className="flex-1 min-w-fit px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap cursor-pointer"
+            className="shrink-0 flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer"
             style={{
               background: tab === t.key ? "#fff" : "transparent",
               color:      tab === t.key ? "#111827" : "#6B7280",
@@ -368,8 +372,8 @@ export default function ManageProfilePage() {
             {/* Logo */}
             <div>
               <Label>Logo / Profile Photo</Label>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl shrink-0 overflow-hidden flex items-center justify-center font-black text-white text-2xl"
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl shrink-0 overflow-hidden flex items-center justify-center font-black text-white text-xl sm:text-2xl"
                   style={{ background: "linear-gradient(135deg,#FF3B6B,#FF8FA3)" }}>
                   {profile.logoUrl
                     ? <img src={profile.logoUrl} alt="logo" className="w-full h-full object-cover" />
@@ -380,7 +384,7 @@ export default function ManageProfilePage() {
                   <button
                     onClick={() => logoRef.current?.click()}
                     disabled={logoUploading}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50 cursor-pointer disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-colors hover:bg-gray-50 cursor-pointer disabled:opacity-50"
                     style={{ borderColor: "#D1D5DB", color: "#374151" }}
                   >
                     <UploadIcon /> {logoUploading ? "Uploading…" : "Change Logo"}
@@ -426,8 +430,25 @@ export default function ManageProfilePage() {
               <Label>Established Year</Label>
               <input className={INP} style={INP_S} type="number" value={profile.established ?? ""} onChange={e => setProfile(p => ({ ...p, established: e.target.value ? Number(e.target.value) : null }))} placeholder="2010" />
             </div>
+            <div>
+              <Label>Google Maps Embed URL</Label>
+              <input
+                className={INP} style={INP_S}
+                value={profile.mapUrl}
+                onChange={e => {
+                  let val = e.target.value;
+                  const match = val.match(/src="([^"]+)"/);
+                  if (match) val = match[1];
+                  setProfile(p => ({ ...p, mapUrl: val }));
+                }}
+                placeholder="https://www.google.com/maps/embed?pb=…"
+              />
+              <p className="text-xs mt-1.5" style={{ color: "#9CA3AF" }}>Google Maps → Share → Embed a map → copy & paste the full iframe code or just the URL.</p>
+            </div>
             <div className="flex justify-end pt-2">
-              <SaveBtn onClick={saveBasic} />
+              <div className="w-full sm:w-auto">
+                <SaveBtn onClick={saveBasic} />
+              </div>
             </div>
           </div>
         </Card>
@@ -479,7 +500,9 @@ export default function ManageProfilePage() {
           </Card>
 
           <div className="flex justify-end">
-            <SaveBtn onClick={saveAbout} />
+            <div className="w-full sm:w-auto">
+              <SaveBtn onClick={saveAbout} />
+            </div>
           </div>
         </div>
       )}
@@ -496,10 +519,10 @@ export default function ManageProfilePage() {
               </div>
             )}
             {halls.map(h => (
-              <div key={h.id} className="flex items-start justify-between gap-3 p-4 rounded-2xl border" style={{ borderColor: "#F3F4F6", background: "#FAFAFA" }}>
+              <div key={h.id} className="flex items-start justify-between gap-3 p-3 sm:p-4 rounded-2xl border" style={{ borderColor: "#F3F4F6", background: "#FAFAFA" }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate" style={{ color: "#111827" }}>{h.name}</p>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
                     <span className="text-xs" style={{ color: "#6B7280" }}>Up to {h.capacity.toLocaleString()} guests</span>
                     <span className="text-xs font-bold" style={{ color: "var(--primary)" }}>Rs. {h.price.toLocaleString("en-PK")}</span>
                   </div>
@@ -507,11 +530,11 @@ export default function ManageProfilePage() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => setHallDrawer({ open: true, hall: h })}
-                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-blue-50 transition-colors cursor-pointer" style={{ color: "#2563EB" }}>
+                    className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-blue-50 transition-colors cursor-pointer" style={{ color: "#2563EB" }}>
                     <EditIcon />
                   </button>
                   <button onClick={() => deleteHall(h.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-50 transition-colors cursor-pointer" style={{ color: "#EF4444" }}>
+                    className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-50 transition-colors cursor-pointer" style={{ color: "#EF4444" }}>
                     <TrashIcon />
                   </button>
                 </div>
@@ -561,7 +584,7 @@ export default function ManageProfilePage() {
           </div>
           <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
           {profile.galleryImages.length === 0 && !galleryUploading && (
-            <div className="text-center py-6 rounded-2xl mb-4" style={{ background: "#F9FAFB" }}>
+            <div className="text-center py-4 sm:py-6 rounded-2xl mb-3 sm:mb-4" style={{ background: "#F9FAFB" }}>
               <p className="text-sm font-semibold" style={{ color: "#374151" }}>No photos yet</p>
               <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>Upload event photos to showcase your venue</p>
             </div>

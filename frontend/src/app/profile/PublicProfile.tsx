@@ -312,7 +312,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
             {[
               { label: "Rating",        value: localRating.toString(),               suffix: "/5"   },
               { label: "Reviews",       value: localCount.toString(),                suffix: ""     },
-              { label: "Events Hosted", value: vendor.totalEvents.toLocaleString(), suffix: "+"    },
+              { label: vendor.totalEvents === 1 ? "Event Hosted" : "Events Hosted", value: vendor.totalEvents.toLocaleString(), suffix: "+"    },
               { label: "Max Capacity",  value: vendor.maxCapacity.toString(),       suffix: " pax" },
             ].map(s => (
               <div key={s.label} className="text-center py-3 lg:py-4 px-2 lg:px-3 rounded-2xl bg-white" style={{ border: "1px solid #F0F0F0" }}>
@@ -405,6 +405,22 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                     ))}
                   </div>
                 </div>
+                {vendor.mapUrl && (
+                  <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #F0F0F0" }}>
+                    <div className="px-4 lg:px-5 pt-4 lg:pt-5 pb-3">
+                      <Label>Location on Map</Label>
+                    </div>
+                    <iframe
+                      src={vendor.mapUrl!}
+                      width="100%"
+                      height="300"
+                      style={{ border: 0, display: "block" }}
+                      allowFullScreen
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -632,7 +648,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                 <div className="mt-5 pt-5 space-y-3" style={{ borderTop: "1px solid #F3F4F6" }}>
                   {[
                     { k: "Max Guests",    v: `${vendor.maxCapacity} pax` },
-                    { k: "Events Hosted", v: `${vendor.totalEvents.toLocaleString()}+` },
+                    { k: vendor.totalEvents === 1 ? "Event Hosted" : "Events Hosted", v: `${vendor.totalEvents.toLocaleString()}+` },
                     { k: "Rating",        v: `${localRating} / 5` },
                     { k: "Established",   v: `${vendor.established}` },
                   ].map(row => (

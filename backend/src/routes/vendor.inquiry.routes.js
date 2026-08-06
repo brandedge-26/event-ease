@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createInquiry, getInquiries, updateInquiryStatus } from "../controllers/vendor.inquiry.controller.js";
+import { createInquiry, getInquiries, updateInquiryStatus, deleteInquiry } from "../controllers/vendor.inquiry.controller.js";
 import { authenticateVendor } from "../middleware/auth.middleware.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { createInquirySchema, updateInquiryStatusSchema } from "../schemas/inquiry.schemas.js";
@@ -12,5 +12,6 @@ router.post("/:vendorId",       validate(createInquirySchema),       createInqui
 // Auth required — vendor manages their own inquiries
 router.get("/",                 authenticateVendor,                   getInquiries);
 router.patch("/:id/status",     authenticateVendor, validate(updateInquiryStatusSchema), updateInquiryStatus);
+router.delete("/:id",           authenticateVendor,                                        deleteInquiry);
 
 export default router;

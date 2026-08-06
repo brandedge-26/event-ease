@@ -8,6 +8,8 @@ import vendorReviewRoutes     from "./vendor.review.routes.js";
 import vendorBookingRoutes    from "./vendor.booking.routes.js";
 import vendorQuotationRoutes  from "./vendor.quotation.routes.js";
 import vendorStaffRoutes      from "./vendor.staff.routes.js";
+import vendorPackageRoutes    from "./vendor.package.routes.js";
+import vendorReportsRoutes    from "./vendor.reports.routes.js";
 
 const router = Router();
 
@@ -20,5 +22,7 @@ router.use("/vendor/review",     vendorReviewRoutes);
 router.use("/vendor/bookings",   vendorBookingRoutes);
 router.use("/vendor/quotations", vendorQuotationRoutes);
 router.use("/vendor/staff",      vendorStaffRoutes);
+router.use("/vendor/packages",   vendorPackageRoutes);
+router.use("/vendor/reports",    vendorReportsRoutes);
 
 export default router;
