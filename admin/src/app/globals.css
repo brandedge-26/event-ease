@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-sohne);
+}
+
+:root {
+  /* ── Brand ── */
+  --primary:        #FF3B6B;
+  --primary-hover:  #E8235A;
+  --primary-light:  #FFF0F4;
+  --primary-muted:  #FFB3C6;
+
+  /* ── Backgrounds ── */
+  --bg:             #FFFFFF;
+  --bg-subtle:      #F8F8F8;
+  --bg-hover:       #F2F2F2;
+
+  /* ── Foreground / Text ── */
+  --fg:             #000000;
+  --fg-muted:       #6B7280;
+  --fg-subtle:      #9CA3AF;
+  --fg-inverse:     #FFFFFF;
+
+  /* ── Border ── */
+  --border:         #E5E7EB;
+  --border-strong:  #D1D5DB;
+
+  /* ── Status Colors ── */
+  --success:        #16A34A;
+  --success-light:  #F0FDF4;
+  --warning:        #D97706;
+  --warning-light:  #FFFBEB;
+  --danger:         #DC2626;
+  --danger-light:   #FEF2F2;
+  --info:           #2563EB;
+  --info-light:     #EFF6FF;
+
+  /* ── Sidebar ── */
+  --sidebar-bg:     #0F0F0F;
+  --sidebar-fg:     #E5E7EB;
+  --sidebar-active: #FF3B6B;
+
+  /* ── Misc ── */
+  --radius:         8px;
+  --radius-lg:      12px;
+  --shadow:         0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --shadow-lg:      0 4px 16px 0 rgb(0 0 0 / 0.08);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sohne), Arial, sans-serif;
+}

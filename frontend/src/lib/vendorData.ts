@@ -32,6 +32,7 @@ export type Vendor = {
   about: string;
   logoUrl?: string | null;
   mapUrl?: string | null;
+  isVerified?: boolean;
   halls: Hall[];
   services: string[];
   amenities: string[];

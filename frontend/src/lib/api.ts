@@ -35,9 +35,11 @@ export const api = {
 };
 
 export type VendorSession = {
-  id: string;
-  name: string;
-  email: string;
-  ownerName: string;
-  slug: string;
+  id:         string;
+  name:       string;
+  email:      string;
+  ownerName:  string;
+  slug:       string;
+  isVerified: boolean;
+  isBlocked:  boolean;
 };

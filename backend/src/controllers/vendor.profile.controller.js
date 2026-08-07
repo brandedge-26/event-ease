@@ -153,6 +153,7 @@ export async function getPublicProfile(req, res) {
                 galleryImages: vendors.galleryImages,
                 mapUrl:        vendors.mapUrl,
                 isVerified:    vendors.isVerified,
+                isBlocked:     vendors.isBlocked,
                 createdAt:    vendors.createdAt,
             })
             .from(vendors)

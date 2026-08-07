@@ -25,7 +25,10 @@ const sohne = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Event Ease",
+  title: {
+    template: "%s — Event Ease",
+    default:  "Event Ease",
+  },
   description: "Pakistan's first Event Business Operating System",
   icons: {
     icon: "/favicon.svg",

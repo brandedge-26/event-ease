@@ -230,7 +230,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                 <div className="flex-1 min-w-0 pt-0.5">
                   <div className="flex items-center gap-1.5 flex-wrap mb-1">
                     <h1 className="text-lg sm:text-xl lg:text-3xl font-bold tracking-tight text-black leading-tight">{vendor.name}</h1>
-                    <VerifiedBadge />
+                    {vendor.isVerified && <VerifiedBadge />}
                   </div>
                   <p className="text-xs sm:text-sm lg:text-base mb-1.5 lg:mb-2 leading-snug" style={{ color: "#6B7280" }}>{vendor.tagline}</p>
                   <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs" style={{ color: "#6B7280" }}>

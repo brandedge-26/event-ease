@@ -324,6 +324,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
+        {/* ── Status Banners ─────────────────────────────────────────────── */}
+        {vendor.isBlocked && (
+          <div className="flex items-center gap-3 px-4 py-3" style={{ background: "#FEF2F2", borderBottom: "1px solid #FECACA" }}>
+            <span className="shrink-0" style={{ color: "#DC2626" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            </span>
+            <p className="text-sm font-medium" style={{ color: "#DC2626" }}>
+              Your account has been blocked. You cannot accept new bookings. Contact support for assistance.
+            </p>
+          </div>
+        )}
+        {!vendor.isBlocked && !vendor.isVerified && (
+          <div className="flex items-center gap-3 px-4 py-3" style={{ background: "#FFFBEB", borderBottom: "1px solid #FDE68A" }}>
+            <span className="shrink-0" style={{ color: "#D97706" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <p className="text-sm font-medium" style={{ color: "#92400E" }}>
+              Your profile is pending verification. Complete your profile to get verified and build trust with customers.
+            </p>
+          </div>
+        )}
+
         {/* Page Content */}
         <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
       </div>

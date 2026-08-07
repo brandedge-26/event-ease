@@ -10,9 +10,17 @@ import vendorQuotationRoutes  from "./vendor.quotation.routes.js";
 import vendorStaffRoutes      from "./vendor.staff.routes.js";
 import vendorPackageRoutes    from "./vendor.package.routes.js";
 import vendorReportsRoutes    from "./vendor.reports.routes.js";
+import adminVendorsRoutes     from "./admin.vendors.routes.js";
+import adminAuthRoutes        from "./admin.auth.routes.js";
+import adminBookingsRoutes    from "./admin.bookings.routes.js";
+import adminReviewsRoutes     from "./admin.reviews.routes.js";
 
 const router = Router();
 
+router.use("/admin/auth",        adminAuthRoutes);
+router.use("/admin/vendors",     adminVendorsRoutes);
+router.use("/admin/bookings",    adminBookingsRoutes);
+router.use("/admin/reviews",     adminReviewsRoutes);
 router.use("/vendor/auth",       vendorAuthRoutes);
 router.use("/vendor/profile",    vendorProfileRoutes);
 router.use("/vendor/upload",     vendorUploadRoutes);

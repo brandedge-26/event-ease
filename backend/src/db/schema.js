@@ -40,6 +40,7 @@ export const vendors = pgTable("vendors", {
     mapUrl:        text("map_url"),
     // Status
     isVerified:    boolean("is_verified").default(false),
+    isBlocked:     boolean("is_blocked").default(false),
     createdAt:     timestamp("created_at").defaultNow(),
     updatedAt:     timestamp("updated_at").defaultNow(),
 });
@@ -149,6 +150,14 @@ export const staff = pgTable("staff", {
     avatarUrl:   text("avatar_url"),
     createdAt:   timestamp("created_at").defaultNow(),
     updatedAt:   timestamp("updated_at").defaultNow(),
+});
+
+// ─── Admins ───────────────────────────────────────────────────────────────────
+export const admins = pgTable("admins", {
+    id:           text("id").primaryKey(),
+    email:        text("email").notNull().unique(),
+    passwordHash: text("password_hash").notNull(),
+    createdAt:    timestamp("created_at").defaultNow(),
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────

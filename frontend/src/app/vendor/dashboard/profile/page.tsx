@@ -208,6 +208,7 @@ export default function ManageProfilePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     setLogoUploading(true);
+    setError("");
     try {
       const fd = new FormData();
       fd.append("logo", file);
@@ -218,6 +219,9 @@ export default function ManageProfilePage() {
       });
       const data = await res.json();
       if (data.success) setProfile(p => ({ ...p, logoUrl: data.logoUrl }));
+      else setError(data.message ?? "Logo upload failed.");
+    } catch {
+      setError("Network error uploading logo.");
     } finally {
       setLogoUploading(false);
       if (logoRef.current) logoRef.current.value = "";
@@ -229,6 +233,7 @@ export default function ManageProfilePage() {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
     setGalleryUploading(true);
+    setError("");
     try {
       const fd = new FormData();
       files.forEach(f => fd.append("images", f));
@@ -238,7 +243,13 @@ export default function ManageProfilePage() {
         body: fd,
       });
       const data = await res.json();
-      if (data.success) setProfile(p => ({ ...p, galleryImages: data.galleryImages ?? p.galleryImages }));
+      if (data.success && Array.isArray(data.galleryImages)) {
+        setProfile(p => ({ ...p, galleryImages: data.galleryImages }));
+      } else {
+        setError(data.message ?? "Upload failed. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
     } finally {
       setGalleryUploading(false);
       if (galleryRef.current) galleryRef.current.value = "";
@@ -553,6 +564,11 @@ export default function ManageProfilePage() {
       {tab === "gallery" && (
         <Card>
           <CardHead title="Gallery Photos" sub="Event photos shown on your public profile" />
+          {error && (
+            <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "#FEE2E2", color: "#B91C1C" }}>
+              {error}
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {profile.galleryImages.map((url, i) => (
               <div key={i} className="relative group rounded-2xl overflow-hidden" style={{ aspectRatio: "4/3" }}>

@@ -159,6 +159,8 @@ export async function login(req, res, next) {
                 businessType: vendors.businessType,
                 city:         vendors.city,
                 area:         vendors.area,
+                isVerified:   vendors.isVerified,
+                isBlocked:    vendors.isBlocked,
             })
             .from(vendors)
             .where(eq(vendors.email, email.toLowerCase().trim()))
@@ -171,6 +173,10 @@ export async function login(req, res, next) {
         const passwordMatch = await bcrypt.compare(password, vendor.passwordHash);
         if (!passwordMatch) {
             throw new AppError("Invalid email or password.", 401);
+        }
+
+        if (vendor.isBlocked) {
+            throw new AppError("Your account has been blocked. Please contact support.", 403);
         }
 
         const payload      = vendorPayload(vendor);
@@ -187,10 +193,10 @@ export async function login(req, res, next) {
         const { passwordHash, ...vendorData } = vendor;
 
         return res.status(200).json({
-            success: true,
-            message: "Login successful.",
+            success:     true,
+            message:     "Login successful.",
             accessToken,
-            vendor: vendorData,
+            vendor:      vendorData,
         });
     } catch (err) {
         next(err);
@@ -220,6 +226,8 @@ export async function refreshAccessToken(req, res, next) {
                 email:        vendors.email,
                 ownerName:    vendors.ownerName,
                 refreshToken: vendors.refreshToken,
+                isVerified:   vendors.isVerified,
+                isBlocked:    vendors.isBlocked,
             })
             .from(vendors)
             .where(eq(vendors.id, decoded.id))
@@ -227,6 +235,11 @@ export async function refreshAccessToken(req, res, next) {
 
         if (!vendor || vendor.refreshToken !== token) {
             throw new AppError("Refresh token is invalid or has been revoked.", 401);
+        }
+
+        if (vendor.isBlocked) {
+            res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict" });
+            throw new AppError("Your account has been blocked.", 403);
         }
 
         const payload         = vendorPayload(vendor);
@@ -241,14 +254,16 @@ export async function refreshAccessToken(req, res, next) {
         res.cookie("refreshToken", newRefreshToken, REFRESH_COOKIE_OPTIONS);
 
         return res.status(200).json({
-            success: true,
+            success:     true,
             accessToken: newAccessToken,
             vendor: {
-                id:        vendor.id,
-                name:      vendor.name,
-                slug:      vendor.slug,
-                email:     vendor.email,
-                ownerName: vendor.ownerName,
+                id:         vendor.id,
+                name:       vendor.name,
+                slug:       vendor.slug,
+                email:      vendor.email,
+                ownerName:  vendor.ownerName,
+                isVerified: vendor.isVerified,
+                isBlocked:  vendor.isBlocked,
             },
         });
     } catch (err) {

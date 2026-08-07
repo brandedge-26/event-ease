@@ -183,6 +183,8 @@ export default function DashboardPage() {
 
   const todayKey = toKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
+  useEffect(() => { document.title = "Dashboard — Event Ease"; }, []);
+
   useEffect(() => {
     if (!accessToken) return;
     api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken)

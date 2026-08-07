@@ -1,6 +1,26 @@
+import type { Metadata } from "next";
 import PublicProfile from "../PublicProfile";
 import type { Vendor } from "@/lib/vendorData";
 import Link from "next/link";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const res  = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510"}/api/vendor/profile/${slug}`, { cache: "no-store" });
+    const data = await res.json();
+    if (data.success && data.vendor?.name) {
+      return {
+        title:       data.vendor.name,
+        description: data.vendor.tagline ?? `Book ${data.vendor.name} on Event Ease`,
+      };
+    }
+  } catch {}
+  return { title: "Vendor Profile" };
+}
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
@@ -11,7 +31,7 @@ type DbVendor = {
   tagline: string | null; email: string; phone: string;
   whatsapp: string | null; city: string; area: string; address: string;
   about: string | null; services: string[] | null; amenities: string[] | null;
-  established: number | null; isVerified: boolean;
+  established: number | null; isVerified: boolean; isBlocked: boolean;
   logoUrl: string | null; galleryImages: string[] | null; mapUrl: string | null;
 };
 
@@ -56,6 +76,29 @@ export default async function VendorProfilePage({
     );
   }
 
+  if (vendor.isBlocked) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-4" style={{ background: "#F9FAFB" }}>
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: "#FEE2E2" }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          </svg>
+        </div>
+        <div className="text-center">
+          <p className="text-xl font-bold text-black">Account Unavailable</p>
+          <p className="text-sm mt-2 max-w-xs" style={{ color: "#6B7280" }}>
+            This vendor's account has been suspended and is no longer available for bookings.
+          </p>
+        </div>
+        <Link href="/"
+          className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+          style={{ background: "#FF3B6B" }}>
+          Browse Other Venues
+        </Link>
+      </div>
+    );
+  }
+
   const maxCapacity =
     dbHalls.length > 0 ? Math.max(...dbHalls.map((h) => h.capacity)) : 0;
 
@@ -86,8 +129,9 @@ export default async function VendorProfilePage({
     accentLight:   "#FFF0F4",
     coverGradient: "linear-gradient(135deg, #FF3B6B 0%, #FF8FA3 50%, #FFB3C1 100%)",
     about:         vendor.about ?? "",
-    logoUrl:       vendor.logoUrl ?? null,
-    mapUrl:        vendor.mapUrl  ?? null,
+    logoUrl:       vendor.logoUrl   ?? null,
+    mapUrl:        vendor.mapUrl    ?? null,
+    isVerified:    vendor.isVerified ?? false,
     halls:         dbHalls.map((h) => ({
       name:     h.name,
       capacity: h.capacity,
