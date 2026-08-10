@@ -86,9 +86,10 @@ export async function getAllVendors(req, res) {
                 tagline:      vendors.tagline,
                 city:         vendors.city,
                 area:         vendors.area,
-                logoUrl:      vendors.logoUrl,
-                isVerified:   vendors.isVerified,
-                createdAt:    vendors.createdAt,
+                logoUrl:       vendors.logoUrl,
+                galleryImages: vendors.galleryImages,
+                isVerified:    vendors.isVerified,
+                createdAt:     vendors.createdAt,
             })
             .from(vendors)
             .orderBy(desc(vendors.createdAt));

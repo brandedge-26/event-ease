@@ -41,6 +41,8 @@ export const vendors = pgTable("vendors", {
     // Status
     isVerified:    boolean("is_verified").default(false),
     isBlocked:     boolean("is_blocked").default(false),
+    isFeatured:    boolean("is_featured").default(false),
+    featuredAt:    timestamp("featured_at"),
     createdAt:     timestamp("created_at").defaultNow(),
     updatedAt:     timestamp("updated_at").defaultNow(),
 });
@@ -158,6 +160,17 @@ export const admins = pgTable("admins", {
     email:        text("email").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
     createdAt:    timestamp("created_at").defaultNow(),
+});
+
+// ─── Admin Notifications ──────────────────────────────────────────────────────
+export const notifications = pgTable("notifications", {
+    id:        text("id").primaryKey(),
+    type:      text("type").notNull(),           // "new_vendor" | "new_booking" etc.
+    title:     text("title").notNull(),
+    body:      text("body").notNull(),
+    isRead:    boolean("is_read").default(false),
+    refId:     text("ref_id"),                   // vendorId or bookingId
+    createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ─── Reviews ──────────────────────────────────────────────────────────────────

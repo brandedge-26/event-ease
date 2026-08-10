@@ -7,6 +7,7 @@ import { otpStore } from "../utils/otp.js";
 import { sendOtpEmail } from "../utils/email.js";
 import { slugify } from "../utils/slugify.js";
 import { AppError } from "../middleware/errorHandler.js";
+import { createNotification } from "../utils/notify.js";
 
 // ─── Cookie config ────────────────────────────────────────────────────────────
 const REFRESH_COOKIE_OPTIONS = {
@@ -118,6 +119,14 @@ export async function register(req, res, next) {
         }
 
         otpStore.delete(normalEmail);
+
+        // ── Notify admin ──
+        createNotification({
+            type:  "new_vendor",
+            title: "New Vendor Registered",
+            body:  `${businessName.trim()} (${city.trim()}) just signed up and is awaiting verification.`,
+            refId: vendorId,
+        });
 
         // ── Tokens ──
         const payload      = { id: vendorId, email: normalEmail, name: businessName.trim() };
