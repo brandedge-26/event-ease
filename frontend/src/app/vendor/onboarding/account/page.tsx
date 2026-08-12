@@ -74,10 +74,10 @@ export default function AccountInfoPage() {
     <div className="w-full max-w-lg">
 
       <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-        Account Info.
+        Create Venue Account.
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
-        Step 3 of 4 — Set up your login credentials.
+        Step 3 of 4 — Set up your login credentials for the Vendor Dashboard.
       </p>
 
       {error && (

@@ -60,10 +60,10 @@ export default function VendorLoginPage() {
 
         {/* Heading */}
         <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-          Welcome Back.
+          Venue Owner Login.
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
-          Sign in to your Business Center.
+          Sign in to manage your venue, bookings & inquiries.
         </p>
 
         {/* Error */}

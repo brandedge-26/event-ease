@@ -173,6 +173,17 @@ export const notifications = pgTable("notifications", {
     createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ─── Contact Applications ─────────────────────────────────────────────────────
+export const applications = pgTable("applications", {
+    id:        text("id").primaryKey(),
+    name:      text("name").notNull(),
+    email:     text("email").notNull(),
+    subject:   text("subject").notNull(),
+    message:   text("message").notNull(),
+    isRead:    boolean("is_read").default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ─── Reviews ──────────────────────────────────────────────────────────────────
 export const reviews = pgTable("reviews", {
     id:        text("id").primaryKey(),

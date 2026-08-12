@@ -11,8 +11,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const nav = [
   { label: "Dashboard",  href: "/",          icon: <GridIcon /> },
   { label: "Vendors",    href: "/vendors",   icon: <BuildingIcon /> },
-  { label: "Featured",   href: "/featured",  icon: <FeaturedIcon /> },
-  { label: "Bookings",   href: "/bookings",  icon: <BookIcon /> },
+  { label: "Featured",      href: "/featured",      icon: <FeaturedIcon /> },
+  { label: "Applications", href: "/applications",  icon: <InboxIcon /> },
+  { label: "Bookings",     href: "/bookings",      icon: <BookIcon /> },
   { label: "Payments",   href: "/payments",  icon: <PaymentIcon /> },
   { label: "Reviews",       href: "/reviews",        icon: <StarIcon /> },
   { label: "Notifications", href: "/notifications",  icon: <BellIcon /> },
@@ -40,6 +41,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const router   = useRouter();
 
   const [authed,     setAuthed]     = useState(false);
+  const [checking,   setChecking]   = useState(true);
   const [collapsed,  setCollapsed]  = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen,   setMoreOpen]   = useState(false);
@@ -50,11 +52,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   // ── Auth guard ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (pathname === "/login") { setAuthed(false); return; }
+    if (pathname === "/login") { setAuthed(false); setChecking(false); return; }
+    setChecking(true);
     fetch(`${API_BASE}/api/admin/auth/me`, { credentials: "include" })
       .then(r => r.json())
       .then(d => { if (d.success) setAuthed(true); else router.replace("/login"); })
-      .catch(() => router.replace("/login"));
+      .catch(() => router.replace("/login"))
+      .finally(() => setChecking(false));
   }, [pathname]);
 
   // Poll unread notification count every 30s
@@ -167,8 +171,21 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     );
   }
 
-  // Don't render shell on login page or before auth check
-  if (pathname === "/login" || !authed) return <>{children}</>;
+  // Login page — no shell needed
+  if (pathname === "/login") return <>{children}</>;
+
+  // Show full-screen loader while verifying session
+  if (checking) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "#F4F4F5" }}>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#FF3B6B", borderTopColor: "transparent" }} />
+        <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Verifying session…</p>
+      </div>
+    </div>
+  );
+
+  // Not authed — redirect is already fired in useEffect, render nothing
+  if (!authed) return null;
 
   return (
     <div className="flex min-h-screen" style={{ background: "#F4F4F5" }}>
@@ -357,6 +374,7 @@ function StarIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24"
 function ChartIcon()    { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>; }
 function SettingsIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>; }
 function FeaturedIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
+function InboxIcon()    { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>; }
 function BellIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>; }
 function HamburgerIcon(){ return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>; }
 function LogoutIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }

@@ -28,13 +28,13 @@ export default function OnboardingCompletePage() {
 
       {/* Heading */}
       <h1 className="text-4xl font-semibold text-black mb-2 tracking-tight">
-        You're all set!
+        Venue Submitted!
       </h1>
       <p className="text-sm mb-2" style={{ color: "var(--fg-muted)" }}>
-        Your business profile has been submitted for verification.
+        Your venue profile has been submitted for verification.
       </p>
       <p className="text-sm mb-10" style={{ color: "var(--fg-muted)" }}>
-        Our team will review and activate your account within <span className="font-medium" style={{ color: "var(--fg)" }}>24–48 hours.</span>
+        Our team will review and activate your venue within <span className="font-medium" style={{ color: "var(--fg)" }}>24–48 hours.</span>
       </p>
 
       {/* Go to Dashboard */}

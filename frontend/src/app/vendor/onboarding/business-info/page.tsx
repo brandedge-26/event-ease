@@ -42,10 +42,10 @@ export default function BusinessInfoPage() {
 
       {/* Heading */}
       <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-        Business Info.
+        Register Your Venue.
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
-        Step 1 of 2 — Tell us about your business.
+        Step 1 of 4 — Tell us about your venue business.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

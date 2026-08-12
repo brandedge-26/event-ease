@@ -1,5 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
+import HeroSearch from "./HeroSearch";
+import SiteHeader from "./SiteHeader";
+import BottomNav from "./BottomNav";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY  = "#FF3B6B";
@@ -41,83 +44,61 @@ async function fetchFeatured(): Promise<VendorCard[]> {
   }
 }
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; city?: string; type?: string; cap?: string; verified?: string }>;
+}) {
+  const sp = await searchParams;
   const [vendors, featured] = await Promise.all([fetchVendors(), fetchFeatured()]);
+
+  // Filter
+  const q        = sp.q?.toLowerCase().trim()        ?? "";
+  const cityF    = sp.city?.toLowerCase().trim()     ?? "";
+  const typeF    = sp.type?.toLowerCase().trim()     ?? "";
+  const capF     = sp.cap ? Number(sp.cap)           : 0;
+  const verifiedF = sp.verified === "1";
+
+  function filterVendor(v: VendorCard) {
+    if (q        && !v.name.toLowerCase().includes(q))               return false;
+    if (cityF    && !v.city.toLowerCase().includes(cityF))           return false;
+    if (typeF    && v.businessType.toLowerCase() !== typeF)          return false;
+    if (verifiedF && !v.isVerified)                                  return false;
+    if (capF     && (v.maxCapacity ?? 0) > capF)                     return false;
+    return true;
+  }
+
+  const isFiltering = q || cityF || typeF || capF || verifiedF;
   const featuredIds = new Set(featured.map(v => v.id));
-  const rest = vendors.filter(v => !featuredIds.has(v.id));
+  const allFiltered = vendors.filter(filterVendor);
+  const featuredFiltered = isFiltering ? [] : featured;
+  const rest = isFiltering
+    ? allFiltered
+    : allFiltered.filter(v => !featuredIds.has(v.id));
 
   return (
     <div className="min-h-screen" style={{ background: "#F8F8F8" }}>
 
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b" style={{ borderColor: "#E5E7EB" }}>
-        <div className="px-4 lg:px-8 h-16 flex items-center justify-between gap-6">
-
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <Image src="/logo/logo-icon.svg" alt="Event Ease" width={28} height={28} className="rounded-lg" />
-            <span className="text-base font-black tracking-tight">
-              <span className="text-black">Event</span>
-              <span style={{ color: PRIMARY }}>Ease</span>
-            </span>
-          </Link>
-
-          {/* Nav links — hidden on mobile */}
-          <nav className="hidden md:flex items-center gap-1">
-            {[
-              { label: "Venues",    href: "#venues"   },
-              { label: "How it Works", href: "#how"  },
-              { label: "Pricing",   href: "#pricing"  },
-              { label: "Contact",   href: "#contact"  },
-            ].map(item => (
-              <Link key={item.href} href={item.href}
-                className="px-3.5 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-gray-50"
-                style={{ color: "#374151" }}>
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Auth buttons */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/vendor/login"
-              className="hidden sm:flex px-4 py-2 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50"
-              style={{ borderColor: "#E5E7EB", color: "#374151" }}>
-              Login
-            </Link>
-            <Link href="/vendor/onboarding/business-info"
-              className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: PRIMARY }}>
-              List Your Venue
-            </Link>
-          </div>
-
-        </div>
-      </header>
+      <SiteHeader />
+      <BottomNav />
 
       {/* Hero */}
-      <div className="text-center px-4 py-14 lg:py-20">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold mb-5"
-          style={{ background: "#FFF0F4", color: PRIMARY }}>
-          ✨ Pakistan&apos;s Premier Venue Discovery Platform
-        </div>
-        <h1 className="text-3xl lg:text-5xl font-black text-black tracking-tight mb-4 leading-tight">
-          Find the Perfect<br />
-          <span style={{ color: PRIMARY }}>Event Venue</span>
+      <div className="flex flex-col items-center px-4 pt-14 pb-10 text-center">
+        <h1 className="text-3xl lg:text-5xl font-black tracking-tight mb-3 leading-tight" style={{ color: "#111827" }}>
+          Find Your Perfect<br />
+          <span style={{ color: "#FF3B6B" }}>Event Venue</span>
         </h1>
-        <p className="text-base lg:text-lg max-w-xl mx-auto mb-8" style={{ color: "#6B7280" }}>
-          Browse top-rated banquet halls, compare pricing, and book your dream venue — all in one place.
+        <p className="text-sm lg:text-base mb-8 max-w-lg" style={{ color: "#6B7280" }}>
+          Browse top banquet halls, compare pricing, and book your dream venue — all in one place.
         </p>
-        <div className="flex items-center justify-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 px-5 py-3 bg-white rounded-2xl shadow-sm border text-sm" style={{ borderColor: "#E5E7EB" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <span style={{ color: "#9CA3AF" }}>Search venues in your city...</span>
-          </div>
-        </div>
+
+        <Suspense fallback={null}>
+          <HeroSearch />
+        </Suspense>
       </div>
 
       {/* Venue Cards */}
-      <div className="px-4 lg:px-8 pb-16">
+      <div className="px-4 lg:px-8 pb-28 md:pb-16">
 
         {vendors.length === 0 ? (
           <div className="text-center py-20">
@@ -134,8 +115,39 @@ export default async function Home() {
           </div>
         ) : (
           <>
+            {/* Search results label */}
+            {isFiltering && (
+              <div className="flex items-center justify-between mb-5">
+                <p className="text-sm font-semibold text-black">
+                  {allFiltered.length} result{allFiltered.length !== 1 ? "s" : ""} found
+                </p>
+                <Link href="/" className="text-xs font-medium" style={{ color: PRIMARY }}>Clear filters ×</Link>
+              </div>
+            )}
+
+            {/* No results */}
+            {isFiltering && allFiltered.length === 0 && (
+              <div className="flex flex-col items-center py-20 text-center">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5" style={{ background: "#F3F4F6" }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    <line x1="8" y1="8" x2="14" y2="14"/><line x1="14" y1="8" x2="8" y2="14"/>
+                  </svg>
+                </div>
+                <p className="text-base font-bold text-black mb-1">No venues found</p>
+                <p className="text-sm mb-6 max-w-xs" style={{ color: "#9CA3AF" }}>
+                  No venues match your current filters. Try adjusting your search or browse all venues.
+                </p>
+                <Link href="/"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
+                  style={{ background: PRIMARY }}>
+                  Clear Filters
+                </Link>
+              </div>
+            )}
+
             {/* Featured section */}
-            {featured.length > 0 && (
+            {featuredFiltered.length > 0 && (
               <div className="mb-10">
                 <div className="flex items-center gap-2 mb-5">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="#F59E0B" stroke="#F59E0B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -154,7 +166,7 @@ export default async function Home() {
             {rest.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-lg font-bold text-black">{featured.length > 0 ? "All Venues" : "Registered Venues"}</h2>
+                  <h2 className="text-lg font-bold text-black">{isFiltering ? "Results" : featuredFiltered.length > 0 ? "All Venues" : "Registered Venues"}</h2>
                   <span className="text-sm" style={{ color: "#9CA3AF" }}>{rest.length} venue{rest.length !== 1 ? "s" : ""}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

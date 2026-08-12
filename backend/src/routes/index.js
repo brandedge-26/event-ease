@@ -17,6 +17,8 @@ import adminReviewsRoutes     from "./admin.reviews.routes.js";
 import adminDashboardRoutes      from "./admin.dashboard.routes.js";
 import adminNotificationsRoutes  from "./admin.notifications.routes.js";
 import adminFeaturedRoutes       from "./admin.featured.routes.js";
+import adminApplicationsRoutes  from "./admin.applications.routes.js";
+import publicContactRoutes      from "./public.contact.routes.js";
 
 const router = Router();
 
@@ -27,6 +29,8 @@ router.use("/admin/reviews",     adminReviewsRoutes);
 router.use("/admin/dashboard",       adminDashboardRoutes);
 router.use("/admin/notifications",   adminNotificationsRoutes);
 router.use("/admin/featured",        adminFeaturedRoutes);
+router.use("/admin/applications",    adminApplicationsRoutes);
+router.use("/contact",               publicContactRoutes);
 router.use("/vendor/auth",       vendorAuthRoutes);
 router.use("/vendor/profile",    vendorProfileRoutes);
 router.use("/vendor/upload",     vendorUploadRoutes);

@@ -86,10 +86,10 @@ export default function HallDetailsPage() {
 
       {/* Heading */}
       <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-        Hall Details.
+        Venue & Hall Details.
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
-        Step 2 of 3 — Add your hall and business details.
+        Step 2 of 4 — Add your hall capacity, photos & logo.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

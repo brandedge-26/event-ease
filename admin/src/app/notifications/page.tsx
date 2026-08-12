@@ -25,6 +25,21 @@ type Notification = {
 
 type Pagination = { page: number; pageSize: number; total: number; totalPages: number };
 
+type Filter = "all" | "unread" | "new_application" | "new_vendor";
+
+const FILTERS: { label: string; value: Filter }[] = [
+  { label: "All",          value: "all" },
+  { label: "Unread",       value: "unread" },
+  { label: "Applications", value: "new_application" },
+  { label: "Vendors",      value: "new_vendor" },
+];
+
+// Where to navigate on click per notification type
+const TYPE_ROUTE: Record<string, string> = {
+  new_application: "/applications",
+  new_vendor:      "/vendors",
+};
+
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const mins  = Math.floor(diff / 60_000);
@@ -41,6 +56,11 @@ const TYPE_ICON: Record<string, { bg: string; stroke: string; path: React.ReactN
     bg:     "#FFF0F4",
     stroke: "#FF3B6B",
     path:   <><rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/></>,
+  },
+  new_application: {
+    bg:     "#F0FDF4",
+    stroke: "#16A34A",
+    path:   <><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></>,
   },
   default: {
     bg:     "#EFF6FF",
@@ -74,17 +94,21 @@ function buildPages(page: number, totalPages: number): (number | "…")[] {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [items,      setItems]      = useState<Notification[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, pageSize: 20, total: 0, totalPages: 1 });
-  const [loading,    setLoading]    = useState(true);
-  const [markingAll, setMarkingAll] = useState(false);
+  const [items,        setItems]        = useState<Notification[]>([]);
+  const [pagination,   setPagination]   = useState<Pagination>({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
+  const [loading,      setLoading]      = useState(true);
+  const [markingAll,   setMarkingAll]   = useState(false);
+  const [filter,       setFilter]       = useState<Filter>("all");
+  const [deletingAll,  setDeletingAll]  = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmId,    setConfirmId]    = useState<string | null>(null);
 
-  useEffect(() => { fetchPage(1); }, []);
+  useEffect(() => { fetchPage(1, filter); }, [filter]);
 
-  async function fetchPage(page: number) {
+  async function fetchPage(page: number, f: Filter = filter) {
     setLoading(true);
     try {
-      const res  = await adminFetch(`/admin/notifications?page=${page}`);
+      const res  = await adminFetch(`/admin/notifications?page=${page}&filter=${f}`);
       const data = await res.json();
       if (data.success) { setItems(data.notifications); setPagination(data.pagination); }
     } finally { setLoading(false); }
@@ -109,9 +133,19 @@ export default function NotificationsPage() {
     fetchPage(pagination.page > newTotalPages ? newTotalPages : pagination.page);
   }
 
+  async function deleteAll() {
+    setDeletingAll(true);
+    await adminFetch("/admin/notifications", { method: "DELETE" });
+    setItems([]);
+    setPagination(p => ({ ...p, total: 0, totalPages: 1, page: 1 }));
+    setConfirmClear(false);
+    setDeletingAll(false);
+  }
+
   async function handleClick(n: Notification) {
     if (!n.isRead) await markRead(n.id);
-    if (n.type === "new_vendor" && n.refId) router.push("/vendors");
+    const route = TYPE_ROUTE[n.type];
+    if (route) router.push(route);
   }
 
   const unread = items.filter(n => !n.isRead).length;
@@ -119,8 +153,9 @@ export default function NotificationsPage() {
 
   return (
     <div className="p-6 min-h-screen" style={{ background: "#F9FAFB" }}>
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-black">Notifications</h1>
           <p className="text-sm mt-0.5" style={{ color: "#6B7280" }}>
@@ -134,6 +169,21 @@ export default function NotificationsPage() {
             {markingAll ? "Marking…" : "Mark all as read"}
           </button>
         )}
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex items-center gap-1 mb-4 p-1 rounded-xl w-fit" style={{ background: "#F3F4F6" }}>
+        {FILTERS.map(f => (
+          <button key={f.value} onClick={() => setFilter(f.value)}
+            className="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all"
+            style={{
+              background: filter === f.value ? "#fff" : "transparent",
+              color:      filter === f.value ? "#111827" : "#6B7280",
+              boxShadow:  filter === f.value ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+            }}>
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {/* List */}
@@ -156,56 +206,65 @@ export default function NotificationsPage() {
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
             </div>
-            <p className="text-sm" style={{ color: "#9CA3AF" }}>No notifications yet.</p>
+            <p className="text-sm" style={{ color: "#9CA3AF" }}>No notifications found.</p>
           </div>
         ) : (
-          items.map((n, idx) => (
-            <div key={n.id}
-              className="flex items-start gap-4 px-5 py-4 cursor-pointer transition-colors hover:bg-gray-50"
-              style={{
-                borderBottom: idx < items.length - 1 ? "1px solid #F3F4F6" : "none",
-                background: n.isRead ? "#fff" : "#FFFBFB",
-              }}
-              onClick={() => handleClick(n)}>
-              {/* Icon */}
-              <NotifIcon type={n.type} />
+          items.map((n, idx) => {
+            const hasRoute = !!TYPE_ROUTE[n.type];
+            return (
+              <div key={n.id}
+                className={`flex items-start gap-4 px-5 py-4 transition-colors ${hasRoute ? "cursor-pointer hover:bg-gray-50" : ""}`}
+                style={{
+                  borderBottom: idx < items.length - 1 ? "1px solid #F3F4F6" : "none",
+                  background: n.isRead ? "#fff" : "#FFFBFB",
+                }}
+                onClick={() => handleClick(n)}>
 
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-black">{n.title}</p>
-                  {!n.isRead && (
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#FF3B6B" }} />
-                  )}
+                {/* Icon */}
+                <NotifIcon type={n.type} />
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-black">{n.title}</p>
+                    {!n.isRead && (
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: "#FF3B6B" }} />
+                    )}
+                    {hasRoute && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-sm mt-0.5 leading-relaxed" style={{ color: "#6B7280" }}>{n.body}</p>
+                  <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>{timeAgo(n.createdAt)}</p>
                 </div>
-                <p className="text-sm mt-0.5 leading-relaxed" style={{ color: "#6B7280" }}>{n.body}</p>
-                <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>{timeAgo(n.createdAt)}</p>
-              </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-                {!n.isRead && (
-                  <button onClick={() => markRead(n.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-                    title="Mark as read">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12"/>
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                  {!n.isRead && (
+                    <button onClick={() => markRead(n.id)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+                      title="Mark as read">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"/>
+                      </svg>
+                    </button>
+                  )}
+                  <button onClick={() => setConfirmId(n.id)}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-red-50"
+                    title="Delete">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                      <path d="M10 11v6"/><path d="M14 11v6"/>
+                      <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
                     </svg>
                   </button>
-                )}
-                <button onClick={() => deleteNotif(n.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-red-50"
-                  title="Delete">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                    <path d="M10 11v6"/><path d="M14 11v6"/>
-                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-                  </svg>
-                </button>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -238,6 +297,88 @@ export default function NotificationsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete all button */}
+      {!loading && total > 0 && (
+        <div className="flex justify-center mt-8">
+          <button onClick={() => setConfirmClear(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-red-50"
+            style={{ borderColor: "#FCA5A5", color: "#DC2626", background: "#FFF5F5" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+              <path d="M10 11v6"/><path d="M14 11v6"/>
+              <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+            </svg>
+            Delete All Notifications
+          </button>
+        </div>
+      )}
+
+      {/* Confirm single delete modal */}
+      {confirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.4)" }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 mx-auto" style={{ background: "#FEE2E2" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/>
+                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-black text-center mb-1">Delete Notification?</h3>
+            <p className="text-sm text-center mb-6" style={{ color: "#6B7280" }}>
+              This notification will be permanently deleted and cannot be recovered.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmId(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold border"
+                style={{ borderColor: "#E5E7EB", color: "#374151" }}>
+                Cancel
+              </button>
+              <button onClick={async () => { await deleteNotif(confirmId); setConfirmId(null); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ background: "#DC2626" }}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete-all modal */}
+      {confirmClear && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.4)" }}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 mx-auto" style={{ background: "#FEE2E2" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/>
+                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-black text-center mb-1">Delete All Notifications?</h3>
+            <p className="text-sm text-center mb-6" style={{ color: "#6B7280" }}>
+              This will permanently remove all {total} notifications. This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmClear(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold border"
+                style={{ borderColor: "#E5E7EB", color: "#374151" }}>
+                Cancel
+              </button>
+              <button onClick={deleteAll} disabled={deletingAll}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white"
+                style={{ background: "#DC2626", opacity: deletingAll ? 0.7 : 1 }}>
+                {deletingAll ? "Deleting…" : "Delete All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

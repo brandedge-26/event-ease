@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
@@ -10,6 +10,14 @@ export default function AdminLoginPage() {
   const router = useRouter();
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    fetch(`${API_BASE}/api/admin/auth/me`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => { if (d.success) router.replace("/"); })
+      .catch(() => {});
+  }, []);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
   const [showPass, setShowPass] = useState(false);

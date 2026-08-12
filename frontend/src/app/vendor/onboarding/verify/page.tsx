@@ -190,10 +190,10 @@ export default function VerifyEmailPage() {
     <div className="w-full max-w-lg">
 
       <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-        Verify Email.
+        Verify Your Email.
       </h1>
       <p className="text-sm mb-2" style={{ color: "var(--fg-muted)" }}>
-        Step 4 of 4 — Enter the 6-digit code sent to
+        Step 4 of 4 — Enter the 6-digit code sent to your venue email
       </p>
       {email && (
         <p className="text-sm font-semibold mb-8" style={{ color: "var(--fg)" }}>

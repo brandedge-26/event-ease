@@ -57,4 +57,15 @@ body {
   font-family: var(--font-sohne), Arial, sans-serif;
 }
 
-@keyframes slideUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp   { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer   { 0% { background-position: -600px 0; } 100% { background-position: 600px 0; } }
+@keyframes sheetUp   { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+.sheet-animate   { animation: sheetUp 0.32s cubic-bezier(0.32,0.72,0,1); }
+.backdrop-animate { animation: fadeIn 0.2s ease; }

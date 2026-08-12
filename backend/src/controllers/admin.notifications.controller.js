@@ -1,20 +1,28 @@
-import { eq, desc, count } from "drizzle-orm";
+import { eq, desc, count, and } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { notifications } from "../db/schema.js";
 
 const PAGE_SIZE = 10;
 
-// GET /api/admin/notifications?page=1
+// GET /api/admin/notifications?page=1&filter=unread|new_application|new_vendor
 export async function getNotifications(req, res) {
     try {
         const page   = Math.max(1, parseInt(req.query.page) || 1);
         const offset = (page - 1) * PAGE_SIZE;
+        const filter = req.query.filter ?? "all";
 
-        const [{ total }] = await db.select({ total: count() }).from(notifications);
+        const conditions = [];
+        if (filter === "unread")          conditions.push(eq(notifications.isRead, false));
+        else if (filter !== "all")        conditions.push(eq(notifications.type, filter));
+
+        const where = conditions.length ? and(...conditions) : undefined;
+
+        const [{ total }] = await db.select({ total: count() }).from(notifications).where(where);
 
         const rows = await db
             .select()
             .from(notifications)
+            .where(where)
             .orderBy(desc(notifications.createdAt))
             .limit(PAGE_SIZE)
             .offset(offset);
@@ -73,6 +81,17 @@ export async function deleteNotification(req, res) {
         return res.json({ success: true });
     } catch (err) {
         console.error("[admin deleteNotification]", err);
+        return res.status(500).json({ success: false });
+    }
+}
+
+// DELETE /api/admin/notifications  (delete all)
+export async function deleteAllNotifications(req, res) {
+    try {
+        await db.delete(notifications);
+        return res.json({ success: true });
+    } catch (err) {
+        console.error("[admin deleteAllNotifications]", err);
         return res.status(500).json({ success: false });
     }
 }
