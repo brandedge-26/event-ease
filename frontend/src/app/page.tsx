@@ -82,23 +82,59 @@ export default async function Home({
       <SiteHeader />
       <BottomNav />
 
-      {/* Hero */}
-      <div className="flex flex-col items-center px-4 pt-14 pb-10 text-center">
-        <h1 className="text-3xl lg:text-5xl font-black tracking-tight mb-3 leading-tight" style={{ color: "#111827" }}>
-          Find Your Perfect<br />
-          <span style={{ color: "#FF3B6B" }}>Event Venue</span>
-        </h1>
-        <p className="text-sm lg:text-base mb-8 max-w-lg" style={{ color: "#6B7280" }}>
-          Browse top banquet halls, compare pricing, and book your dream venue — all in one place.
-        </p>
+      {/* ── Hero Banner ── */}
+      <div className="relative -mt-16" style={{ minHeight: 600 }}>
+        {/* Background image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: "url('/home/banner.webp')" }}
+        />
+        {/* Dark gradient overlay */}
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.68) 60%, rgba(0,0,0,0.80) 100%)" }}
+        />
 
-        <Suspense fallback={null}>
-          <HeroSearch />
-        </Suspense>
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-36 pb-16">
+          {/* Eyebrow */}
+          <div className="flex items-center gap-2 mb-6">
+            {/* <span className="block w-8 h-px" style={{ background: "rgba(255,59,107,0.7)" }} /> */}
+            <span className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: "#FF8FA3" }}>
+              Pakistan&apos;s #1 Venue Platform
+            </span>
+            {/* <span className="block w-8 h-px" style={{ background: "rgba(255,59,107,0.7)" }} /> */}
+          </div>
+
+          {/* Headline */}
+          <div className="mb-8">
+            <h1
+              className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white"
+              style={{ lineHeight: 1.1 }}>
+              Your Event Starts
+            </h1>
+            <h2
+              className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight"
+              style={{ color: "#FF3B6B", lineHeight: 1.1 }}>
+              With The Perfect Venue
+            </h2>
+          </div>
+
+          {/* Search */}
+          <Suspense fallback={null}>
+            <HeroSearch />
+          </Suspense>
+        </div>
       </div>
 
+      {/* ── What We Offer ── */}
+      <WhatWeOffer />
+
+      {/* ── Why Event Ease ── */}
+      <WhyEventEase />
+
       {/* Venue Cards */}
-      <div className="px-4 lg:px-8 pb-28 md:pb-16">
+      <div className="px-4 lg:px-8 pt-8 pb-28 md:pb-16">
 
         {vendors.length === 0 ? (
           <div className="text-center py-20">
@@ -335,5 +371,229 @@ function VenueCard({ v, featured = false }: { v: VendorCard; featured?: boolean 
 
       </div>
     </Link>
+  );
+}
+
+// ─── What We Offer ─────────────────────────────────────────────────────────────
+// ─── Why Event Ease ───────────────────────────────────────────────────────────
+const WHY_STATS = [
+  {
+    value: "10,000+",
+    label: "Happy Users",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M8 13s1.5 2 4 2 4-2 4-2"/>
+        <line x1="9" y1="9" x2="9.01" y2="9"/>
+        <line x1="15" y1="9" x2="15.01" y2="9"/>
+      </svg>
+    ),
+  },
+  {
+    value: "50+",
+    label: "Verified Venues",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/>
+      </svg>
+    ),
+  },
+  {
+    value: "100%",
+    label: "Secure Booking",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0110 0v4"/>
+      </svg>
+    ),
+  },
+  {
+    value: "500+",
+    label: "Events Planned",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+      </svg>
+    ),
+  },
+];
+
+function WhyEventEase() {
+  return (
+    <section className="px-4 lg:px-8 py-16" style={{ background: "#fff" }}>
+      {/* Title */}
+      <h2 className="text-3xl lg:text-4xl font-black text-center tracking-tight mb-10" style={{ color: "#111827" }}>
+        Why <span style={{ color: "#FF3B6B" }}>Event Ease</span>?
+      </h2>
+
+      {/* Stats pill */}
+      <div
+        className="max-w-4xl mx-auto rounded-3xl px-6 py-10"
+        style={{ background: "#FFF5F7" }}
+      >
+        <div className="grid grid-cols-2 lg:grid-cols-4">
+          {WHY_STATS.map((s, i) => (
+            <div key={s.label} className="flex flex-col items-center text-center px-4 py-2 relative">
+
+              {/* Vertical divider — between items */}
+              {i > 0 && (
+                <span
+                  className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 h-16 w-px"
+                  style={{ background: "#F9C6CE" }}
+                />
+              )}
+              {/* Mobile divider — between rows */}
+              {i === 2 && (
+                <span
+                  className="lg:hidden absolute -top-2 left-1/4 right-1/4 h-px"
+                  style={{ background: "#F9C6CE" }}
+                />
+              )}
+
+              {/* Icon circle */}
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
+                style={{ background: "#FFE4EA" }}
+              >
+                {s.icon}
+              </div>
+
+              {/* Number */}
+              <p className="text-3xl lg:text-4xl font-black mb-1" style={{ color: "#111827" }}>
+                {s.value}
+              </p>
+
+              {/* Label */}
+              <p className="text-sm" style={{ color: "#9CA3AF" }}>
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const OFFER_CARDS = [
+  {
+    label: "Venues & Halls",
+    desc:  "Grand banquet halls, marquees & ballrooms",
+    href:  "/venues",
+    bg:    "#FFF3E6",
+    accent:"#C2763A",
+    gradient: "linear-gradient(to right, #FFF3E6 38%, transparent 75%)",
+    img:   "/home/banners/banquet.png",
+  },
+  {
+    label: "Photography",
+    desc:  "Professional wedding photographers",
+    href:  "/venues?q=photography",
+    bg:    "#EDEAFF",
+    accent:"#6D28D9",
+    gradient: "linear-gradient(to right, #EDEAFF 38%, transparent 75%)",
+    img:   "/home/banners/a_professional_wedding_photographer_in_action_holding_a_high_end_camera_focused.png",
+  },
+  {
+    label: "Bridal Makeup",
+    desc:  "Glamorous beauty for your big day",
+    href:  "/venues?q=makeup",
+    bg:    "#FFE8EE",
+    accent:"#BE185D",
+    gradient: "linear-gradient(to right, #FFE8EE 38%, transparent 75%)",
+    img:   "/home/banners/an_elegant_bride_receiving_professional_makeup_application_close_up_on_the.png",
+  },
+  {
+    label: "Decoration",
+    desc:  "Stunning floral & stage setups",
+    href:  "/venues?q=decoration",
+    bg:    "#FFE0D4",
+    accent:"#C2410C",
+    gradient: "linear-gradient(to right, #FFE0D4 38%, transparent 75%)",
+    img:   "/home/banners/premium_floral_wedding_stage_decoration_lush_white_and_pink_roses_elegant.png",
+  },
+  {
+    label: "Catering",
+    desc:  "Gourmet menus for every occasion",
+    href:  "/venues?q=catering",
+    bg:    "#E8F5E0",
+    accent:"#166534",
+    gradient: "linear-gradient(to right, #E8F5E0 38%, transparent 75%)",
+    img:   "/home/banners/beautiful_premium_wedding_catering_arrangement_gourmet_appetizers_elegantly.png",
+  },
+  {
+    label: "Mehndi & Henna",
+    desc:  "Intricate traditional henna art",
+    href:  "/venues?event=mehndi",
+    bg:    "#FFF0E0",
+    accent:"#92400E",
+    gradient: "linear-gradient(to right, #FFF0E0 38%, transparent 75%)",
+    img:   "/home/banners/elegant_bridal_henna_mehndi_application_intricate_patterns_on_hands_traditional.png",
+  },
+];
+
+function WhatWeOffer() {
+  return (
+    <section className="px-4 lg:px-8 py-16" style={{ background: "#F8F8F8" }}>
+      {/* Section header */}
+      <div className="text-center mb-10">
+        <span className="inline-block text-xs font-bold uppercase tracking-[0.22em] mb-3 px-3 py-1 rounded-full"
+          style={{ background: "#FFF0F4", color: PRIMARY }}>
+          Our Services
+        </span>
+        <h2 className="text-3xl lg:text-4xl font-black text-black mb-3 tracking-tight">
+          What We Offer
+        </h2>
+        <p className="text-sm max-w-sm mx-auto leading-relaxed" style={{ color: "#9CA3AF" }}>
+          Everything you need for a perfect event — venues, catering, decor &amp; more.
+        </p>
+      </div>
+
+      {/* 3×2 card grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+        {OFFER_CARDS.map((card) => (
+          <Link
+            key={card.label}
+            href={card.href}
+            className="group relative overflow-hidden rounded-2xl flex items-stretch cursor-pointer transition-transform duration-300 hover:-translate-y-1"
+            style={{ height: 168, background: card.bg, border: "1px solid #E5E7EB" }}>
+
+            <div className="relative z-10 flex flex-col justify-between p-5 w-[58%] shrink-0">
+              <div>
+                <h3 className="text-base font-black leading-tight" style={{ color: card.accent }}>
+                  {card.label}
+                </h3>
+                <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: card.accent + "AA" }}>
+                  {card.desc}
+                </p>
+              </div>
+              <span
+                className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all group-hover:gap-2.5"
+                style={{ background: card.accent }}>
+                Explore
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </span>
+            </div>
+
+            {/* Gradient fade */}
+            <div className="absolute inset-0 z-[5] pointer-events-none"
+              style={{ background: card.gradient }} />
+
+            {/* Image — right side */}
+            <div className="absolute right-0 top-0 bottom-0 w-[55%] overflow-hidden">
+              <img
+                src={card.img}
+                alt={card.label}
+                className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+              />
+            </div>
+
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }

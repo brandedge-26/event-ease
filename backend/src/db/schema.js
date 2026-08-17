@@ -154,6 +154,19 @@ export const staff = pgTable("staff", {
     updatedAt:   timestamp("updated_at").defaultNow(),
 });
 
+// ─── Marketplace Users ────────────────────────────────────────────────────────
+export const marketplaceUsers = pgTable("marketplace_users", {
+    id:           text("id").primaryKey(),
+    name:         text("name").notNull(),
+    email:        text("email").notNull().unique(),
+    passwordHash: text("password_hash"),
+    googleId:     text("google_id"),
+    avatarUrl:    text("avatar_url"),
+    isBlocked:    boolean("is_blocked").default(false),
+    createdAt:    timestamp("created_at").defaultNow(),
+    updatedAt:    timestamp("updated_at").defaultNow(),
+});
+
 // ─── Admins ───────────────────────────────────────────────────────────────────
 export const admins = pgTable("admins", {
     id:           text("id").primaryKey(),
