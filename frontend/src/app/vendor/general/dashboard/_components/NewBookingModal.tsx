@@ -629,7 +629,7 @@ function parseTime(t: string): { h: string; m: string; ampm: "AM" | "PM" } {
 export function EditBookingModal({ booking, onClose, onSave, submitting = false }: {
   booking: EditableBooking;
   onClose: () => void;
-  onSave: (form: typeof EMPTY_FORM, status: "confirmed" | "pending", services: ServiceEntry[]) => Promise<void>;
+  onSave: (form: typeof EMPTY_FORM, status: BookingStatus, services: ServiceEntry[]) => Promise<void>;
   submitting?: boolean;
 }) {
   const initSvcTotal   = booking.services.reduce((s, sv) => s + (Number(sv.price) || 0), 0);

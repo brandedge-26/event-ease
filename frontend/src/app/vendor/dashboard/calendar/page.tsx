@@ -298,7 +298,7 @@ export default function CalendarPage() {
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [extraBookings, setExtraBookings] = useState<BookingMap>({});
 
-  async function handleNewBooking(form: typeof EMPTY_FORM, status: "confirmed" | "pending", services: ServiceEntry[]) {
+  async function handleNewBooking(form: typeof EMPTY_FORM, status: "confirmed" | "pending" | "cancelled" | "blocked", services: ServiceEntry[]) {
     if (!accessToken || bookingSubmitting) return;
     setBookingSubmitting(true);
     try {

@@ -570,14 +570,14 @@ export default function GeneralBookingsPage() {
   const safePage   = Math.min(page, totalPages);
   const paginated  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  const counts = {
+  const counts: Record<string, number> = {
     all:       bookings.filter(b => b.status !== "blocked").length,
     confirmed: bookings.filter(b => b.status === "confirmed").length,
     pending:   bookings.filter(b => b.status === "pending").length,
     cancelled: bookings.filter(b => b.status === "cancelled").length,
   };
 
-  async function handleAdd(form: typeof EMPTY_FORM, status: "confirmed" | "pending", services: ServiceEntry[]) {
+  async function handleAdd(form: typeof EMPTY_FORM, status: BookingStatus, services: ServiceEntry[]) {
     setAddSubmitting(true);
     try {
       const tfFrom  = toTimeInput(form.timeFrom);
@@ -644,7 +644,7 @@ export default function GeneralBookingsPage() {
     } finally { setAddSubmitting(false); }
   }
 
-  async function handleEdit(form: typeof EMPTY_FORM, status: "confirmed" | "pending", services: ServiceEntry[]) {
+  async function handleEdit(form: typeof EMPTY_FORM, status: BookingStatus, services: ServiceEntry[]) {
     if (!editTarget) return;
     setEditSubmitting(true);
     try {
@@ -669,6 +669,7 @@ export default function GeneralBookingsPage() {
         date: form.date, timeFrom: tfFrom, timeTo: tfTo,
         amount: Number(form.amount) || 0, paid: Number(form.paid) || 0, status,
         notes: form.notes || "",
+        payments: bookings.find(b => b.id === editTarget.id)?.payments ?? [],
         services: services.map(s => ({ label: s.name, unit: s.description || "", price: Number(s.price) || 0 })),
       };
       if (accessToken === "offline-session" || !navigator.onLine) {

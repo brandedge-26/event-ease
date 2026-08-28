@@ -36,7 +36,6 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/home/hero-bg.jpg",
         sizes: "1280x720",
         type: "image/jpeg",
-        // @ts-expect-error — form_factor is valid in spec but not yet in TS types
         form_factor: "wide",
         label: "Event Ease — Discover Venues",
       },

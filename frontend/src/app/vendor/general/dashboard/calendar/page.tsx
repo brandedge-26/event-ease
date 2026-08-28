@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { NewBookingModal } from "../_components/NewBookingModal";
-import type { ServiceEntry } from "../_components/NewBookingModal";
+import type { ServiceEntry, BookingStatus } from "../_components/NewBookingModal";
 import { EMPTY_FORM } from "../_components/NewBookingModal";
 import { useAuthStore } from "@/store/useAuthStore";
 import { api } from "@/lib/api";
@@ -15,7 +15,7 @@ type CalBooking = {
   customerName: string;
   event: string;
   time: string;
-  status: "confirmed" | "pending" | "blocked";
+  status: "confirmed" | "pending" | "cancelled" | "blocked";
 };
 
 type BookingMap = Record<string, CalBooking[]>;
@@ -58,9 +58,10 @@ function toKey(year: number, month: number, day: number) {
 
 function statusConfig(status: CalBooking["status"]) {
   switch (status) {
-    case "confirmed": return { color: "#16A34A", bg: "#DCFCE7", label: "Confirmed" };
-    case "pending":   return { color: "#D97706", bg: "#FEF3C7", label: "Pending" };
-    case "blocked":   return { color: "#DC2626", bg: "#FEE2E2", label: "Blocked" };
+    case "confirmed":  return { color: "#16A34A", bg: "#DCFCE7", label: "Confirmed" };
+    case "pending":    return { color: "#D97706", bg: "#FEF3C7", label: "Pending" };
+    case "cancelled":  return { color: "#6B7280", bg: "#F3F4F6", label: "Cancelled" };
+    case "blocked":    return { color: "#DC2626", bg: "#FEE2E2", label: "Blocked" };
   }
 }
 
@@ -294,7 +295,7 @@ export default function GeneralCalendarPage() {
 
   const modalBookings = modalKey ? (bookingMap[modalKey] ?? []) : [];
 
-  async function handleAdd(form: typeof EMPTY_FORM, status: "confirmed" | "pending", services: ServiceEntry[]) {
+  async function handleAdd(form: typeof EMPTY_FORM, status: BookingStatus, services: ServiceEntry[]) {
     if (!accessToken || bookingSubmitting) return;
     setBookingSubmitting(true);
     try {
