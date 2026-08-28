@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { NewBookingModal, DatePicker, EMPTY_FORM } from "../_components/NewBookingModal";
 import type { BookingStatus, ServiceEntry } from "../_components/NewBookingModal";
 import type { Booking, PaymentRecord, PaymentMethod } from "@/store/useStore";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
+import { addPending, getAllPending } from "@/lib/offlineDB";
+import type { PendingBooking } from "@/lib/offlineDB";
+import { saveToCache, loadFromCache, CACHE_KEYS } from "@/lib/bookingCache";
 
 // ─── DB response types ────────────────────────────────────────────────────────
 type DbPayment = {
@@ -47,6 +50,29 @@ function dbToLocal(b: DbBooking): Booking {
       note:   p.note ?? "",
       method: (p.method ?? "Cash") as PaymentMethod,
     })),
+  };
+}
+
+function pendingToBooking(p: PendingBooking): Booking {
+  const pl = p.payload;
+  return {
+    id:           p.id,
+    customerName: String(pl.customerName ?? ""),
+    phone:        String(pl.phone ?? ""),
+    event:        String(pl.event ?? ""),
+    hall:         String(pl.hall ?? ""),
+    date:         String(pl.date ?? ""),
+    timeFrom:     String(pl.timeFrom ?? ""),
+    timeTo:       String(pl.timeTo ?? ""),
+    guests:       Number(pl.guests) || 0,
+    amount:       Number(pl.amount) || 0,
+    hallAmount:   Number(pl.hallAmount) || 0,
+    paid:         Number(pl.paid) || 0,
+    status:       (pl.status ?? "pending") as BookingStatus,
+    notes:        String(pl.notes ?? ""),
+    payments:     [],
+    services:     ((pl.services ?? []) as { label: string; unit?: string; price?: string }[])
+                    .map(s => ({ label: s.label, unit: s.unit ?? "", price: s.price ?? "" })),
   };
 }
 
@@ -199,7 +225,7 @@ function EditBookingModal({ booking, onClose, onSave, halls = HALLS_FALLBACK, bo
   const balanceDue = Math.max(0, grandTotal - (Number(form.paid) || 0));
 
   const formContent = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
           <p className="text-sm font-bold text-black">Edit Booking</p>
@@ -208,7 +234,7 @@ function EditBookingModal({ booking, onClose, onSave, halls = HALLS_FALLBACK, bo
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100" style={{ color: "var(--fg-muted)" }}><XIcon /></button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5 flex flex-col gap-4">
         <p className="text-xs font-bold uppercase tracking-widest" style={{ color: "var(--fg-subtle)" }}>Customer</p>
         <div className="flex flex-col gap-3">
           <div>
@@ -503,7 +529,7 @@ function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment, onEditPayme
   const paidPct       = b.amount > 0 ? Math.min(100, Math.round((b.paid / b.amount) * 100)) : 0;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
           <p className="text-sm font-bold text-black">Booking Details</p>
@@ -523,7 +549,7 @@ function BookingDetail({ b, onClose, onCancel, onEdit, onAddPayment, onEditPayme
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-5">
         {/* Customer */}
         <div className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: "var(--bg-subtle)" }}>
           <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-white shrink-0" style={{ background: HALL_COLOR[b.hall] || "var(--primary)" }}>
@@ -850,12 +876,14 @@ function DetailModal({ b, onClose, onCancel, onEdit, onAddPayment, onEditPayment
 export default function BookingsPage() {
   const { accessToken } = useAuthStore();
 
-  const [bookings,   setBookings]   = useState<Booking[]>([]);
-  const [hallNames,  setHallNames]  = useState<string[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [apiError,   setApiError]   = useState<string | null>(null);
-  const [saving,     setSaving]     = useState(false);
-  const [toast,      setToast]      = useState<string | null>(null);
+  const [bookings,         setBookings]         = useState<Booking[]>([]);
+  const [hallNames,        setHallNames]        = useState<string[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [apiError,         setApiError]         = useState<string | null>(null);
+  const [saving,           setSaving]           = useState(false);
+  const [toast,            setToast]            = useState<string | null>(null);
+  const [fromCache,        setFromCache]        = useState(false);
+  const [offlinePendingIds, setOfflinePendingIds] = useState<Set<string>>(new Set());
 
   function showToast(msg: string) {
     setToast(msg);
@@ -873,26 +901,116 @@ export default function BookingsPage() {
   // Always derive selected from live local state
   const selected = selectedId ? bookings.find(b => b.id === selectedId) ?? null : null;
 
-  // Load bookings + halls from API on mount
-  useEffect(() => {
+  // Load bookings + halls — extracted so it can be called after offline sync
+  const loadBookings = useCallback(async () => {
     if (!accessToken) return;
-    (async () => {
-      try {
-        const [bookingsRes, hallsRes] = await Promise.all([
-          api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken),
-          api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
-        ]);
-        if (bookingsRes.success) setBookings(bookingsRes.bookings.filter(b => b.status !== "blocked").map(dbToLocal));
-        else setApiError(bookingsRes.message ?? "Failed to load bookings.");
-        if (hallsRes.success && hallsRes.halls.length > 0)
-          setHallNames(hallsRes.halls.map(h => h.name));
-      } catch {
-        setApiError("Network error — could not reach the server.");
-      } finally {
-        setLoading(false);
+    setLoading(true);
+
+    // Only POST pending items become new booking cards; DELETE/PATCH mutate existing records
+    function newPendingCards(pending: PendingBooking[]) {
+      return pending.filter(p => !p.method || p.method === "POST").map(pendingToBooking);
+    }
+
+    // Apply queued PATCH/DELETE mutations to base bookings; return mutated list + affected IDs
+    function applyMutations(base: Booking[], pending: PendingBooking[]): { list: Booking[]; mutatedIds: Set<string> } {
+      const mutatedIds = new Set<string>();
+      let list = [...base];
+      for (const p of pending) {
+        if (!p.method || p.method === "POST") continue;
+        const match = p.endpoint.match(/\/bookings\/([^/]+)/);
+        if (!match) continue;
+        const bid = match[1];
+        if (p.method === "DELETE") {
+          list = list.filter(b => b.id !== bid);
+        } else if (p.method === "PATCH") {
+          list = list.map(b => {
+            if (b.id !== bid) return b;
+            mutatedIds.add(bid);
+            const pl = p.payload;
+            return {
+              ...b,
+              ...(pl.status       !== undefined ? { status:       pl.status as Status }        : {}),
+              ...(pl.customerName !== undefined ? { customerName: String(pl.customerName) }    : {}),
+              ...(pl.phone        !== undefined ? { phone:        String(pl.phone) }           : {}),
+              ...(pl.event        !== undefined ? { event:        String(pl.event) }           : {}),
+              ...(pl.hall         !== undefined ? { hall:         String(pl.hall) }            : {}),
+              ...(pl.date         !== undefined ? { date:         String(pl.date) }            : {}),
+              ...(pl.timeFrom     !== undefined ? { timeFrom:     String(pl.timeFrom) }        : {}),
+              ...(pl.timeTo       !== undefined ? { timeTo:       String(pl.timeTo) }          : {}),
+              ...(pl.amount       !== undefined ? { amount:       Number(pl.amount) }          : {}),
+              ...(pl.paid         !== undefined ? { paid:         Number(pl.paid) }            : {}),
+              ...(pl.guests       !== undefined ? { guests:       Number(pl.guests) }          : {}),
+              ...(pl.notes        !== undefined ? { notes:        String(pl.notes) }           : {}),
+            };
+          });
+        }
       }
-    })();
+      return { list, mutatedIds };
+    }
+
+    function mergeWithPending(base: Booking[], pending: PendingBooking[]) {
+      const { list, mutatedIds } = applyMutations(base, pending);
+      const postIds = new Set(pending.filter(p => !p.method || p.method === "POST").map(p => p.id));
+      return { bookings: [...newPendingCards(pending), ...list], pendingIds: new Set([...postIds, ...mutatedIds]) };
+    }
+
+    // Offline (session-restored OR mid-session): skip API, load from cache
+    if (accessToken === "offline-session" || !navigator.onLine) {
+      const cached = loadFromCache<Booking>(CACHE_KEYS.VENUE_BOOKINGS);
+      const pending = await getAllPending().catch(() => [] as PendingBooking[]);
+      if (cached) {
+        const { bookings, pendingIds } = mergeWithPending(cached, pending);
+        setBookings(bookings);
+        setOfflinePendingIds(pendingIds);
+        setFromCache(true);
+      } else {
+        setApiError("Offline — no cached data available.");
+      }
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const [bookingsRes, hallsRes] = await Promise.all([
+        api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken),
+        api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
+      ]);
+      if (bookingsRes.success) {
+        const mapped = bookingsRes.bookings.filter(b => b.status !== "blocked").map(dbToLocal);
+        const pending = await getAllPending().catch(() => [] as PendingBooking[]);
+        const { bookings, pendingIds } = mergeWithPending(mapped, pending);
+        setBookings(bookings);
+        setOfflinePendingIds(pendingIds);
+        setFromCache(false);
+        saveToCache(CACHE_KEYS.VENUE_BOOKINGS, mapped);
+      } else {
+        setApiError(bookingsRes.message ?? "Failed to load bookings.");
+      }
+      if (hallsRes.success && hallsRes.halls.length > 0)
+        setHallNames(hallsRes.halls.map(h => h.name));
+    } catch {
+      const cached = loadFromCache<Booking>(CACHE_KEYS.VENUE_BOOKINGS);
+      const pending = await getAllPending().catch(() => [] as PendingBooking[]);
+      if (cached) {
+        const { bookings, pendingIds } = mergeWithPending(cached, pending);
+        setBookings(bookings);
+        setOfflinePendingIds(pendingIds);
+        setFromCache(true);
+      } else {
+        setApiError("Offline — no cached data available.");
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [accessToken]);
+
+  useEffect(() => { loadBookings(); }, [loadBookings]);
+
+  // Reload when layout's useOfflineSync completes a sync
+  useEffect(() => {
+    window.addEventListener("offline-synced", loadBookings);
+    return () => window.removeEventListener("offline-synced", loadBookings);
+  }, [loadBookings]);
 
   const filtered = bookings.filter(b => {
     const matchFilter = filter === "all" || b.status === filter;
@@ -950,15 +1068,53 @@ export default function BookingsPage() {
         services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
       };
 
-      const res = await api.post<{ id: string }>("/api/vendor/bookings", payload, accessToken);
-      if (!res.success) { setApiError(res.message ?? "Failed to create booking."); return; }
-
       const initialPayments: PaymentRecord[] = advancePaid > 0
         ? [{ id: `pr-${Date.now()}`, amount: advancePaid, date: today, note: "Advance", method: "Cash" }]
         : [];
 
+      // Helper: queue booking in IndexedDB and show optimistically
+      async function queueOffline() {
+        const tempId = await addPending({
+          endpoint:    "/api/vendor/bookings",
+          accessToken: accessToken!,
+          payload,
+          createdAt:   Date.now(),
+        });
+        const optimistic: Booking = {
+          id: tempId, customerName: form.customerName, phone: form.phone || "",
+          event: form.event, hall: form.hall, date: form.date,
+          timeFrom: toTimeInput(form.timeFrom), timeTo: toTimeInput(form.timeTo),
+          guests: Number(form.guests) || 0, amount: grandTotal, hallAmount: hallAmt,
+          paid: advancePaid, notes: form.notes || "", status,
+          services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
+          payments: initialPayments,
+        };
+        setBookings(prev => [optimistic, ...prev]);
+        setOfflinePendingIds(prev => new Set([...prev, tempId]));
+        setModalOpen(false);
+        setPage(1);
+        showToast("Saved offline — will sync when connected.");
+      }
+
+      // If offline (either session-restored-offline or lost connection mid-session), skip API entirely
+      if (accessToken === "offline-session" || !navigator.onLine) {
+        await queueOffline();
+        return;
+      }
+
+      // Online path — try API; if network fails, fall back to offline queue
+      let res: { success: boolean; id?: string; message?: string } | null = null;
+      try {
+        res = await api.post<{ id: string }>("/api/vendor/bookings", payload, accessToken);
+      } catch {
+        await queueOffline();
+        return;
+      }
+
+      if (!res.success) { setApiError(res.message ?? "Failed to create booking."); return; }
+
       const newBooking: Booking = {
-        id:           res.id,
+        id:           res.id!,
         customerName: form.customerName,
         phone:        form.phone || "",
         event:        form.event,
@@ -983,7 +1139,7 @@ export default function BookingsPage() {
       setPage(1);
       showToast("Booking created successfully!");
     } catch {
-      setApiError("Network error — booking was not saved.");
+      setApiError("Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -991,8 +1147,13 @@ export default function BookingsPage() {
 
   async function handleCancelBooking(id: string) {
     if (!accessToken) return;
-    const snapshot = bookings;
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status: "cancelled" as Status } : b));
+    if (accessToken === "offline-session" || !navigator.onLine) {
+      await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${id}/cancel`, accessToken, payload: {}, createdAt: Date.now() });
+      setOfflinePendingIds(prev => new Set([...prev, id]));
+      return;
+    }
+    const snapshot = bookings;
     try {
       const res = await api.patch(`/api/vendor/bookings/${id}/cancel`, {}, accessToken);
       if (!res.success) {
@@ -1000,8 +1161,8 @@ export default function BookingsPage() {
         setApiError(res.message ?? "Failed to cancel booking.");
       }
     } catch {
-      setBookings(snapshot);
-      setApiError("Network error — cancellation was not saved.");
+      // Already applied optimistically — queue for sync
+      await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${id}/cancel`, accessToken, payload: {}, createdAt: Date.now() });
     }
   }
 
@@ -1027,15 +1188,19 @@ export default function BookingsPage() {
         services,
       };
 
+      const normalised: Booking = { ...updated, timeFrom: toTimeInput(updated.timeFrom), timeTo: toTimeInput(updated.timeTo) };
+
+      if (accessToken === "offline-session" || !navigator.onLine) {
+        setBookings(prev => prev.map(b => b.id === normalised.id ? normalised : b));
+        await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${updated.id}`, accessToken, payload, createdAt: Date.now() });
+        setOfflinePendingIds(prev => new Set([...prev, updated.id]));
+        setEditOpen(false);
+        return;
+      }
+
       const res = await api.patch(`/api/vendor/bookings/${updated.id}`, payload, accessToken);
       if (!res.success) { setApiError(res.message ?? "Failed to save changes."); return; }
 
-      // Normalise times back to 24h for local state
-      const normalised: Booking = {
-        ...updated,
-        timeFrom: toTimeInput(updated.timeFrom),
-        timeTo:   toTimeInput(updated.timeTo),
-      };
       setBookings(prev => prev.map(b => b.id === normalised.id ? normalised : b));
       setEditOpen(false);
     } catch {
@@ -1115,19 +1280,24 @@ export default function BookingsPage() {
 
   async function handleDeleteBooking(id: string) {
     if (!accessToken) return;
-    // Optimistic: remove instantly so list updates before API responds
     const snapshot = bookings;
     setBookings(prev => prev.filter(b => b.id !== id));
     setSelectedId(null);
     setDetailOpen(false);
+    if (accessToken === "offline-session" || !navigator.onLine) {
+      await addPending({ method: "DELETE", endpoint: `/api/vendor/bookings/${id}`, accessToken, payload: {}, createdAt: Date.now() });
+      return;
+    }
     try {
       const res = await api.delete(`/api/vendor/bookings/${id}`, accessToken);
       if (!res.success) {
-        setBookings(snapshot); // revert on failure
+        setBookings(snapshot);
         setApiError(res.message ?? "Failed to delete booking.");
       }
     } catch {
-      setBookings(snapshot); // revert on network error
+      // Already removed optimistically — queue for sync
+      await addPending({ method: "DELETE", endpoint: `/api/vendor/bookings/${id}`, accessToken, payload: {}, createdAt: Date.now() });
+      /* revert on network error was here — keeping deleted since queued */
       setApiError("Network error — booking was not deleted.");
     }
   }
@@ -1258,14 +1428,15 @@ export default function BookingsPage() {
                 </div>
               )}
               {paginated.map(b => {
-                const cfg     = STATUS_CONFIG[b.status];
-                const balance = b.amount - b.paid;
-                const paidPct = b.amount > 0 ? Math.min(100, Math.round((b.paid / b.amount) * 100)) : 0;
+                const cfg      = STATUS_CONFIG[b.status];
+                const balance  = b.amount - b.paid;
+                const paidPct  = b.amount > 0 ? Math.min(100, Math.round((b.paid / b.amount) * 100)) : 0;
                 const isActive = selectedId === b.id;
+                const isPending = offlinePendingIds.has(b.id);
                 return (
-                  <div key={b.id} onClick={() => openDetail(b)}
+                  <div key={b.id} onClick={() => !isPending && openDetail(b)}
                     className="bg-white rounded-2xl shadow-sm p-4 cursor-pointer hover:shadow-md"
-                    style={{ border: `1.5px solid ${isActive ? "var(--primary)" : "transparent"}` }}>
+                    style={{ border: `1.5px solid ${isActive ? "var(--primary)" : isPending ? "#FCD34D" : "transparent"}` }}>
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 text-white" style={{ background: HALL_COLOR[b.hall] || "var(--primary)" }}>
@@ -1276,7 +1447,12 @@ export default function BookingsPage() {
                           <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{b.phone}</p>
                         </div>
                       </div>
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isPending && (
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: "#FFFBEB", color: "#D97706" }}>Queued</span>
+                        )}
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: HALL_BG[b.hall] || "var(--primary-light)", color: HALL_COLOR[b.hall] || "var(--primary)" }}>{b.hall}</span>

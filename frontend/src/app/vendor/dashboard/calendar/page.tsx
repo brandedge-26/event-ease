@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { NewBookingModal } from "../_components/NewBookingModal";
+import type { ServiceEntry } from "../_components/NewBookingModal";
+import { EMPTY_FORM } from "../_components/NewBookingModal";
 import { useAuthStore } from "@/store/useAuthStore";
 import { api } from "@/lib/api";
+import { addPending, getAllPending } from "@/lib/offlineDB";
+import type { PendingBooking } from "@/lib/offlineDB";
+import { loadFromCache, saveToCache, CACHE_KEYS } from "@/lib/bookingCache";
 
 type Booking = {
   id: string;
@@ -156,9 +161,94 @@ export default function CalendarPage() {
   const [hallNames,  setHallNames]  = useState<string[]>([]);
   const [loading,    setLoading]    = useState(true);
 
-  // Load real bookings from API
+  function buildMapFromRaw(raw: DbBooking[]): BookingMap {
+    const map: BookingMap = {};
+    raw.filter(b => b.status !== "cancelled").forEach(b => {
+      const entry: Booking = {
+        id: b.id, customerName: b.customerName, event: b.event,
+        hall: b.hall, guests: b.guests ?? 0,
+        time: fmt12h(b.timeFrom), status: b.status as "confirmed" | "pending",
+      };
+      if (!map[b.date]) map[b.date] = [];
+      map[b.date].push(entry);
+    });
+    return map;
+  }
+
+  function applyMutationsToMap(map: BookingMap, pending: PendingBooking[]): BookingMap {
+    let result = { ...map };
+    for (const p of pending) {
+      if (!p.method || p.method === "POST") continue;
+      const match = p.endpoint.match(/\/bookings\/([^/]+)/);
+      if (!match) continue;
+      const bid = match[1];
+      if (p.method === "DELETE") {
+        result = Object.fromEntries(
+          Object.entries(result)
+            .map(([d, entries]) => [d, entries.filter(e => e.id !== bid)])
+            .filter(([, entries]) => (entries as Booking[]).length > 0)
+        );
+      } else if (p.method === "PATCH") {
+        const pl = p.payload;
+        result = Object.fromEntries(
+          Object.entries(result).map(([d, entries]) => [
+            d,
+            (entries as Booking[]).map(e => e.id !== bid ? e : {
+              ...e,
+              ...(pl.customerName !== undefined ? { customerName: String(pl.customerName) } : {}),
+              ...(pl.event        !== undefined ? { event:        String(pl.event) }        : {}),
+              ...(pl.hall         !== undefined ? { hall:         String(pl.hall) }         : {}),
+              ...(pl.status       !== undefined ? { status:       pl.status as Booking["status"] } : {}),
+            }),
+          ])
+        );
+        if (pl.date && typeof pl.date === "string") {
+          const oldEntry = Object.values(result).flat().find((e: Booking) => e.id === bid);
+          if (oldEntry) {
+            result = Object.fromEntries(
+              Object.entries(result)
+                .map(([d, entries]) => [d, (entries as Booking[]).filter(e => e.id !== bid)])
+                .filter(([, entries]) => (entries as Booking[]).length > 0)
+            );
+            result[pl.date as string] = [...(result[pl.date as string] ?? []), oldEntry as Booking];
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  // Load real bookings from API (with offline cache fallback)
   useEffect(() => {
     if (!accessToken) return;
+
+    if (accessToken === "offline-session" || !navigator.onLine) {
+      const cached = loadFromCache<DbBooking>(CACHE_KEYS.VENUE_BOOKINGS);
+      if (cached) {
+        getAllPending().catch(() => [] as PendingBooking[]).then(pending => {
+          const map = buildMapFromRaw(cached);
+          // Add optimistic offline-queued POST bookings
+          for (const p of pending.filter(p2 => !p2.method || p2.method === "POST")) {
+            const pl = p.payload;
+            const date = pl.date as string | undefined;
+            if (!date) continue;
+            map[date] = [...(map[date] ?? []), {
+              id: p.id, customerName: String(pl.customerName ?? ""),
+              event: String(pl.event ?? ""), hall: String(pl.hall ?? ""),
+              guests: Number(pl.guests) || 0,
+              time: fmt12h((pl.timeFrom as string) ?? ""),
+              status: (pl.status ?? "pending") as Booking["status"],
+            }];
+          }
+          setBookingMap(applyMutationsToMap(map, pending));
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
+      }
+      return;
+    }
+
     (async () => {
       try {
         const [bRes, hRes] = await Promise.all([
@@ -166,28 +256,15 @@ export default function CalendarPage() {
           api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
         ]);
         if (bRes.success) {
-          const map: BookingMap = {};
-          bRes.bookings
-            .filter(b => b.status !== "cancelled")
-            .forEach(b => {
-              const entry: Booking = {
-                id:           b.id,
-                customerName: b.customerName,
-                event:        b.event,
-                hall:         b.hall,
-                guests:       b.guests ?? 0,
-                time:         fmt12h(b.timeFrom),
-                status:       b.status as "confirmed" | "pending",
-              };
-              if (!map[b.date]) map[b.date] = [];
-              map[b.date].push(entry);
-            });
-          setBookingMap(map);
+          setBookingMap(buildMapFromRaw(bRes.bookings));
+          saveToCache(CACHE_KEYS.VENUE_BOOKINGS, bRes.bookings);
         }
         if (hRes.success && hRes.halls.length > 0)
           setHallNames(hRes.halls.map(h => h.name));
-      } catch { /* silently ignore */ }
-      finally { setLoading(false); }
+      } catch {
+        const cached = loadFromCache<DbBooking>(CACHE_KEYS.VENUE_BOOKINGS);
+        if (cached) setBookingMap(buildMapFromRaw(cached));
+      } finally { setLoading(false); }
     })();
   }, [accessToken]);
 
@@ -220,6 +297,66 @@ export default function CalendarPage() {
   const [bookingDefaultDate, setBookingDefaultDate] = useState("");
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [extraBookings, setExtraBookings] = useState<BookingMap>({});
+
+  async function handleNewBooking(form: typeof EMPTY_FORM, status: "confirmed" | "pending", services: ServiceEntry[]) {
+    if (!accessToken || bookingSubmitting) return;
+    setBookingSubmitting(true);
+    try {
+      const servicesTotal = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+      const grandTotal    = Number(form.amount) || 0;
+      const tfFrom        = toTimeInput(form.timeFrom);
+      const tfTo          = toTimeInput(form.timeTo);
+      const payload = {
+        customerName: form.customerName,
+        phone:        form.phone || "",
+        event:        form.event,
+        hall:         form.hall,
+        date:         form.date,
+        ...(tfFrom ? { timeFrom: tfFrom } : {}),
+        ...(tfTo   ? { timeTo:   tfTo   } : {}),
+        guests:     Number(form.guests) || 0,
+        amount:     grandTotal,
+        hallAmount: grandTotal - servicesTotal,
+        paid:       Number(form.paid) || 0,
+        status,
+        notes:    form.notes || undefined,
+        services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
+      };
+
+      function addToMap(id: string) {
+        const entry: Booking = {
+          id, customerName: form.customerName, event: form.event,
+          hall: form.hall, guests: Number(form.guests) || 0,
+          time: tfFrom ? fmt12h(tfFrom) : "—",
+          status: status as "confirmed" | "pending",
+        };
+        setBookingMap(prev => ({ ...prev, [form.date]: [...(prev[form.date] ?? []), entry] }));
+      }
+
+      if (accessToken === "offline-session" || !navigator.onLine) {
+        const tempId = await addPending({ endpoint: "/api/vendor/bookings", accessToken, payload, createdAt: Date.now() });
+        addToMap(tempId);
+        setBookingModalOpen(false);
+        return;
+      }
+
+      let res: { success: boolean; id?: string } | null = null;
+      try {
+        res = await api.post<{ id: string }>("/api/vendor/bookings", payload, accessToken);
+      } catch {
+        const tempId = await addPending({ endpoint: "/api/vendor/bookings", accessToken, payload, createdAt: Date.now() });
+        addToMap(tempId);
+        setBookingModalOpen(false);
+        return;
+      }
+
+      if (res.success) {
+        addToMap(res.id!);
+        setBookingModalOpen(false);
+      }
+    } catch { /* ignore */ }
+    finally { setBookingSubmitting(false); }
+  }
   const allBookings = (key: string) => [...(bookingMap[key] || []), ...(extraBookings[key] || [])];
 
   const monthEntries     = Object.entries({ ...bookingMap, ...extraBookings }).filter(([k]) => k.startsWith(prefix));
@@ -233,19 +370,30 @@ export default function CalendarPage() {
   async function handleCloseHall(key: string) {
     setModalKey(null);
     if (!accessToken) return;
+    const payload = {
+      customerName: "Maintenance",
+      event:        "Hall Closed",
+      hall:         hallNames[0] || "Hall",
+      date:         key,
+      status:       "blocked",
+      guests:       0,
+      amount:       0,
+    };
     try {
-      const res = await api.post<{ id: string }>("/api/vendor/bookings", {
-        customerName: "Maintenance",
-        event:        "Hall Closed",
-        hall:         hallNames[0] || "Hall",
-        date:         key,
-        status:       "blocked",
-        guests:       0,
-        amount:       0,
-      }, accessToken);
+      if (accessToken === "offline-session" || !navigator.onLine) {
+        await addPending({ endpoint: "/api/vendor/bookings", accessToken, payload, createdAt: Date.now() });
+        return;
+      }
+      let res: { success: boolean; id?: string } | null = null;
+      try {
+        res = await api.post<{ id: string }>("/api/vendor/bookings", payload, accessToken);
+      } catch {
+        await addPending({ endpoint: "/api/vendor/bookings", accessToken, payload, createdAt: Date.now() });
+        return;
+      }
       if (res.success) {
         const entry: Booking = {
-          id:           res.id,
+          id:           res.id!,
           customerName: "Maintenance",
           event:        "Hall Closed",
           hall:         hallNames[0] || "Hall",
@@ -275,49 +423,7 @@ export default function CalendarPage() {
         halls={hallNames}
         bookedDates={bookedDates}
         submitting={bookingSubmitting}
-        onSubmit={async (form, status, services) => {
-          if (!accessToken || bookingSubmitting) return;
-          setBookingSubmitting(true);
-          try {
-            const servicesTotal = services.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
-            const grandTotal    = Number(form.amount) || 0;
-            const tfFrom        = toTimeInput(form.timeFrom);
-            const tfTo          = toTimeInput(form.timeTo);
-            const res = await api.post<{ id: string }>("/api/vendor/bookings", {
-              customerName: form.customerName,
-              phone:        form.phone || "",
-              event:        form.event,
-              hall:         form.hall,
-              date:         form.date,
-              ...(tfFrom ? { timeFrom: tfFrom } : {}),
-              ...(tfTo   ? { timeTo:   tfTo   } : {}),
-              guests:     Number(form.guests) || 0,
-              amount:     grandTotal,
-              hallAmount: grandTotal - servicesTotal,
-              paid:       Number(form.paid) || 0,
-              status,
-              notes:    form.notes || undefined,
-              services: services.map(s => ({ label: s.customName || s.label, unit: s.unit, price: s.price })),
-            }, accessToken);
-            if (res.success) {
-              const entry: Booking = {
-                id:           res.id,
-                customerName: form.customerName,
-                event:        form.event,
-                hall:         form.hall,
-                guests:       Number(form.guests) || 0,
-                time:         tfFrom ? fmt12h(tfFrom) : "—",
-                status:       status as "confirmed" | "pending",
-              };
-              setBookingMap(prev => ({
-                ...prev,
-                [form.date]: [...(prev[form.date] ?? []), entry],
-              }));
-              setBookingModalOpen(false);
-            }
-          } catch { /* ignore */ }
-          finally { setBookingSubmitting(false); }
-        }}
+        onSubmit={handleNewBooking}
       />
 
       {modalKey && (

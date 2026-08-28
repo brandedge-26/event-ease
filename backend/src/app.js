@@ -2,6 +2,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
+import passport from "./config/passport.js";
 import apiRoutes from "./routes/index.js";
 import { globalErrorHandler } from "./middleware/errorHandler.js";
 
@@ -39,6 +40,9 @@ app.use(cors({
 
 
 
+
+// PASSPORT (no sessions — JWT only)
+app.use(passport.initialize());
 
 // ROUTES
 app.use("/api", apiRoutes);

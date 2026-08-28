@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { api } from "@/lib/api";
+import { saveToCache, loadFromCache, CACHE_KEYS } from "@/lib/bookingCache";
+import { addPending, getAllPending } from "@/lib/offlineDB";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type QuotationStatus = "pending" | "accepted" | "rejected";
@@ -73,6 +75,7 @@ function calcTotal(q: Quotation) {
   return q.hallAmount + (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
 }
 function displayId(id: string) {
+  if (id.startsWith("offline-")) return "QT-DRAFT";
   return "QT-" + id.slice(0, 8).toUpperCase();
 }
 
@@ -97,6 +100,73 @@ const EMPTY_FORM: FormState = {
   hallAmount: "", notes: "", status: "pending",
   services: [],
 };
+
+// ─── Offline mutation helpers ─────────────────────────────────────────────────
+async function applyQuotationMutations(quotations: Quotation[]): Promise<{ quotations: Quotation[]; pendingIds: Set<string> }> {
+  const pending = await getAllPending();
+  const ops = pending.filter(p => p.endpoint.includes("/quotations"));
+  const pendingIds = new Set<string>();
+  let result = [...quotations];
+
+  for (const op of ops) {
+    const method = op.method ?? "POST";
+    if (method === "POST") continue; // handled by pendingQuotationEntries()
+
+    const match = op.endpoint.match(/\/quotations\/([^/]+)/);
+    if (!match) continue;
+    const qId = match[1];
+    pendingIds.add(qId);
+
+    if (method === "DELETE") {
+      result = result.filter(q => q.id !== qId);
+    } else if (method === "PATCH") {
+      result = result.map(q => {
+        if (q.id !== qId) return q;
+        if (op.endpoint.endsWith("/status")) {
+          return { ...q, status: (op.payload.status as QuotationStatus) ?? q.status };
+        }
+        return {
+          ...q,
+          customerName: (op.payload.customerName as string) ?? q.customerName,
+          phone:        (op.payload.phone as string) ?? q.phone,
+          email:        (op.payload.email as string) ?? q.email,
+          event:        (op.payload.event as string) ?? q.event,
+          hall:         (op.payload.hall as string) ?? q.hall,
+          date:         (op.payload.date as string) ?? q.date,
+          guests:       (op.payload.guests as number) ?? q.guests,
+          hallAmount:   (op.payload.hallAmount as number) ?? q.hallAmount,
+          notes:        (op.payload.notes as string) ?? q.notes,
+          services:     (op.payload.services as ServiceEntry[]) ?? q.services,
+        };
+      });
+    }
+  }
+  return { quotations: result, pendingIds };
+}
+
+async function pendingQuotationEntries(): Promise<{ quotations: Quotation[]; ids: Set<string> }> {
+  const pending = await getAllPending();
+  const posts = pending.filter(p => (p.method ?? "POST") === "POST" && p.endpoint === "/api/vendor/quotations");
+  const ids = new Set<string>();
+  const quotations: Quotation[] = posts.map(pb => {
+    ids.add(pb.id);
+    return {
+      id:           pb.id,
+      customerName: (pb.payload.customerName as string) ?? "—",
+      phone:        (pb.payload.phone as string) ?? "",
+      email:        (pb.payload.email as string) ?? "",
+      event:        (pb.payload.event as string) ?? "—",
+      hall:         (pb.payload.hall as string) ?? "",
+      date:         (pb.payload.date as string) ?? "",
+      guests:       (pb.payload.guests as number) ?? 0,
+      hallAmount:   (pb.payload.hallAmount as number) ?? 0,
+      status:       "pending" as QuotationStatus,
+      services:     (pb.payload.services as ServiceEntry[]) ?? [],
+      notes:        (pb.payload.notes as string) ?? "",
+    };
+  });
+  return { quotations, ids };
+}
 
 // ─── Quotation Form ───────────────────────────────────────────────────────────
 function QuotationForm({
@@ -196,7 +266,8 @@ function QuotationForm({
                 <select value={f.event} onChange={e => setField("event", e.target.value)} className={inp} style={inpStyle} required>
                   {EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <select value={f.hall} onChange={e => setField("hall", e.target.value)} className={inp} style={inpStyle} required>
+                <select value={f.hall} onChange={e => setField("hall", e.target.value)} className={inp} style={inpStyle} required={halls.length > 0}>
+                  {halls.length === 0 && <option value="">Hall (offline)</option>}
                   {halls.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </div>
@@ -339,7 +410,7 @@ function QuotationForm({
 }
 
 // ─── PDF Generator ────────────────────────────────────────────────────────────
-function generatePDF(q: Quotation) {
+function generatePDF(q: Quotation, businessName: string) {
   const svcTotal = (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
   const total    = q.hallAmount + svcTotal;
   const fmtRs    = (n: number) => "Rs. " + n.toLocaleString("en-PK");
@@ -401,7 +472,7 @@ function generatePDF(q: Quotation) {
 <body>
   <button class="print-btn no-print" onclick="window.print()">Download / Print PDF</button>
   <div class="header">
-    <div><div class="brand-name">Royal Banquet Hall</div><div class="brand-sub">Event Ease</div></div>
+    <div><div class="brand-name">${businessName}</div><div class="brand-sub">Event Ease</div></div>
     <div class="quote-meta">
       <div class="quote-id">${qId}</div>
       <span class="quote-status" style="background:${q.status==="accepted"?"#F0FDF4":q.status==="rejected"?"#FEF2F2":"#FFFBEB"};color:${q.status==="accepted"?"#16A34A":q.status==="rejected"?"#DC2626":"#D97706"}">
@@ -433,7 +504,7 @@ function generatePDF(q: Quotation) {
   </div>
   ${q.notes ? `<div class="notes-box"><strong>Notes</strong>${q.notes}</div>` : ""}
   <div class="footer">
-    <span>Generated by Event Ease · Royal Banquet Hall</span>
+    <span>Generated by Event Ease · ${businessName}</span>
     <span>${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
   </div>
   <script>window.onload=()=>{window.print()}</script>
@@ -457,9 +528,11 @@ function QuotationDetailContent({
   const svcTotal = (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
   const total    = q.hallAmount + svcTotal;
   const cfg      = STATUS_CONFIG[q.status];
+  const { vendor } = useAuthStore();
+  const businessName = vendor?.name ?? "My Business";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
@@ -467,7 +540,7 @@ function QuotationDetailContent({
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => generatePDF(q)}
+          <button onClick={() => generatePDF(q, businessName)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-opacity hover:opacity-80"
             style={{ background: "var(--primary-light)", color: "var(--primary)" }}>
             <PDFIcon /> PDF
@@ -478,7 +551,7 @@ function QuotationDetailContent({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-5">
 
         {/* Customer */}
         <div className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: "var(--bg-subtle)" }}>
@@ -623,6 +696,7 @@ export default function QuotationsPage() {
   const [halls, setHalls]             = useState<string[]>([]);
   const [loading, setLoading]         = useState(true);
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [offlinePendingIds, setOfflinePendingIds] = useState<Set<string>>(new Set());
 
   const [filter, setFilter]           = useState<"all" | QuotationStatus>("all");
   const [search, setSearch]           = useState("");
@@ -633,17 +707,58 @@ export default function QuotationsPage() {
   const [deleteTarget, setDeleteTarget]   = useState<Quotation | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
-  useEffect(() => {
+  const loadQuotations = useCallback(async () => {
     if (!accessToken) return;
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
+
+    if (isOffline) {
+      const cached = loadFromCache<Quotation>(CACHE_KEYS.VENUE_QUOTATIONS);
+      const cachedHalls = loadFromCache<string>(CACHE_KEYS.VENUE_HALLS);
+      if (cachedHalls?.length) setHalls(cachedHalls);
+      const base = cached ?? [];
+      const { quotations: mutated, pendingIds } = await applyQuotationMutations(base);
+      const { quotations: newEntries, ids: newIds } = await pendingQuotationEntries();
+      newIds.forEach(id => pendingIds.add(id));
+      setQuotations([...newEntries, ...mutated]);
+      setOfflinePendingIds(pendingIds);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    Promise.all([
-      api.get<{ quotations: Quotation[] }>("/api/vendor/quotations", accessToken),
-      api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
-    ]).then(([qRes, hRes]) => {
-      if (qRes.success) setQuotations(qRes.quotations ?? []);
-      if (hRes.success && hRes.halls?.length) setHalls(hRes.halls.map(h => h.name));
-    }).finally(() => setLoading(false));
+    try {
+      const [qRes, hRes] = await Promise.all([
+        api.get<{ quotations: Quotation[] }>("/api/vendor/quotations", accessToken),
+        api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
+      ]);
+      if (qRes.success) {
+        const list = qRes.quotations ?? [];
+        setQuotations(list);
+        setOfflinePendingIds(new Set());
+        saveToCache(CACHE_KEYS.VENUE_QUOTATIONS, list);
+      }
+      if (hRes.success && hRes.halls?.length) {
+        const hallNames = hRes.halls.map((h: { id: string; name: string }) => h.name);
+        setHalls(hallNames);
+        saveToCache(CACHE_KEYS.VENUE_HALLS, hallNames);
+      }
+    } catch {
+      const cached = loadFromCache<Quotation>(CACHE_KEYS.VENUE_QUOTATIONS);
+      const cachedHalls = loadFromCache<string>(CACHE_KEYS.VENUE_HALLS);
+      if (cached) setQuotations(cached);
+      if (cachedHalls?.length) setHalls(cachedHalls);
+    } finally {
+      setLoading(false);
+    }
   }, [accessToken]);
+
+  useEffect(() => { loadQuotations(); }, [loadQuotations]);
+
+  useEffect(() => {
+    function onSynced() { loadQuotations(); }
+    window.addEventListener("offline-synced", onSynced);
+    return () => window.removeEventListener("offline-synced", onSynced);
+  }, [loadQuotations]);
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const filtered = quotations.filter(q => {
@@ -676,92 +791,115 @@ export default function QuotationsPage() {
   // ── Handlers ───────────────────────────────────────────────────────────────
   async function handleCreate(f: FormState) {
     setFormSubmitting(true);
-    try {
-      const res = await api.post<{ id: string }>("/api/vendor/quotations", {
-        customerName: f.customerName,
-        phone:        f.phone || "",
-        email:        f.email || "",
-        event:        f.event,
-        hall:         f.hall,
-        date:         f.date || undefined,
-        guests:       Number(f.guests) || 0,
-        hallAmount:   Number(f.hallAmount) || 0,
-        notes:        f.notes || undefined,
-        services:     f.services,
-      }, accessToken ?? undefined);
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
+    const payload = {
+      customerName: f.customerName, phone: f.phone || "", email: f.email || "",
+      event: f.event, hall: f.hall, date: f.date || undefined,
+      guests: Number(f.guests) || 0, hallAmount: Number(f.hallAmount) || 0,
+      notes: f.notes || undefined, services: f.services,
+    };
 
-      if (res.success && res.id) {
-        const newQ: Quotation = {
-          id:           res.id,
-          customerName: f.customerName,
-          phone:        f.phone,
-          email:        f.email,
-          event:        f.event,
-          hall:         f.hall,
-          date:         f.date,
-          guests:       Number(f.guests) || 0,
-          hallAmount:   Number(f.hallAmount) || 0,
-          status:       "pending",
-          services:     f.services,
-          notes:        f.notes,
-        };
-        setQuotations(prev => [newQ, ...prev]);
-        setNewModalOpen(false);
-        setPage(1);
-      }
-    } finally {
-      setFormSubmitting(false);
+    async function queueOffline() {
+      const tempId = await addPending({
+        method: "POST", endpoint: "/api/vendor/quotations",
+        accessToken: accessToken ?? "offline-session", payload, createdAt: Date.now(),
+      });
+      setQuotations(prev => [{
+        id: tempId, customerName: f.customerName, phone: f.phone, email: f.email,
+        event: f.event, hall: f.hall, date: f.date, guests: Number(f.guests) || 0,
+        hallAmount: Number(f.hallAmount) || 0, status: "pending", services: f.services, notes: f.notes,
+      }, ...prev]);
+      setOfflinePendingIds(prev => new Set([...prev, tempId]));
+      setNewModalOpen(false); setPage(1);
     }
+
+    try {
+      if (isOffline) { await queueOffline(); return; }
+      const res = await api.post<{ id: string }>("/api/vendor/quotations", payload, accessToken ?? undefined);
+      if (res.success && res.id) {
+        setQuotations(prev => [{
+          id: res.id, customerName: f.customerName, phone: f.phone, email: f.email,
+          event: f.event, hall: f.hall, date: f.date, guests: Number(f.guests) || 0,
+          hallAmount: Number(f.hallAmount) || 0, status: "pending", services: f.services, notes: f.notes,
+        }, ...prev]);
+        setNewModalOpen(false); setPage(1);
+      }
+    } catch { await queueOffline(); }
+    finally { setFormSubmitting(false); }
   }
 
   async function handleEdit(f: FormState) {
     if (!editTarget) return;
     setFormSubmitting(true);
-    try {
-      const res = await api.patch(`/api/vendor/quotations/${editTarget.id}`, {
-        customerName: f.customerName,
-        phone:        f.phone,
-        email:        f.email,
-        event:        f.event,
-        hall:         f.hall,
-        date:         f.date || undefined,
-        guests:       Number(f.guests) || 0,
-        hallAmount:   Number(f.hallAmount) || 0,
-        notes:        f.notes || undefined,
-        services:     f.services,
-      }, accessToken ?? undefined);
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
+    const payload = {
+      customerName: f.customerName, phone: f.phone, email: f.email,
+      event: f.event, hall: f.hall, date: f.date || undefined,
+      guests: Number(f.guests) || 0, hallAmount: Number(f.hallAmount) || 0,
+      notes: f.notes || undefined, services: f.services,
+    };
+    const updated: Quotation = {
+      ...editTarget, customerName: f.customerName, phone: f.phone, email: f.email,
+      event: f.event, hall: f.hall, date: f.date, guests: Number(f.guests) || 0,
+      hallAmount: Number(f.hallAmount) || 0, services: f.services, notes: f.notes,
+    };
+    const id = editTarget.id;
 
+    async function queueOffline() {
+      await addPending({
+        method: "PATCH", endpoint: `/api/vendor/quotations/${id}`,
+        accessToken: accessToken ?? "offline-session", payload, createdAt: Date.now(),
+      });
+      setQuotations(prev => prev.map(q => q.id === id ? updated : q));
+      setOfflinePendingIds(prev => new Set([...prev, id]));
+      setEditTarget(null);
+    }
+
+    try {
+      if (isOffline) { await queueOffline(); return; }
+      const res = await api.patch(`/api/vendor/quotations/${id}`, payload, accessToken ?? undefined);
       if (res.success) {
-        setQuotations(prev => prev.map(q => q.id === editTarget.id ? {
-          ...q,
-          customerName: f.customerName,
-          phone:        f.phone,
-          email:        f.email,
-          event:        f.event,
-          hall:         f.hall,
-          date:         f.date,
-          guests:       Number(f.guests) || 0,
-          hallAmount:   Number(f.hallAmount) || 0,
-          services:     f.services,
-          notes:        f.notes,
-        } : q));
+        setQuotations(prev => prev.map(q => q.id === id ? updated : q));
         setEditTarget(null);
       }
-    } finally {
-      setFormSubmitting(false);
-    }
+    } catch { await queueOffline(); }
+    finally { setFormSubmitting(false); }
   }
 
   function handleStatusChange(id: string, status: QuotationStatus) {
-    // optimistic update
     setQuotations(prev => prev.map(q => q.id === id ? { ...q, status } : q));
-    api.patch(`/api/vendor/quotations/${id}/status`, { status }, accessToken ?? undefined);
+    setOfflinePendingIds(prev => new Set([...prev, id]));
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
+    if (isOffline) {
+      addPending({
+        method: "PATCH",
+        endpoint: `/api/vendor/quotations/${id}/status`,
+        accessToken: accessToken ?? "offline-session",
+        payload: { status },
+        createdAt: Date.now(),
+      });
+      return;
+    }
+    api.patch(`/api/vendor/quotations/${id}/status`, { status }, accessToken ?? undefined)
+      .then(res => { if (!res.success) setOfflinePendingIds(prev => { const n = new Set(prev); n.delete(id); return n; }); })
+      .catch(() => {});
   }
 
   function handleDelete(id: string) {
     setQuotations(prev => prev.filter(q => q.id !== id));
     setDeleteTarget(null);
     if (detailTarget?.id === id) setDetailTarget(null);
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
+    if (isOffline) {
+      addPending({
+        method: "DELETE",
+        endpoint: `/api/vendor/quotations/${id}`,
+        accessToken: accessToken ?? "offline-session",
+        payload: {},
+        createdAt: Date.now(),
+      });
+      return;
+    }
     api.delete(`/api/vendor/quotations/${id}`, accessToken ?? undefined);
   }
 
@@ -934,8 +1072,9 @@ export default function QuotationsPage() {
             const cfg      = STATUS_CONFIG[q.status];
             const total    = calcTotal(q);
             const svcTotal = (q.services ?? []).reduce((s, sv) => s + (Number(sv.price) || 0), 0);
+            const isPending = offlinePendingIds.has(q.id);
             return (
-              <div key={q.id} className="bg-white rounded-2xl shadow-sm p-4">
+              <div key={q.id} className="bg-white rounded-2xl shadow-sm p-4" style={isPending ? { border: "2px solid #D97706" } : undefined}>
                 {/* Row 1: avatar + name + status */}
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -947,7 +1086,10 @@ export default function QuotationsPage() {
                       <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{q.phone}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                    {isPending && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#FFFBEB", color: "#D97706" }}>Pending sync</span>}
+                  </div>
                 </div>
                 {/* Row 2: hall + event */}
                 <div className="flex items-center gap-2 mb-3">

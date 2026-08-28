@@ -13,7 +13,7 @@ export const createBookingSchema = z.object({
     customerName: z.string().min(2, "Customer name is required").max(100),
     phone:        z.string().max(20).optional().default(""),
     event:        z.string().min(1, "Event type is required").max(100),
-    hall:         z.string().min(1, "Hall is required").max(100),
+    hall:         z.string().max(100).optional().default(""),
     date:         z.string().regex(DATE_REGEX, "Date must be YYYY-MM-DD"),
     timeFrom:     z.string().regex(TIME_REGEX, "Start time must be HH:MM").optional(),
     timeTo:       z.string().regex(TIME_REGEX, "End time must be HH:MM").optional(),

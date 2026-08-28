@@ -457,7 +457,7 @@ function DetailDrawer({ inquiry, updating, onClose, onStatus, onDelete }: {
   const cfg = STATUS_CONFIG[inquiry.status];
 
   const content = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
@@ -476,7 +476,7 @@ function DetailDrawer({ inquiry, updating, onClose, onStatus, onDelete }: {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-5">
 
         {/* Customer */}
         <div className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: "var(--bg-subtle)" }}>

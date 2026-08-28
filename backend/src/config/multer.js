@@ -60,3 +60,18 @@ export const uploadStaffAvatar = multer({
     storage: staffAvatarStorage,
     limits:  AVATAR_LIMIT,
 });
+
+// ─── Promo Banners ────────────────────────────────────────────────────────────
+const promoBannerStorage = new CloudinaryStorage({
+    cloudinary,
+    params: async () => ({
+        folder:          "eventease/promo-banners",
+        allowed_formats: FORMATS,
+        transformation:  [{ width: 1400, crop: "limit", quality: "auto" }],
+    }),
+});
+
+export const uploadPromoBanner = multer({
+    storage: promoBannerStorage,
+    limits:  IMG_LIMIT,
+});

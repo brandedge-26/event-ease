@@ -45,12 +45,10 @@ export const globalErrorHandler = (err, req, res, next) => {
     }
 
     // ── Unknown / unexpected errors ──
-    const isDev = process.env.NODE_ENV !== "production";
     console.error("[Unhandled Error]", err);
 
     return res.status(500).json({
         success: false,
-        message: isDev ? err.message : "An unexpected error occurred.",
-        ...(isDev && { stack: err.stack }),
+        message: "An unexpected error occurred. Please try again.",
     });
 };

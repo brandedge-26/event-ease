@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import HeroSearch from "./HeroSearch";
 import SiteHeader from "./SiteHeader";
 import BottomNav from "./BottomNav";
+import CustomerReviews from "./CustomerReviews";
+import SiteFooter from "./SiteFooter";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY  = "#FF3B6B";
@@ -133,6 +135,12 @@ export default async function Home({
       {/* ── Why Event Ease ── */}
       <WhyEventEase />
 
+      {/* ── Customer Reviews ── */}
+      <CustomerReviews />
+
+      {/* ── CTA Banner ── */}
+      <CTABanner />
+
       {/* Venue Cards */}
       <div className="px-4 lg:px-8 pt-8 pb-28 md:pb-16">
 
@@ -143,7 +151,7 @@ export default async function Home({
             </div>
             <p className="text-base font-semibold text-black mb-1">No venues listed yet</p>
             <p className="text-sm mb-6" style={{ color: "#9CA3AF" }}>Be the first to register your venue on Event Ease.</p>
-            <Link href="/vendor/onboarding/business-info"
+            <Link href="/vendor/onboarding"
               className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
               style={{ background: PRIMARY }}>
               Register Your Venue
@@ -214,12 +222,7 @@ export default async function Home({
         )}
       </div>
 
-      {/* Footer */}
-      <div className="border-t py-6 text-center" style={{ borderColor: "#E5E7EB" }}>
-        <p className="text-xs" style={{ color: "#9CA3AF" }}>
-          © {new Date().getFullYear()} <span className="font-semibold" style={{ color: PRIMARY }}>Event Ease</span> · Pakistan&apos;s Venue Discovery Platform
-        </p>
-      </div>
+      <SiteFooter />
     </div>
   );
 }
@@ -242,6 +245,11 @@ function VerifiedBadge() {
 }
 
 // ─── Venue Card ───────────────────────────────────────────────────────────────
+const VENUE_TYPES = new Set([
+  "Banquet Hall", "Marquee", "Ballroom", "Wedding Lawn",
+  "Hotel Banquet", "Rooftop Venue", "Farm House",
+]);
+
 function VenueCard({ v, featured = false }: { v: VendorCard; featured?: boolean }) {
   const coverImage = v.galleryImages?.[0] ?? null;
 
@@ -345,7 +353,9 @@ function VenueCard({ v, featured = false }: { v: VendorCard; featured?: boolean 
                 </svg>
               </div>
               <span className="text-[11px] font-medium" style={{ color: "#374151" }}>
-                {v.hallCount} hall{v.hallCount !== 1 ? "s" : ""}
+                {VENUE_TYPES.has(v.businessType)
+                  ? `${v.hallCount} hall${v.hallCount !== 1 ? "s" : ""}`
+                  : `${v.hallCount} service${v.hallCount !== 1 ? "s" : ""}`}
               </span>
             </div>
           )}
@@ -593,6 +603,75 @@ function WhatWeOffer() {
 
           </Link>
         ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── CTA Banner ───────────────────────────────────────────────────────────────
+const BENEFITS = [
+  { icon: "M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z M13 2v7h7", label: "Free listing setup" },
+  { icon: "M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 7a4 4 0 100 8 4 4 0 000-8z M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75", label: "Reach 10,000+ couples" },
+  { icon: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", label: "Verified badge included" },
+  { icon: "M12 2v20 M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6", label: "Zero commission on bookings" },
+];
+
+function CTABanner() {
+  return (
+    <section
+      className="mx-4 lg:mx-8 my-12 rounded-3xl overflow-hidden relative"
+      style={{ background: "#F4F4F5", border: "1.5px solid #E4E4E7", minHeight: 340 }}
+    >
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center text-center px-8 lg:px-20 py-14">
+
+        {/* Eyebrow */}
+        <span
+          className="inline-block text-xs font-bold uppercase tracking-[0.22em] mb-5 px-3 py-1 rounded-full"
+          style={{ background: "#FFF0F4", color: PRIMARY }}
+        >
+          For Business Owners
+        </span>
+
+        <h2
+          className="text-3xl lg:text-4xl font-black tracking-tight"
+          style={{ color: "#111827", lineHeight: 1.15 }}
+        >
+          Grow your business with{" "}
+          <span style={{ color: PRIMARY }}>Event Ease.</span>
+        </h2>
+
+        <p className="text-sm leading-relaxed mt-4 mb-8 max-w-lg" style={{ color: "#6B7280" }}>
+          Join hundreds of venues, photographers &amp; decorators already listed on Pakistan&apos;s fastest-growing event marketplace. Get discovered by couples planning their big day.
+        </p>
+
+        {/* Benefits */}
+        <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8 w-full max-w-2xl">
+          {BENEFITS.map(b => (
+            <li key={b.label} className="flex items-center gap-2 justify-center sm:justify-start">
+              <span
+                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "#FFE4EA" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d={b.icon} />
+                </svg>
+              </span>
+              <span className="text-xs font-semibold text-left" style={{ color: "#374151" }}>{b.label}</span>
+            </li>
+          ))}
+        </ul>
+
+        <Link
+          href="/vendor/onboarding"
+          className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
+          style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)" }}
+        >
+          List Your Business
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </Link>
       </div>
     </section>
   );

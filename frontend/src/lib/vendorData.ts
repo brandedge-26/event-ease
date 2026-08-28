@@ -16,6 +16,7 @@ export type Hall = {
 export type Vendor = {
   slug: string;
   name: string;
+  businessType: string;
   tagline: string;
   location: string;
   phone: string;
@@ -44,6 +45,7 @@ export const VENDORS: Record<string, Vendor> = {
   royalbanquet: {
     slug: "royalbanquet",
     name: "Royal Banquet Hall",
+    businessType: "Banquet Hall",
     tagline: "Where Every Moment Becomes a Memory",
     location: "Gulshan-e-Iqbal, Block 13-D, Karachi",
     phone: "0300-1234567",
@@ -84,6 +86,7 @@ export const VENDORS: Record<string, Vendor> = {
   goldenpalm: {
     slug: "goldenpalm",
     name: "Golden Palm Events",
+    businessType: "Banquet Hall",
     tagline: "Luxury Redefined, Memories Forever",
     location: "DHA Phase 6, Lahore",
     phone: "0321-9876543",
@@ -124,6 +127,7 @@ export const VENDORS: Record<string, Vendor> = {
   grandmarquee: {
     slug: "grandmarquee",
     name: "Grand Marquee",
+    businessType: "Marquee",
     tagline: "Extraordinary Events, Extraordinary Spaces",
     location: "F-7 Markaz, Islamabad",
     phone: "0333-4567890",

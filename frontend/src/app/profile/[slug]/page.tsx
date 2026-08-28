@@ -115,6 +115,7 @@ export default async function VendorProfilePage({
   const mappedVendor: Vendor = {
     slug:          vendor.slug,
     name:          vendor.name,
+    businessType:  vendor.businessType,
     tagline:       vendor.tagline ?? `${vendor.businessType} · ${vendor.city}`,
     location:      [vendor.city, vendor.area, vendor.address].filter(Boolean).join(", "),
     phone:         vendor.phone,

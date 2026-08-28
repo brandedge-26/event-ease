@@ -2,26 +2,54 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { api } from "@/lib/api";
+import { useUserStore, type UserSession } from "@/store/useUserStore";
 
-const PRIMARY = "#FF3B6B";
+const PRIMARY   = "#FF3B6B";
+const API_BASE  = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
 export default function UserLoginPage() {
+  const router  = useRouter();
+  const setAuth = useUserStore((s) => s.setAuth);
+
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [showPw,   setShowPw]   = useState(false);
+  const [error,    setError]    = useState("");
+  const [loading,  setLoading]  = useState(false);
 
-  // Placeholder — wire up to your auth backend when ready
-  function handleGoogle() {
-    alert("Google OAuth coming soon!");
-  }
+  const isDisabled = !email || !password || loading;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isDisabled) return;
+
+    setError("");
+    setLoading(true);
+    try {
+      const res = await api.post<{ accessToken?: string; user?: UserSession }>(
+        "/api/user/auth/login",
+        { email: email.trim(), password },
+      );
+
+      if (!res.success || !res.accessToken || !res.user) {
+        setError(res.message ?? "Login failed. Please try again.");
+        return;
+      }
+
+      setAuth(res.accessToken, res.user);
+      router.push("/");
+    } catch {
+      setError("Could not connect to server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4 py-16">
+    <div className="flex flex-1 min-h-screen items-center justify-center bg-white px-4 py-16">
       <div className="w-full max-w-md">
 
         {/* Logo */}
@@ -37,38 +65,39 @@ export default function UserLoginPage() {
           Sign in to discover and book your perfect venue.
         </p>
 
-        {/* Google button */}
-        <button
-          type="button"
-          onClick={handleGoogle}
-          className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl border text-base font-semibold transition-all hover:bg-gray-50 cursor-pointer mb-6"
+        {/* Error */}
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-xl text-sm font-medium" style={{ background: "#FEE2E2", color: "#B91C1C" }}>
+            {error}
+          </div>
+        )}
+
+        {/* Google */}
+        <a
+          href={`${API_BASE}/api/user/auth/google`}
+          className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl border text-sm font-semibold transition-all hover:bg-gray-50 active:scale-[0.98]"
           style={{ borderColor: "#D1D5DB", color: "#111827" }}
         >
-          {/* Google logo SVG */}
-          <svg width="20" height="20" viewBox="0 0 48 48">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            <path fill="none" d="M0 0h48v48H0z"/>
-          </svg>
+          <GoogleIcon />
           Continue with Google
-        </button>
+        </a>
 
         {/* Divider */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 my-1">
           <div className="flex-1 h-px" style={{ background: "#E5E7EB" }} />
-          <span className="text-xs font-medium" style={{ color: "#9CA3AF" }}>or continue with email</span>
+          <span className="text-xs" style={{ color: "#9CA3AF" }}>or</span>
           <div className="flex-1 h-px" style={{ background: "#E5E7EB" }} />
         </div>
 
-        {/* Email + Password form */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+
           <input
             type="email"
             placeholder="Email address"
             value={email}
             onChange={e => setEmail(e.target.value)}
+            required
             className="w-full px-5 py-4 rounded-2xl text-base outline-none border transition-all focus:ring-2 focus:ring-offset-2"
             style={{ background: "#F8F8F8", borderColor: "#D1D5DB", color: "#111827" }}
           />
@@ -79,6 +108,7 @@ export default function UserLoginPage() {
               placeholder="Password"
               value={password}
               onChange={e => setPassword(e.target.value)}
+              required
               className="w-full px-5 py-4 pr-12 rounded-2xl text-base outline-none border transition-all focus:ring-2 focus:ring-offset-2"
               style={{ background: "#F8F8F8", borderColor: "#D1D5DB", color: "#111827" }}
             />
@@ -103,11 +133,18 @@ export default function UserLoginPage() {
 
           <button
             type="submit"
-            disabled={!email || !password}
-            className="w-full mt-2 py-4 rounded-2xl text-base font-semibold text-white transition-opacity cursor-pointer"
-            style={{ background: PRIMARY, opacity: (!email || !password) ? 0.4 : 1 }}
+            disabled={isDisabled}
+            className="w-full mt-2 py-4 rounded-2xl text-base font-semibold text-white transition-opacity flex items-center justify-center gap-2"
+            style={{ background: PRIMARY, opacity: isDisabled ? 0.4 : 1, cursor: isDisabled ? "not-allowed" : "pointer" }}
           >
-            Sign in
+            {loading ? (
+              <>
+                <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M21 12a9 9 0 11-6.219-8.56" strokeLinecap="round"/>
+                </svg>
+                Signing in…
+              </>
+            ) : "Sign in"}
           </button>
         </form>
 
@@ -124,6 +161,17 @@ export default function UserLoginPage() {
   );
 }
 
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none">
+      <path d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" fill="#FFC107"/>
+      <path d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" fill="#FF3D00"/>
+      <path d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" fill="#4CAF50"/>
+      <path d="M43.611 20.083H42V20H24v8h11.303a11.896 11.896 0 01-4.087 5.571l6.19 5.238C42.012 35.245 44 30 44 24c0-1.341-.138-2.65-.389-3.917z" fill="#1976D2"/>
+    </svg>
+  );
+}
+
 function Eye() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -131,7 +179,6 @@ function Eye() {
     </svg>
   );
 }
-
 function EyeOff() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

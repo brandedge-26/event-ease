@@ -1,7 +1,15 @@
+"use client";
+
 import Image from "next/image";
-import Link from "next/link";
+import { useAuthStore } from "@/store/useAuthStore";
+
+const VENUE_TYPES = ["Banquet Hall","Marquee","Ballroom","Wedding Lawn","Hotel Banquet","Rooftop Venue","Farm House"];
 
 export default function OnboardingCompletePage() {
+  const vendor = useAuthStore((s) => s.vendor);
+  const isVenue = vendor ? VENUE_TYPES.includes(vendor.businessType) : true;
+  const dashboardHref = isVenue ? "/vendor/dashboard" : "/vendor/general/dashboard";
+
   return (
     <div className="w-full max-w-md text-center">
 
@@ -28,23 +36,23 @@ export default function OnboardingCompletePage() {
 
       {/* Heading */}
       <h1 className="text-4xl font-semibold text-black mb-2 tracking-tight">
-        Venue Submitted!
+        Vendor Registered!
       </h1>
       <p className="text-sm mb-2" style={{ color: "var(--fg-muted)" }}>
-        Your venue profile has been submitted for verification.
+        Your vendor profile has been submitted for verification.
       </p>
       <p className="text-sm mb-10" style={{ color: "var(--fg-muted)" }}>
-        Our team will review and activate your venue within <span className="font-medium" style={{ color: "var(--fg)" }}>24–48 hours.</span>
+        Our team will review and activate your profile within <span className="font-medium" style={{ color: "var(--fg)" }}>24–48 hours.</span>
       </p>
 
       {/* Go to Dashboard */}
-      <Link
-        href="/vendor/dashboard"
+      <a
+        href={dashboardHref}
         className="w-full flex items-center justify-center py-4 rounded-2xl text-base font-semibold cursor-pointer transition-opacity hover:opacity-90"
         style={{ background: "var(--primary)", color: "#ffffff" }}
       >
         Go to Dashboard
-      </Link>
+      </a>
 
     </div>
   );

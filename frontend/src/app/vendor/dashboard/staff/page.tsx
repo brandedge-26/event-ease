@@ -251,7 +251,7 @@ function StaffFormOverlay({
         </div>
 
         {/* Fields */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5 flex flex-col gap-3">
           <div>
             <input value={form.name} onChange={e => f("name", e.target.value)}
               placeholder="Full Name *" className={INP}
@@ -374,7 +374,7 @@ function StaffDetailOverlay({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Profile hero */}
           <div className="px-5 py-5" style={{ borderBottom: "1px solid #F4F4F5" }}>
             <div className="flex items-center gap-4 mb-5">
@@ -639,7 +639,7 @@ export default function StaffPage() {
           </div>
         </div>
 
-        {/* Table */}
+        {/* List */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {loading ? (
             <div>
@@ -665,63 +665,93 @@ export default function StaffPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px]">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #F4F4F5" }}>
-                    {["Staff Member", "Role", "Status", "Phone", "Salary", "Joined", ""].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold" style={{ color: "#9CA3AF" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginated.map((member, idx) => {
-                    const role   = ROLE_COLOR[member.role] ?? { bg: "#F9FAFB", color: "#6B7280" };
-                    const status = STATUS_CFG[member.status];
-                    return (
-                      <tr key={member.id}
-                        className="cursor-pointer hover:bg-gray-50 transition-colors"
-                        style={{ borderBottom: idx < paginated.length - 1 ? "1px solid #F9FAFB" : "none" }}
-                        onClick={() => setDetailMember(member)}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <Avatar member={member} size="sm" />
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-black truncate">{member.name}</p>
-                              <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{member.email || member.department}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
+            <>
+              {/* Mobile cards */}
+              <div className="lg:hidden flex flex-col divide-y" style={{ borderColor: "#F4F4F5" }}>
+                {paginated.map(member => {
+                  const role   = ROLE_COLOR[member.role] ?? { bg: "#F9FAFB", color: "#6B7280" };
+                  const status = STATUS_CFG[member.status];
+                  return (
+                    <div key={member.id} className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => setDetailMember(member)}>
+                      <Avatar member={member} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <p className="text-sm font-semibold text-black truncate">{member.name}</p>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full shrink-0"
                             style={{ background: role.bg, color: role.color }}>{member.role}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
-                            style={{ background: status.bg, color: status.color }}>{status.label}</span>
-                        </td>
-                        <td className="px-4 py-3 text-sm" style={{ color: "var(--fg-muted)" }}>{member.phone || "—"}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-black">{fmtSalary(member.salary)}</td>
-                        <td className="px-4 py-3 text-sm" style={{ color: "var(--fg-muted)" }}>{fmtDate(member.joinDate)}</td>
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-1 justify-end">
-                            <button onClick={() => setDetailMember(member)} title="View"
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-blue-50 transition-colors"
-                              style={{ color: "#2563EB" }}><EyeIcon /></button>
-                            <button onClick={() => openEdit(member)} title="Edit"
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-amber-50 transition-colors"
-                              style={{ color: "#D97706" }}><EditIcon /></button>
-                            <button onClick={() => setDeleteTarget(member)} title="Remove"
-                              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors"
-                              style={{ color: "#DC2626" }}><TrashIcon /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                        <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>
+                          {member.phone || member.email || member.department}
+                          {member.salary > 0 ? ` · ${fmtSalary(member.salary)}` : ""}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0"
+                        style={{ background: status.bg, color: status.color }}>{status.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="w-full min-w-[640px]">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #F4F4F5" }}>
+                      {["Staff Member", "Role", "Status", "Phone", "Salary", "Joined", ""].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold" style={{ color: "#9CA3AF" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map((member, idx) => {
+                      const role   = ROLE_COLOR[member.role] ?? { bg: "#F9FAFB", color: "#6B7280" };
+                      const status = STATUS_CFG[member.status];
+                      return (
+                        <tr key={member.id}
+                          className="cursor-pointer hover:bg-gray-50 transition-colors"
+                          style={{ borderBottom: idx < paginated.length - 1 ? "1px solid #F9FAFB" : "none" }}
+                          onClick={() => setDetailMember(member)}>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar member={member} size="sm" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-black truncate">{member.name}</p>
+                                <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{member.email || member.department}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
+                              style={{ background: role.bg, color: role.color }}>{member.role}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap"
+                              style={{ background: status.bg, color: status.color }}>{status.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-sm" style={{ color: "var(--fg-muted)" }}>{member.phone || "—"}</td>
+                          <td className="px-4 py-3 text-sm font-medium text-black">{fmtSalary(member.salary)}</td>
+                          <td className="px-4 py-3 text-sm" style={{ color: "var(--fg-muted)" }}>{fmtDate(member.joinDate)}</td>
+                          <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-1 justify-end">
+                              <button onClick={() => setDetailMember(member)} title="View"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-blue-50 transition-colors"
+                                style={{ color: "#2563EB" }}><EyeIcon /></button>
+                              <button onClick={() => openEdit(member)} title="Edit"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-amber-50 transition-colors"
+                                style={{ color: "#D97706" }}><EditIcon /></button>
+                              <button onClick={() => setDeleteTarget(member)} title="Remove"
+                                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-red-50 transition-colors"
+                                style={{ color: "#DC2626" }}><TrashIcon /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Pagination */}

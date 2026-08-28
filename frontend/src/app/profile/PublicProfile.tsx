@@ -9,6 +9,17 @@ type Tab = "about" | "gallery" | "halls" | "reviews";
 const PRIMARY    = "#FF3B6B";
 const STAR_COLOR = "#F59E0B";
 
+const VENUE_TYPES = new Set([
+  "Banquet Hall", "Marquee", "Ballroom", "Wedding Lawn",
+  "Hotel Banquet", "Rooftop Venue", "Farm House",
+]);
+
+function decodeSvc(s: string): { name: string; price: string } {
+  const idx = s.lastIndexOf("|");
+  if (idx === -1) return { name: s, price: "" };
+  return { name: s.slice(0, idx), price: s.slice(idx + 1) };
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
 type InquiryForm = { name: string; phone: string; message: string; eventDate: string; eventType: string; guests: string };
@@ -16,6 +27,7 @@ type InquiryForm = { name: string; phone: string; message: string; eventDate: st
 export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor: Vendor; vendorId: string }) {
   const { vendorProfile } = useStore();
   const vendor = vendorProfile.slug === vendorProp.slug ? vendorProfile : vendorProp;
+  const isVenue = VENUE_TYPES.has(vendor.businessType ?? "");
   const [tab, setTab] = useState<Tab>("about");
   const [slide, setSlide] = useState(0);
   const [logoLoaded, setLogoLoaded] = useState(false);
@@ -77,7 +89,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
           message:   inquiryForm.message || undefined,
           eventDate: inquiryForm.eventDate || undefined,
           eventType: inquiryForm.eventType || undefined,
-          guests:    Number(inquiryForm.guests),
+          guests:    isVenue ? Number(inquiryForm.guests) : 0,
         }),
       });
       const data = await res.json();
@@ -312,8 +324,13 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
             {[
               { label: "Rating",        value: localRating.toString(),               suffix: "/5"   },
               { label: "Reviews",       value: localCount.toString(),                suffix: ""     },
-              { label: vendor.totalEvents === 1 ? "Event Hosted" : "Events Hosted", value: vendor.totalEvents.toLocaleString(), suffix: "+"    },
-              { label: "Max Capacity",  value: vendor.maxCapacity.toString(),       suffix: " pax" },
+              { label: isVenue
+                  ? (vendor.totalEvents === 1 ? "Event Hosted"  : "Events Hosted")
+                  : (vendor.totalEvents === 1 ? "Event Covered" : "Events Covered"),
+                value: vendor.totalEvents.toLocaleString(), suffix: "+" },
+              isVenue
+                ? { label: "Max Capacity", value: vendor.maxCapacity.toString(), suffix: " pax" }
+                : { label: vendor.services.length === 1 ? "Service" : "Services", value: vendor.services.length.toString(), suffix: "" },
             ].map(s => (
               <div key={s.label} className="text-center py-3 lg:py-4 px-2 lg:px-3 rounded-2xl bg-white" style={{ border: "1px solid #F0F0F0" }}>
                 <p className="text-lg lg:text-2xl font-bold leading-tight text-black">
@@ -356,14 +373,31 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                 )}
                 {vendor.services.length > 0 && (
                   <div className="bg-white rounded-2xl p-4 lg:p-5" style={{ border: "1px solid #F0F0F0" }}>
-                    <Label>Services</Label>
+                    <Label>Services {!isVenue && "Offered"}</Label>
                     <div className="flex flex-wrap gap-2">
-                      {vendor.services.map(s => (
-                        <span key={s} className="text-xs font-medium px-3 py-1.5 rounded-full"
-                          style={{ background: "#F3F4F6", color: "#374151" }}>
-                          {s}
-                        </span>
-                      ))}
+                      {vendor.services.map(s => {
+                        if (!isVenue) {
+                          const { name, price } = decodeSvc(s);
+                          return (
+                            <div key={s} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                              style={{ background: "#F3F4F6" }}>
+                              <span className="text-xs font-medium" style={{ color: "#374151" }}>{name}</span>
+                              {price && (
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full"
+                                  style={{ background: PRIMARY, color: "#fff" }}>
+                                  Rs. {price}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        }
+                        return (
+                          <span key={s} className="text-xs font-medium px-3 py-1.5 rounded-full"
+                            style={{ background: "#F3F4F6", color: "#374151" }}>
+                            {s}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -475,13 +509,17 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
               </div>
             )}
 
-            {/* ── Halls & Pricing ── */}
+            {/* ── Halls / Services & Pricing ── */}
             {tab === "halls" && (
               <div className="space-y-3 lg:space-y-4">
                 {vendor.halls.length === 0 ? (
                   <div className="bg-white rounded-2xl p-8 text-center" style={{ border: "1px solid #F0F0F0" }}>
-                    <p className="text-sm font-semibold text-black mb-1">No halls listed yet</p>
-                    <p className="text-xs mb-4" style={{ color: "#9CA3AF" }}>Pricing and hall details will appear here once added.</p>
+                    <p className="text-sm font-semibold text-black mb-1">
+                      {isVenue ? "No halls listed yet" : "No services listed yet"}
+                    </p>
+                    <p className="text-xs mb-4" style={{ color: "#9CA3AF" }}>
+                      {isVenue ? "Pricing and hall details will appear here once added." : "Pricing and service details will appear here once added."}
+                    </p>
                     <a href={`tel:${vendor.phone}`}
                       className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
                       style={{ background: PRIMARY, color: "#fff" }}>
@@ -496,10 +534,12 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                           <div className="flex items-start justify-between gap-3 mb-2.5">
                             <div className="min-w-0">
                               <h4 className="text-sm lg:text-base font-bold text-black">{hall.name}</h4>
-                              <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "#6B7280" }}>
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                                Up to {hall.capacity} guests
-                              </p>
+                              {isVenue && (
+                                <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "#6B7280" }}>
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                                  Up to {hall.capacity} guests
+                                </p>
+                              )}
                             </div>
                             <div className="text-right shrink-0">
                               <p className="text-lg lg:text-xl font-bold text-black">Rs. {hall.price.toLocaleString("en-PK")}</p>
@@ -511,8 +551,12 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                       </div>
                     ))}
                     <div className="rounded-2xl p-5 text-center" style={{ background: vendor.coverGradient }}>
-                      <p className="text-white font-bold text-sm mb-1">Not sure which hall fits your event?</p>
-                      <p className="text-white/80 text-xs mb-4">Our team is happy to help you choose the perfect space.</p>
+                      <p className="text-white font-bold text-sm mb-1">
+                        {isVenue ? "Not sure which hall fits your event?" : "Want to know more about our services?"}
+                      </p>
+                      <p className="text-white/80 text-xs mb-4">
+                        {isVenue ? "Our team is happy to help you choose the perfect space." : "Our team is ready to discuss your requirements."}
+                      </p>
                       <a href={`tel:${vendor.phone}`}
                         className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
                         style={{ background: "#fff", color: PRIMARY }}>
@@ -624,7 +668,9 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                 {vendor.halls.length > 0 ? (
                   <>
                     <p className="text-3xl font-black leading-tight" style={{ color: PRIMARY }}>Rs. {minPrice.toLocaleString("en-PK")}</p>
-                    <p className="text-xs mt-0.5 mb-5" style={{ color: "#9CA3AF" }}>per event · {vendor.halls.length} hall{vendor.halls.length > 1 ? "s" : ""} available</p>
+                    <p className="text-xs mt-0.5 mb-5" style={{ color: "#9CA3AF" }}>
+                      per event · {vendor.halls.length} {isVenue ? `hall${vendor.halls.length > 1 ? "s" : ""}` : `service${vendor.halls.length > 1 ? "s" : ""}`} available
+                    </p>
                   </>
                 ) : (
                   <p className="text-xl font-bold mb-5" style={{ color: PRIMARY }}>Contact for pricing</p>
@@ -647,14 +693,17 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                 </button>
                 <div className="mt-5 pt-5 space-y-3" style={{ borderTop: "1px solid #F3F4F6" }}>
                   {[
-                    { k: "Max Guests",    v: `${vendor.maxCapacity} pax` },
-                    { k: vendor.totalEvents === 1 ? "Event Hosted" : "Events Hosted", v: `${vendor.totalEvents.toLocaleString()}+` },
+                    isVenue ? { k: "Max Guests", v: `${vendor.maxCapacity} pax` } : null,
+                    { k: isVenue
+                        ? (vendor.totalEvents === 1 ? "Event Hosted"  : "Events Hosted")
+                        : (vendor.totalEvents === 1 ? "Event Covered" : "Events Covered"),
+                      v: `${vendor.totalEvents.toLocaleString()}+` },
                     { k: "Rating",        v: `${localRating} / 5` },
                     { k: "Established",   v: `${vendor.established}` },
-                  ].map(row => (
-                    <div key={row.k} className="flex items-center justify-between">
-                      <span className="text-sm" style={{ color: "#6B7280" }}>{row.k}</span>
-                      <span className="text-sm font-semibold text-black">{row.v}</span>
+                  ].filter(Boolean).map(row => (
+                    <div key={row!.k} className="flex items-center justify-between">
+                      <span className="text-sm" style={{ color: "#6B7280" }}>{row!.k}</span>
+                      <span className="text-sm font-semibold text-black">{row!.v}</span>
                     </div>
                   ))}
                 </div>
@@ -846,7 +895,11 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
             <div className="p-5">
               {inquiryDone ? (
                 <div className="text-center py-8">
-                  <p className="text-4xl mb-3">✅</p>
+                  <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: "#DCFCE7" }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
                   <p className="text-base font-bold text-black mb-1">Inquiry Sent!</p>
                   <p className="text-sm mb-5" style={{ color: "#6B7280" }}>
                     {vendor.name} will get back to you soon.
@@ -920,6 +973,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                     </div>
                   </div>
 
+                  {isVenue && (
                   <div>
                     <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Estimated Guests *</label>
                     <input
@@ -933,6 +987,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                       style={{ borderColor: "#E5E7EB", background: "#F9FAFB" }}
                     />
                   </div>
+                  )}
 
                   <div>
                     <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Message (optional)</label>

@@ -22,7 +22,7 @@ export default function VendorLoginPage() {
     setLoading(true);
 
     try {
-      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string; ownerName: string; slug: string } }>(
+      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string; ownerName: string; slug: string; businessType: string } }>(
         "/api/vendor/auth/login",
         { email: email.trim(), password },
       );
@@ -33,7 +33,12 @@ export default function VendorLoginPage() {
       }
 
       setAuth(res.accessToken, res.vendor);
-      router.push("/vendor/dashboard");
+      const VENUE_TYPES = ["Banquet Hall","Marquee","Ballroom","Wedding Lawn","Hotel Banquet","Rooftop Venue","Farm House"];
+      if (VENUE_TYPES.includes(res.vendor.businessType)) {
+        router.push("/vendor/dashboard");
+      } else {
+        router.push("/vendor/general/dashboard");
+      }
     } catch {
       setError("Could not connect to server. Please try again.");
     } finally {
@@ -60,7 +65,7 @@ export default function VendorLoginPage() {
 
         {/* Heading */}
         <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-          Venue Owner Login.
+          Vendor Login.
         </h1>
         <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
           Sign in to manage your venue, bookings & inquiries.
@@ -112,7 +117,7 @@ export default function VendorLoginPage() {
           <p className="text-left mt-2 text-sm" style={{ color: "var(--fg-muted)" }}>
             Don&apos;t have a business account?{" "}
             <a
-              href="/vendor/onboarding/business-info"
+              href="/vendor/onboarding"
               className="font-medium hover:underline"
               style={{ color: "var(--primary)" }}
             >

@@ -7,6 +7,7 @@ async function request<T = unknown>(
   path: string,
   body?: unknown,
   token?: string,
+  timeoutMs = 8_000,
 ): Promise<ApiResponse<T>> {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
@@ -16,16 +17,17 @@ async function request<T = unknown>(
     },
     credentials: "include", // send httpOnly refresh cookie
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(timeoutMs),
   });
   return res.json() as Promise<ApiResponse<T>>;
 }
 
 export const api = {
-  post: <T = unknown>(path: string, body: unknown, token?: string) =>
-    request<T>("POST", path, body, token),
+  post: <T = unknown>(path: string, body: unknown, token?: string, timeoutMs?: number) =>
+    request<T>("POST", path, body, token, timeoutMs),
 
-  get: <T = unknown>(path: string, token?: string) =>
-    request<T>("GET", path, undefined, token),
+  get: <T = unknown>(path: string, token?: string, timeoutMs?: number) =>
+    request<T>("GET", path, undefined, token, timeoutMs),
 
   patch: <T = unknown>(path: string, body: unknown, token?: string) =>
     request<T>("PATCH", path, body, token),
@@ -35,11 +37,12 @@ export const api = {
 };
 
 export type VendorSession = {
-  id:         string;
-  name:       string;
-  email:      string;
-  ownerName:  string;
-  slug:       string;
-  isVerified: boolean;
-  isBlocked:  boolean;
+  id:           string;
+  name:         string;
+  email:        string;
+  ownerName:    string;
+  slug:         string;
+  isVerified:   boolean;
+  isBlocked:    boolean;
+  businessType: string;
 };

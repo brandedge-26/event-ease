@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { api } from "@/lib/api";
+import { saveToCache, loadFromCache, CACHE_KEYS } from "@/lib/bookingCache";
+import { addPending, getAllPending } from "@/lib/offlineDB";
 
 type PaymentMethod = "Cash" | "Bank Transfer" | "Cheque" | "Online";
 type PaymentStatus = "paid" | "partial" | "pending" | "overdue";
@@ -98,6 +100,78 @@ function formatDate(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Build payment entries from pending offline booking POSTs
+async function pendingBookingEntries(): Promise<{ entries: PaymentEntry[]; ids: Set<string> }> {
+  const pending = await getAllPending();
+  const bookingPosts = pending.filter(p =>
+    (p.method ?? "POST") === "POST" && p.endpoint === "/api/vendor/bookings"
+  );
+  const ids = new Set<string>();
+  const entries: PaymentEntry[] = bookingPosts.map(pb => {
+    ids.add(pb.id);
+    const amt = (pb.payload.amount as number) ?? 0;
+    const date = (pb.payload.date as string) ?? today;
+    return {
+      bookingId:    pb.id,
+      customerName: (pb.payload.customerName as string) ?? "—",
+      phone:        (pb.payload.phone as string) ?? "",
+      event:        (pb.payload.event as string) ?? "—",
+      hall:         (pb.payload.hall as string) ?? "—",
+      eventDate:    date,
+      totalAmount:  amt,
+      paid:         0,
+      status:       deriveStatus(amt, 0, date),
+      transactions: [],
+    };
+  });
+  return { entries, ids };
+}
+
+// Apply pending payment mutations to entries
+async function applyPaymentMutations(entries: PaymentEntry[]): Promise<{ entries: PaymentEntry[]; pendingIds: Set<string> }> {
+  const pending = await getAllPending();
+  const paymentOps = pending.filter(p => p.endpoint.includes("/payments"));
+  const pendingIds = new Set<string>();
+  let result = [...entries];
+
+  for (const op of paymentOps) {
+    // Match: /api/vendor/bookings/{bookingId}/payments[/{txId}]
+    const match = op.endpoint.match(/\/bookings\/([^/]+)\/payments\/?([^/]+)?/);
+    if (!match) continue;
+    const bookingId = match[1];
+    const txId = match[2];
+    pendingIds.add(bookingId);
+
+    result = result.map(e => {
+      if (e.bookingId !== bookingId) return e;
+      if ((op.method ?? "POST") === "DELETE" && txId) {
+        const tx = e.transactions.find(t => t.id === txId);
+        const newPaid = tx ? Math.max(0, e.paid - tx.amount) : e.paid;
+        const updated: PaymentEntry = { ...e, paid: newPaid, transactions: e.transactions.filter(t => t.id !== txId) };
+        updated.status = deriveStatus(updated.totalAmount, updated.paid, updated.eventDate);
+        return updated;
+      } else if ((op.method ?? "POST") === "POST") {
+        const amt = (op.payload.amount as number) ?? 0;
+        const fakeTx: Transaction = {
+          id: op.id,
+          bookingId,
+          amount: amt,
+          method: (op.payload.method as PaymentMethod) ?? "Cash",
+          note: (op.payload.note as string) ?? "",
+          date: (op.payload.date as string) ?? today,
+        };
+        const newPaid = e.paid + amt;
+        const updated: PaymentEntry = { ...e, paid: newPaid, transactions: [...e.transactions, fakeTx] };
+        updated.status = deriveStatus(updated.totalAmount, updated.paid, updated.eventDate);
+        return updated;
+      }
+      return e;
+    });
+  }
+
+  return { entries: result, pendingIds };
+}
+
 // ─── Record Payment Modal ─────────────────────────────────────────────────────
 function RecordPaymentModal({ entry, onClose, onSuccess }: {
   entry: PaymentEntry;
@@ -117,8 +191,30 @@ function RecordPaymentModal({ entry, onClose, onSuccess }: {
     const amt = Number(amount);
     if (!amt || amt <= 0) return;
     setSaving(true); setErr("");
+
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
+    const payDate = today;
+
+    if (isOffline) {
+      try {
+        const tempId = await addPending({
+          method: "POST",
+          endpoint: `/api/vendor/bookings/${entry.bookingId}/payments`,
+          accessToken: accessToken ?? "offline-session",
+          payload: { amount: amt, method, note: note || undefined, date: payDate },
+          createdAt: Date.now(),
+        });
+        onSuccess(
+          { id: tempId, bookingId: entry.bookingId, amount: amt, method, note: note ?? "", date: payDate },
+          entry.paid + amt,
+        );
+        onClose();
+      } catch { setErr("Failed to queue offline"); }
+      finally { setSaving(false); }
+      return;
+    }
+
     try {
-      const payDate = today;
       const res = await api.post<{ id: string; newPaid: number }>(
         `/api/vendor/bookings/${entry.bookingId}/payments`,
         { amount: amt, method, note: note || undefined, date: payDate },
@@ -208,7 +304,7 @@ function PaymentDetail({ p, onClose, onRecord, onFullPaid, onDeleteTx }: {
   const [deletingTxId, setDeletingTxId] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
         <div>
           <p className="text-sm font-bold text-black">{p.customerName}</p>
@@ -217,7 +313,7 @@ function PaymentDetail({ p, onClose, onRecord, onFullPaid, onDeleteTx }: {
         <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl cursor-pointer hover:bg-gray-100" style={{ color: "var(--fg-muted)" }}><XIcon /></button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+      <div className="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-5">
         {/* Customer */}
         <div className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: "var(--bg-subtle)" }}>
           <div className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-white shrink-0" style={{ background: "var(--primary)" }}>
@@ -335,35 +431,71 @@ function PaymentDetail({ p, onClose, onRecord, onFullPaid, onDeleteTx }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function PaymentsPage() {
   const { accessToken } = useAuthStore();
-  const [entries,      setEntries]      = useState<PaymentEntry[]>([]);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState<string | null>(null);
-  const [filter,       setFilter]       = useState<"all" | PaymentStatus>("all");
-  const [search,       setSearch]       = useState("");
-  const [page,         setPage]         = useState(1);
-  const [selectedId,   setSelectedId]   = useState<string | null>(null);
-  const [recordTarget, setRecordTarget] = useState<PaymentEntry | null>(null);
+  const [entries,         setEntries]         = useState<PaymentEntry[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState<string | null>(null);
+  const [filter,          setFilter]          = useState<"all" | PaymentStatus>("all");
+  const [search,          setSearch]          = useState("");
+  const [page,            setPage]            = useState(1);
+  const [selectedId,      setSelectedId]      = useState<string | null>(null);
+  const [recordTarget,    setRecordTarget]    = useState<PaymentEntry | null>(null);
   const [fullPaidConfirm, setFullPaidConfirm] = useState<PaymentEntry | null>(null);
   const [savingFullPaid,  setSavingFullPaid]  = useState(false);
+  const [offlinePendingIds, setOfflinePendingIds] = useState<Set<string>>(new Set());
 
-  // Fetch bookings → derive payment entries
-  useEffect(() => {
+  const loadPayments = useCallback(async () => {
     if (!accessToken) return;
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
+
+    if (isOffline) {
+      const cached = loadFromCache<DbBooking>(CACHE_KEYS.VENUE_BOOKINGS);
+      const base = cached ? cached.filter(b => b.status !== "blocked").map(dbToEntry) : [];
+      // Also add pending booking POSTs (created offline, not yet synced)
+      const { entries: pendingEntries, ids: pendingBookingIds } = await pendingBookingEntries();
+      const merged = [...base, ...pendingEntries];
+      const { entries: mutated, pendingIds } = await applyPaymentMutations(merged);
+      pendingBookingIds.forEach(id => pendingIds.add(id));
+      setEntries(mutated);
+      setOfflinePendingIds(pendingIds);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
-    api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken)
-      .then(res => {
-        if (res.success) {
-          const mapped = (res.bookings ?? [])
-            .filter(b => b.status !== "blocked")
-            .map(dbToEntry);
-          setEntries(mapped);
-        } else {
-          setError("Failed to load payments");
-        }
-      })
-      .catch(() => setError("Network error"))
-      .finally(() => setLoading(false));
+    try {
+      const res = await api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken);
+      if (res.success) {
+        const bookings = res.bookings ?? [];
+        saveToCache(CACHE_KEYS.VENUE_BOOKINGS, bookings);
+        setEntries(bookings.filter(b => b.status !== "blocked").map(dbToEntry));
+        setOfflinePendingIds(new Set());
+      } else {
+        setError("Failed to load payments");
+        const cached = loadFromCache<DbBooking>(CACHE_KEYS.VENUE_BOOKINGS);
+        if (cached) setEntries(cached.filter(b => b.status !== "blocked").map(dbToEntry));
+      }
+    } catch {
+      const cached = loadFromCache<DbBooking>(CACHE_KEYS.VENUE_BOOKINGS);
+      if (cached) {
+        const base = cached.filter(b => b.status !== "blocked").map(dbToEntry);
+        const { entries: mutated, pendingIds } = await applyPaymentMutations(base);
+        setEntries(mutated);
+        setOfflinePendingIds(pendingIds);
+      } else {
+        setError("Network error");
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [accessToken]);
+
+  useEffect(() => { loadPayments(); }, [loadPayments]);
+
+  useEffect(() => {
+    function onSynced() { loadPayments(); }
+    window.addEventListener("offline-synced", onSynced);
+    return () => window.removeEventListener("offline-synced", onSynced);
+  }, [loadPayments]);
 
   const selected = selectedId ? entries.find(e => e.bookingId === selectedId) ?? null : null;
 
@@ -407,29 +539,46 @@ export default function PaymentsPage() {
       updated.status = deriveStatus(updated.totalAmount, updated.paid, updated.eventDate);
       return updated;
     }));
+    setOfflinePendingIds(prev => new Set([...prev, tx.bookingId]));
   }
 
   async function handleFullPaid(entry: PaymentEntry) {
     const balance = entry.totalAmount - entry.paid;
     if (balance <= 0) return;
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
     setSavingFullPaid(true);
     try {
-      const res = await api.post<{ id: string; newPaid: number }>(
-        `/api/vendor/bookings/${entry.bookingId}/payments`,
-        { amount: balance, method: "Cash", note: "Full payment", date: today },
-        accessToken ?? undefined,
-      );
-      if (res.success) {
-        const tx: Transaction = { id: res.id, bookingId: entry.bookingId, amount: balance, method: "Cash", note: "Full payment", date: today };
-        handleRecordSuccess(tx, res.newPaid);
+      const payDate = today;
+      if (isOffline) {
+        const tempId = await addPending({
+          method: "POST",
+          endpoint: `/api/vendor/bookings/${entry.bookingId}/payments`,
+          accessToken: accessToken ?? "offline-session",
+          payload: { amount: balance, method: "Cash", note: "Full payment", date: payDate },
+          createdAt: Date.now(),
+        });
+        const tx: Transaction = { id: tempId, bookingId: entry.bookingId, amount: balance, method: "Cash", note: "Full payment", date: payDate };
+        handleRecordSuccess(tx, entry.paid + balance);
+      } else {
+        const res = await api.post<{ id: string; newPaid: number }>(
+          `/api/vendor/bookings/${entry.bookingId}/payments`,
+          { amount: balance, method: "Cash", note: "Full payment", date: payDate },
+          accessToken ?? undefined,
+        );
+        if (res.success) {
+          const tx: Transaction = { id: res.id, bookingId: entry.bookingId, amount: balance, method: "Cash", note: "Full payment", date: payDate };
+          handleRecordSuccess(tx, res.newPaid);
+        }
       }
     } catch { /* ignore */ }
     finally { setSavingFullPaid(false); setFullPaidConfirm(null); }
   }
 
   async function handleDeleteTx(bookingId: string, txId: string) {
+    const isOffline = accessToken === "offline-session" || !navigator.onLine;
     const snap = entries;
-    // Optimistic
+
+    // Optimistic update
     setEntries(prev => prev.map(e => {
       if (e.bookingId !== bookingId) return e;
       const tx = e.transactions.find(t => t.id === txId);
@@ -439,10 +588,23 @@ export default function PaymentsPage() {
       updated.status = deriveStatus(updated.totalAmount, updated.paid, updated.eventDate);
       return updated;
     }));
+    setOfflinePendingIds(prev => new Set([...prev, bookingId]));
+
+    if (isOffline) {
+      await addPending({
+        method: "DELETE",
+        endpoint: `/api/vendor/bookings/${bookingId}/payments/${txId}`,
+        accessToken: accessToken ?? "offline-session",
+        payload: {},
+        createdAt: Date.now(),
+      });
+      return;
+    }
+
     try {
       const res = await api.delete(`/api/vendor/bookings/${bookingId}/payments/${txId}`, accessToken ?? undefined);
-      if (!res.success) setEntries(snap);
-    } catch { setEntries(snap); }
+      if (!res.success) { setEntries(snap); setOfflinePendingIds(prev => { const n = new Set(prev); n.delete(bookingId); return n; }); }
+    } catch { setEntries(snap); setOfflinePendingIds(prev => { const n = new Set(prev); n.delete(bookingId); return n; }); }
   }
 
   const sidebarOpen = !!selected;
@@ -542,9 +704,9 @@ export default function PaymentsPage() {
           ) : (
             [
               { label: "Total Sales",  value: fmt(totalRevenue),   color: "#000",    icon: <RevenueIcon /> },
-              { label: "Collected",      value: fmt(totalCollected), color: "#16A34A", icon: <CollectedIcon /> },
-              { label: "Balance Due",    value: fmt(totalBalance),   color: "#D97706", icon: <BalanceIcon /> },
-              { label: "Overdue",        value: fmt(overdueAmt),     color: "#DC2626", icon: <OverdueIcon /> },
+              { label: "Collected",    value: fmt(totalCollected), color: "#16A34A", icon: <CollectedIcon /> },
+              { label: "Balance Due",  value: fmt(totalBalance),   color: "#D97706", icon: <BalanceIcon /> },
+              { label: "Overdue",      value: fmt(overdueAmt),     color: "#DC2626", icon: <OverdueIcon /> },
             ].map((s, i) => (
               <div key={i} className="bg-white rounded-2xl p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-2">
@@ -611,8 +773,9 @@ export default function PaymentsPage() {
                   const cfg     = STATUS_CONFIG[e.status];
                   const balance = e.totalAmount - e.paid;
                   const paidPct = e.totalAmount > 0 ? Math.min(100, Math.round((e.paid / e.totalAmount) * 100)) : 0;
+                  const isPending = offlinePendingIds.has(e.bookingId);
                   return (
-                    <div key={e.bookingId} className="bg-white rounded-2xl shadow-sm p-4">
+                    <div key={e.bookingId} className="bg-white rounded-2xl shadow-sm p-4" style={isPending ? { border: "2px solid #D97706" } : undefined}>
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0" style={{ background: "var(--primary)" }}>
@@ -623,7 +786,10 @@ export default function PaymentsPage() {
                             <p className="text-xs truncate" style={{ color: "var(--fg-muted)" }}>{e.phone || "—"}</p>
                           </div>
                         </div>
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isPending && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: "#FFFBEB", color: "#D97706" }}>Pending sync</span>}
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-2 mb-3">

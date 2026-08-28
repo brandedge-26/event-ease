@@ -11,14 +11,31 @@ interface AuthState {
   setLoading: (v: boolean) => void;
 }
 
+const VENDOR_CACHE_KEY = "ee_vendor_session";
+
 export const useAuthStore = create<AuthState>((set) => ({
   accessToken: null,
   vendor:      null,
   isLoading:   true, // start true — AuthProvider will resolve it
 
-  setAuth: (accessToken, vendor) => set({ accessToken, vendor, isLoading: false }),
+  setAuth: (accessToken, vendor) => {
+    // Persist vendor info (NOT token) so offline restore is possible
+    try { localStorage.setItem(VENDOR_CACHE_KEY, JSON.stringify(vendor)); } catch { /* ignore */ }
+    set({ accessToken, vendor, isLoading: false });
+  },
 
-  clearAuth: () => set({ accessToken: null, vendor: null, isLoading: false }),
+  clearAuth: () => {
+    try { localStorage.removeItem(VENDOR_CACHE_KEY); } catch { /* ignore */ }
+    set({ accessToken: null, vendor: null, isLoading: false });
+  },
 
   setLoading: (v) => set({ isLoading: v }),
 }));
+
+/** Read cached vendor without touching Zustand state */
+export function getCachedVendor(): VendorSession | null {
+  try {
+    const raw = localStorage.getItem(VENDOR_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as VendorSession) : null;
+  } catch { return null; }
+}

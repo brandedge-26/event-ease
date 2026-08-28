@@ -96,7 +96,7 @@ export default function VerifyEmailPage() {
 
     setLoading(true);
     try {
-      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string; ownerName: string; slug: string } }>(
+      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string; ownerName: string; slug: string; businessType: string } }>(
         "/api/vendor/auth/register",
         {
           businessName: step1.businessName,
@@ -108,12 +108,21 @@ export default function VerifyEmailPage() {
           address:      step1.address,
           cnic:         step1.cnic,
           about:        step2.description ?? "",
-          halls:        step2.maxCapacity ? [{
-            name:     `Main ${step1.businessType ?? "Hall"}`,
-            capacity: Number(step2.maxCapacity) || 0,
-            price:    Number(step2.startingPrice) || 0,
-            desc:     step2.description ?? null,
-          }] : [],
+          halls:        step2.maxCapacity
+            ? [{
+                name:     `Main ${step1.businessType ?? "Hall"}`,
+                capacity: Number(step2.maxCapacity) || 1,
+                price:    Number(step2.startingPrice) || 0,
+                desc:     step2.description ?? null,
+              }]
+            : step2.startingPrice
+            ? [{
+                name:     `${step1.businessType ?? "Service"} Package`,
+                capacity: 1,
+                price:    Number(step2.startingPrice) || 0,
+                desc:     step2.description ?? null,
+              }]
+            : [],
           ownerName:    step3.ownerName,
           email:        step3.email,
           password:     step3.password,
@@ -177,6 +186,7 @@ export default function VerifyEmailPage() {
       sessionStorage.removeItem("ob_logo_type");
 
       router.push("/vendor/onboarding/complete");
+      // businessType stored in auth so complete page can redirect correctly
     } catch {
       setError("Could not connect to server. Please try again.");
     } finally {
@@ -193,7 +203,7 @@ export default function VerifyEmailPage() {
         Verify Your Email.
       </h1>
       <p className="text-sm mb-2" style={{ color: "var(--fg-muted)" }}>
-        Step 4 of 4 — Enter the 6-digit code sent to your venue email
+        Step 4 of 4 — Enter the 6-digit code sent to your email
       </p>
       {email && (
         <p className="text-sm font-semibold mb-8" style={{ color: "var(--fg)" }}>

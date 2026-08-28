@@ -17,9 +17,16 @@ export const metadata: Metadata = {
     template: "%s — Event Ease Admin",
     default:  "Event Ease Admin",
   },
-  description: "Event Ease Admin Panel",
+  description: "Event Ease Admin Dashboard",
   icons: {
     icon: "/favicon.svg",
+    apple: "/icons/iconX192.png",
+  },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "EE Admin",
   },
 };
 

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const PRIMARY = "#FF3B6B";
 
@@ -67,9 +68,11 @@ function CheckIcon() {
     </svg>
   );
 }
-function ChevronDown({ open }: { open: boolean }) {
+function ChevronDown({ open, glass = false }: { open: boolean; glass?: boolean }) {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+      stroke={glass ? "rgba(255,255,255,0.55)" : "#9CA3AF"}
+      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
       style={{ transition: "transform 0.18s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
       <polyline points="6 9 12 15 18 9"/>
     </svg>
@@ -102,13 +105,14 @@ const CAP_OPTIONS: Option[] = [
 
 // ─── Custom Select ─────────────────────────────────────────────────────────────
 function CustomSelect({
-  value, onChange, options, placeholder, minWidth = 180,
+  value, onChange, options, placeholder, minWidth = 180, glass = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: Option[];
   placeholder: string;
   minWidth?: number;
+  glass?: boolean;
 }) {
   const [open, setOpen]   = useState(false);
   const [rect, setRect]   = useState<DOMRect | null>(null);
@@ -156,13 +160,14 @@ function CustomSelect({
         onClick={toggle}
         className="w-full flex items-center justify-between gap-1.5 outline-none bg-transparent cursor-pointer"
       >
-        <span className="text-sm font-medium truncate" style={{ color: selected?.value ? "#111827" : "#9CA3AF" }}>
+        <span className="text-sm font-semibold truncate"
+          style={{ color: glass ? (selected?.value ? "#ffffff" : "rgba(255,255,255,0.55)") : (selected?.value ? "#111827" : "#9CA3AF") }}>
           {selected?.label ?? placeholder}
         </span>
-        <ChevronDown open={open} />
+        <ChevronDown open={open} glass={glass} />
       </button>
 
-      {open && rect && (
+      {open && rect && createPortal(
         <div
           ref={panelRef}
           style={{
@@ -199,7 +204,6 @@ function CustomSelect({
                     style={{ color: active ? PRIMARY : "#374151" }}
                   >
                     <span className="shrink-0">
-                      {/* Re-render icon with active color */}
                       {active
                         ? (() => {
                             const el = opt.icon as React.ReactElement<{ color?: string }>;
@@ -214,7 +218,8 @@ function CustomSelect({
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
@@ -245,7 +250,7 @@ export default function HeroSearch() {
     if (cap) params.set("cap",  cap);
     if (ver) params.set("verified", ver);
 
-    router.push(`/?${params.toString()}#venues`);
+    router.push(`/venues?${params.toString()}`);
   }
 
   function pickCity(c: string) {
@@ -259,9 +264,11 @@ export default function HeroSearch() {
       <div
         className="w-full max-w-4xl rounded-2xl overflow-hidden"
         style={{
-          background:  "rgba(255,255,255,0.97)",
-          boxShadow:   "0 24px 64px rgba(0,0,0,0.28), 0 4px 16px rgba(0,0,0,0.12)",
-          backdropFilter: "blur(12px)",
+          background:          "rgba(255,255,255,0.10)",
+          backdropFilter:      "blur(24px)",
+          WebkitBackdropFilter:"blur(24px)",
+          border:              "1px solid rgba(255,255,255,0.22)",
+          boxShadow:           "0 24px 64px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.18)",
         }}
       >
         {/* Main row */}
@@ -269,64 +276,64 @@ export default function HeroSearch() {
 
           {/* Venue Name */}
           <div className="flex items-center gap-3 px-5 py-4">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "#9CA3AF" }}>Venue</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>Venue</p>
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && search()}
                 type="text"
                 placeholder="Search venues…"
-                className="w-full text-sm font-medium outline-none bg-transparent placeholder:text-gray-300"
-                style={{ color: "#111827" }}
+                className="w-full text-sm font-semibold outline-none bg-transparent placeholder:text-white/40"
+                style={{ color: "#ffffff", caretColor: "#FF3B6B" }}
               />
             </div>
           </div>
 
           {/* Divider */}
-          <div className="hidden sm:block self-stretch" style={{ background: "#F3F4F6" }} />
+          <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* City */}
           <div className="flex items-center gap-3 px-5 py-4">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
             </svg>
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "#9CA3AF" }}>City</p>
-              <CustomSelect value={city} onChange={setCity} options={CITY_OPTIONS} placeholder="All Cities" minWidth={200} />
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>City</p>
+              <CustomSelect value={city} onChange={setCity} options={CITY_OPTIONS} placeholder="All Cities" minWidth={200} glass />
             </div>
           </div>
 
           {/* Divider */}
-          <div className="hidden sm:block self-stretch" style={{ background: "#F3F4F6" }} />
+          <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* Venue Type */}
           <div className="flex items-center gap-3 px-5 py-4">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4"/>
               <path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>
             </svg>
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "#9CA3AF" }}>Type</p>
-              <CustomSelect value={type} onChange={setType} options={TYPE_OPTIONS} placeholder="All Types" minWidth={180} />
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>Type</p>
+              <CustomSelect value={type} onChange={setType} options={TYPE_OPTIONS} placeholder="All Types" minWidth={180} glass />
             </div>
           </div>
 
           {/* Divider */}
-          <div className="hidden sm:block self-stretch" style={{ background: "#F3F4F6" }} />
+          <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* Capacity */}
           <div className="flex items-center gap-3 px-5 py-4">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF3B6B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
               <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "#9CA3AF" }}>Guests</p>
-              <CustomSelect value={capacity} onChange={setCapacity} options={CAP_OPTIONS} placeholder="Any Size" minWidth={160} />
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>Guests</p>
+              <CustomSelect value={capacity} onChange={setCapacity} options={CAP_OPTIONS} placeholder="Any Size" minWidth={160} glass />
             </div>
           </div>
 
@@ -335,7 +342,7 @@ export default function HeroSearch() {
             <button
               onClick={() => search()}
               className="flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 cursor-pointer whitespace-nowrap"
-              style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)", boxShadow: "0 4px 16px rgba(255,59,107,0.35)" }}
+              style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)", boxShadow: "0 4px 20px rgba(255,59,107,0.50)" }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -348,7 +355,7 @@ export default function HeroSearch() {
         {/* Bottom bar — verified toggle */}
         <div
           className="flex items-center gap-4 px-5 py-2.5 border-t"
-          style={{ borderColor: "#F3F4F6", background: "#FAFAFA" }}
+          style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.12)" }}
         >
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -357,10 +364,10 @@ export default function HeroSearch() {
               onChange={e => setVerified(e.target.checked)}
               className="w-3.5 h-3.5 rounded accent-pink-500"
             />
-            <span className="text-xs font-medium" style={{ color: "#6B7280" }}>Verified venues only</span>
+            <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.65)" }}>Verified venues only</span>
           </label>
-          <span className="text-xs ml-auto" style={{ color: "#D1D5DB" }}>|</span>
-          <span className="text-xs" style={{ color: "#9CA3AF" }}>Filter by city, type, and capacity</span>
+          <span className="text-xs ml-auto" style={{ color: "rgba(255,255,255,0.20)" }}>|</span>
+          <span className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>Filter by city, type, and capacity</span>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { galleryStore } from "@/lib/galleryStore";
@@ -15,22 +15,51 @@ const inputStyle = {
 
 const MAX_IMAGES = 10;
 
+// Venue types that need halls + capacity
+const VENUE_TYPES = [
+  "Banquet Hall", "Marquee", "Ballroom", "Wedding Lawn",
+  "Hotel Banquet", "Rooftop Venue", "Farm House",
+];
+
+// Labels for the images section per business type
+const IMAGE_LABELS: Record<string, { title: string; hint: string }> = {
+  "Photography":   { title: "Your Work / Portfolio",   hint: "Upload sample photos from your shoots" },
+  "Catering":      { title: "Food & Setup Photos",      hint: "Show your dishes, buffet setups & events" },
+  "Florist":       { title: "Floral Work Portfolio",    hint: "Upload your flower arrangements & decor" },
+  "Decoration":    { title: "Decoration Portfolio",     hint: "Show your event styling & decoration work" },
+  "Sound & Lights":{ title: "Setup & Event Photos",     hint: "Show your sound/lighting setups at events" },
+  "Beauty Parlor": { title: "Bridal & Makeup Portfolio",hint: "Upload your best bridal makeup looks" },
+  "Car Rental":    { title: "Vehicle Gallery",          hint: "Upload photos of your available vehicles" },
+  "Fireworks":     { title: "Fireworks Portfolio",      hint: "Upload photos or stills from your shows" },
+};
+
 export default function HallDetailsPage() {
   const router = useRouter();
-  const logoRef = useRef<HTMLInputElement>(null);
+  const logoRef   = useRef<HTMLInputElement>(null);
   const imagesRef = useRef<HTMLInputElement>(null);
 
+  const [businessType, setBusinessType] = useState<string>("");
   const [form, setForm] = useState({
     numberOfHalls: "",
-    maxCapacity: "",
+    maxCapacity:   "",
     startingPrice: "",
-    description: "",
+    description:   "",
   });
 
-  const [logo,           setLogo]           = useState<string | null>(null); // preview URL
+  const [logo,           setLogo]           = useState<string | null>(null);
   const [logoFile,       setLogoFile]       = useState<File | null>(null);
-  const [hallImages,     setHallImages]     = useState<string[]>([]); // blob URLs for preview
-  const [hallImageFiles, setHallImageFiles] = useState<File[]>([]);   // actual File objects
+  const [hallImages,     setHallImages]     = useState<string[]>([]);
+  const [hallImageFiles, setHallImageFiles] = useState<File[]>([]);
+
+  useEffect(() => {
+    try {
+      const step1 = JSON.parse(sessionStorage.getItem("ob_step1") || "{}");
+      if (step1.businessType) setBusinessType(step1.businessType);
+    } catch {}
+  }, []);
+
+  const isVenue   = VENUE_TYPES.includes(businessType);
+  const imageLabel = IMAGE_LABELS[businessType] ?? { title: "Gallery / Portfolio", hint: "Upload photos of your work (max 10)" };
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -61,11 +90,8 @@ export default function HallDetailsPage() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     sessionStorage.setItem("ob_step2", JSON.stringify(form));
-
-    // Keep gallery File objects in memory so verify page can upload after registration
     galleryStore.set(hallImageFiles);
 
-    // Save logo as base64 so verify page can upload it after registration
     if (logoFile) {
       const reader = new FileReader();
       reader.onload = () => {
@@ -86,46 +112,47 @@ export default function HallDetailsPage() {
 
       {/* Heading */}
       <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-        Venue & Hall Details.
+        {isVenue ? "Venue & Hall Details." : "Profile & Portfolio."}
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
-        Step 2 of 4 — Add your hall capacity, photos & logo.
+        Step 2 of 4 — {isVenue
+          ? "Add your hall capacity, photos & logo."
+          : "Add your portfolio, pricing & logo."}
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
-        {/* Halls & Capacity */}
-        <div className="flex gap-3">
-          <input
-            name="numberOfHalls"
-            type="number"
-            placeholder="Number of halls *"
-            value={form.numberOfHalls}
-            onChange={handleChange}
-            required
-            min={1}
-            className={inputClass}
-            style={inputStyle}
-          />
-          <input
-            name="maxCapacity"
-            type="number"
-            placeholder="Max capacity *"
-            value={form.maxCapacity}
-            onChange={handleChange}
-            required
-            min={1}
-            className={inputClass}
-            style={inputStyle}
-          />
-        </div>
+        {/* Halls & Capacity — venue only */}
+        {isVenue && (
+          <div className="flex gap-3">
+            <input
+              name="numberOfHalls"
+              type="number"
+              placeholder="Number of halls *"
+              value={form.numberOfHalls}
+              onChange={handleChange}
+              required
+              min={1}
+              className={inputClass}
+              style={inputStyle}
+            />
+            <input
+              name="maxCapacity"
+              type="number"
+              placeholder="Max capacity *"
+              value={form.maxCapacity}
+              onChange={handleChange}
+              required
+              min={1}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+        )}
 
         {/* Starting Price */}
         <div className="relative">
-          <span
-            className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-medium"
-            style={{ color: "var(--fg-muted)" }}
-          >
+          <span className="absolute left-5 top-1/2 -translate-y-1/2 text-base font-medium" style={{ color: "var(--fg-muted)" }}>
             Rs.
           </span>
           <input
@@ -179,24 +206,16 @@ export default function HallDetailsPage() {
               {logo ? "Change Logo" : "Upload Logo"}
             </button>
           </div>
-          <input
-            ref={logoRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleLogo}
-          />
+          <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogo} />
         </div>
 
-        {/* Hall Images Upload */}
+        {/* Images Upload */}
         <div className="rounded-2xl border border-dashed border-[#D1D5DB] p-4" style={{ background: "var(--bg-subtle)" }}>
-
-          {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-sm font-medium" style={{ color: "var(--fg)" }}>Hall Images</p>
+              <p className="text-sm font-medium" style={{ color: "var(--fg)" }}>{imageLabel.title}</p>
               <p className="text-xs" style={{ color: "var(--fg-muted)" }}>
-                {hallImages.length}/{MAX_IMAGES} images uploaded
+                {hallImages.length}/{MAX_IMAGES} · {imageLabel.hint}
               </p>
             </div>
             {hallImages.length < MAX_IMAGES && (
@@ -206,22 +225,16 @@ export default function HallDetailsPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-opacity hover:opacity-80"
                 style={{ background: "var(--primary)", color: "#ffffff" }}
               >
-                <PlusIcon /> Add Images
+                <PlusIcon /> Add Photos
               </button>
             )}
           </div>
 
-          {/* Grid */}
           {hallImages.length > 0 ? (
             <div className="grid grid-cols-4 gap-2">
               {hallImages.map((src, i) => (
                 <div key={i} className="relative group aspect-square">
-                  <Image
-                    src={src}
-                    alt={`Hall ${i + 1}`}
-                    fill
-                    className="rounded-xl object-cover"
-                  />
+                  <Image src={src} alt={`Photo ${i + 1}`} fill className="rounded-xl object-cover" />
                   <button
                     type="button"
                     onClick={() => removeImage(i)}
@@ -242,25 +255,15 @@ export default function HallDetailsPage() {
               )}
             </div>
           ) : (
-            <div
-              onClick={() => imagesRef.current?.click()}
-              className="flex flex-col items-center justify-center gap-2 py-6 cursor-pointer"
-            >
+            <div onClick={() => imagesRef.current?.click()} className="flex flex-col items-center justify-center gap-2 py-6 cursor-pointer">
               <UploadIcon />
               <span className="text-xs" style={{ color: "var(--fg-muted)" }}>
-                Click to upload hall images (max 10)
+                Click to upload (max 10)
               </span>
             </div>
           )}
 
-          <input
-            ref={imagesRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={handleHallImages}
-          />
+          <input ref={imagesRef} type="file" accept="image/*" multiple className="hidden" onChange={handleHallImages} />
         </div>
 
         {/* Back & Submit */}
@@ -296,7 +299,6 @@ function UploadIcon() {
     </svg>
   );
 }
-
 function PlusIcon({ color }: { color?: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2.5" strokeLinecap="round">
@@ -305,7 +307,6 @@ function PlusIcon({ color }: { color?: string }) {
     </svg>
   );
 }
-
 function XIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">

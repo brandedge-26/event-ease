@@ -11,7 +11,25 @@ const inputStyle = {
   color: "var(--fg)",
 };
 
-const businessTypes = ["Banquet Hall", "Ballroom", "Marquee"];
+const businessTypes = [
+  // Venue Types
+  "Banquet Hall",
+  "Marquee",
+  "Ballroom",
+  "Wedding Lawn",
+  "Hotel Banquet",
+  "Rooftop Venue",
+  "Farm House",
+  // Services
+  "Beauty Parlor",
+  "Florist",
+  "Catering",
+  "Decoration",
+  "Photography",
+  "Sound & Lights",
+  "Car Rental",
+  "Fireworks",
+];
 
 export default function BusinessInfoPage() {
   const router = useRouter();
@@ -42,10 +60,10 @@ export default function BusinessInfoPage() {
 
       {/* Heading */}
       <h1 className="text-4xl font-semibold text-black mb-1 tracking-tight">
-        Register Your Venue.
+        Register Your Business.
       </h1>
       <p className="text-sm mb-8" style={{ color: "var(--fg-muted)" }}>
-        Step 1 of 4 — Tell us about your venue business.
+        Step 1 of 4 — Tell us about your business.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

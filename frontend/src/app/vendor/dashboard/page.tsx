@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/store/useAuthStore";
 import { api } from "@/lib/api";
+import { loadFromCache, CACHE_KEYS } from "@/lib/bookingCache";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DbBooking = {
@@ -187,9 +188,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!accessToken) return;
+
+    if (accessToken === "offline-session" || !navigator.onLine) {
+      const cached = loadFromCache<DbBooking>(CACHE_KEYS.VENUE_BOOKINGS);
+      if (cached) setBookings(cached);
+      setLoading(false);
+      return;
+    }
+
     api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken)
       .then(res => { if (res.success) setBookings(res.bookings ?? []); })
-      .catch(() => {})
+      .catch(() => {
+        const cached = loadFromCache<DbBooking>(CACHE_KEYS.VENUE_BOOKINGS);
+        if (cached) setBookings(cached);
+      })
       .finally(() => setLoading(false));
   }, [accessToken]);
 

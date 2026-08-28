@@ -4,6 +4,7 @@ import SiteHeader from "../SiteHeader";
 import BottomNav from "../BottomNav";
 import VenueFilters from "./VenueFilters";
 import VenueSortBar from "./VenueSortBar";
+import PromoBanners from "./PromoBanners";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY = "#FF3B6B";
@@ -131,8 +132,14 @@ function VerifiedBadge() {
 }
 
 // ─── Venue Card ───────────────────────────────────────────────────────────────
+const VENUE_TYPES = new Set([
+  "Banquet Hall", "Marquee", "Ballroom", "Wedding Lawn",
+  "Hotel Banquet", "Rooftop Venue", "Farm House",
+]);
+
 function VenueCard({ v }: { v: VendorCard }) {
   const coverImage = v.galleryImages?.[0] ?? null;
+  const isVenue    = VENUE_TYPES.has(v.businessType);
 
   return (
     <Link
@@ -324,7 +331,9 @@ function VenueCard({ v }: { v: VendorCard }) {
                 className="text-[11px] font-medium"
                 style={{ color: "#374151" }}
               >
-                {v.hallCount} hall{v.hallCount !== 1 ? "s" : ""}
+                {v.hallCount} {isVenue
+                  ? `hall${v.hallCount !== 1 ? "s" : ""}`
+                  : `service${v.hallCount !== 1 ? "s" : ""}`}
               </span>
             </div>
           )}
@@ -546,7 +555,7 @@ function EmptyState() {
         Be the first to register your venue on Event Ease.
       </p>
       <Link
-        href="/vendor/onboarding/business-info"
+        href="/vendor/onboarding"
         className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
         style={{ background: PRIMARY }}
       >
@@ -728,6 +737,9 @@ export default async function VenuesPage({
             Discover top-rated banquet halls, marquees and ballrooms across
             Pakistan
           </p>
+
+          {/* Promo banners */}
+          <PromoBanners />
 
           {/* Active filter chips */}
           {activeChips.length > 0 && (

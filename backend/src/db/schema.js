@@ -4,7 +4,11 @@ import { pgTable, text, integer, boolean, timestamp, pgEnum } from "drizzle-orm/
 export const bookingStatusEnum  = pgEnum("booking_status",  ["confirmed", "pending", "cancelled", "blocked"]);
 export const paymentMethodEnum  = pgEnum("payment_method",  ["Cash", "Bank Transfer", "Cheque", "Online"]);
 export const paymentStatusEnum  = pgEnum("payment_status",  ["paid", "partial", "pending", "overdue"]);
-export const vendorTypeEnum     = pgEnum("vendor_type",     ["Banquet Hall", "Ballroom", "Marquee"]);
+export const vendorTypeEnum     = pgEnum("vendor_type",     [
+    "Banquet Hall", "Marquee", "Ballroom", "Wedding Lawn", "Hotel Banquet",
+    "Rooftop Venue", "Farm House", "Beauty Parlor", "Florist",
+    "Catering", "Decoration", "Photography", "Sound & Lights", "Car Rental", "Fireworks",
+]);
 
 // ─── Vendors ──────────────────────────────────────────────────────────────────
 export const vendors = pgTable("vendors", {
@@ -134,6 +138,19 @@ export const inquiries = pgTable("inquiries", {
     createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ─── Vendor Notifications ─────────────────────────────────────────────────────
+export const vendorNotifications = pgTable("vendor_notifications", {
+    id:        text("id").primaryKey(),
+    vendorId:  text("vendor_id").notNull(),
+    type:      text("type").notNull(),      // "inquiry", "booking", "review", "system"
+    title:     text("title").notNull(),
+    body:      text("body").notNull(),
+    isRead:    boolean("is_read").default(false),
+    link:      text("link"),                // deep link e.g. /vendor/dashboard/inquiries
+    refId:     text("ref_id"),              // inquiry/booking id
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ─── Staff ────────────────────────────────────────────────────────────────────
 export const staff = pgTable("staff", {
     id:          text("id").primaryKey(),
@@ -162,6 +179,7 @@ export const marketplaceUsers = pgTable("marketplace_users", {
     passwordHash: text("password_hash"),
     googleId:     text("google_id"),
     avatarUrl:    text("avatar_url"),
+    refreshToken: text("refresh_token"),
     isBlocked:    boolean("is_blocked").default(false),
     createdAt:    timestamp("created_at").defaultNow(),
     updatedAt:    timestamp("updated_at").defaultNow(),
@@ -226,4 +244,19 @@ export const quotations = pgTable("quotations", {
     status:       quotationStatusEnum("status").default("pending"),
     createdAt:    timestamp("created_at").defaultNow(),
     updatedAt:    timestamp("updated_at").defaultNow(),
+});
+
+// ─── Promo Banners ────────────────────────────────────────────────────────────
+export const promoBanners = pgTable("promo_banners", {
+    id:          text("id").primaryKey(),
+    title:       text("title").notNull(),
+    subtitle:    text("subtitle"),
+    ctaText:     text("cta_text"),
+    ctaLink:     text("cta_link").notNull(),
+    imageUrl:    text("image_url").notNull(),
+    height:      integer("height").default(300),
+    sortOrder:   integer("sort_order").default(0),
+    isActive:    boolean("is_active").default(true),
+    expiresAt:   timestamp("expires_at"),           // null = no expiry
+    createdAt:   timestamp("created_at").defaultNow(),
 });

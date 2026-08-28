@@ -6,12 +6,15 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { OfflineBar } from "@/components/OfflineBar";
 
 const nav = [
   { label: "Dashboard", href: "/vendor/dashboard", icon: <GridIcon /> },
   { label: "Calendar", href: "/vendor/dashboard/calendar", icon: <CalendarIcon /> },
   { label: "Bookings", href: "/vendor/dashboard/bookings", icon: <BookIcon /> },
   { label: "Inquiries", href: "/vendor/dashboard/inquiries", icon: <InboxIcon /> },
+  { label: "Notifications", href: "/vendor/dashboard/notifications", icon: <BellIcon /> },
   { label: "Customers", href: "/vendor/dashboard/customers", icon: <UsersIcon /> },
   { label: "Payments", href: "/vendor/dashboard/payments", icon: <PaymentIcon /> },
   { label: "Quotations", href: "/vendor/dashboard/quotations", icon: <FileIcon /> },
@@ -40,6 +43,17 @@ const bottomNavMore = [
   { label: "Reports", href: "/vendor/dashboard/reports", icon: <ChartIcon /> },
 ];
 
+function OfflineBarWrapper() {
+  const { isOnline, pendingCount, syncing, justCameOnline, sync, tryReconnect } = useOfflineSync();
+  return (
+    <OfflineBar
+      isOnline={isOnline} pendingCount={pendingCount}
+      syncing={syncing} justCameOnline={justCameOnline}
+      onSync={sync} onReconnect={tryReconnect}
+    />
+  );
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname  = usePathname();
   const router    = useRouter();
@@ -48,8 +62,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [moreOpen,    setMoreOpen]    = useState(false);
   const [isMobile,    setIsMobile]    = useState(false);
   const [avatarOpen,  setAvatarOpen]  = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const avatarRef = useRef<HTMLDivElement>(null);
-  const { vendor, clearAuth, isLoading } = useAuthStore();
+  const { vendor, clearAuth, isLoading, accessToken } = useAuthStore();
 
   async function handleLogout() {
     await api.post("/api/vendor/auth/logout", {});
@@ -94,6 +109,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setMobileOpen(false);
     setMoreOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!vendor) return;
+    async function fetchCount() {
+      try {
+        const data = await api.get("/api/vendor/notifications/unread-count", accessToken ?? undefined);
+        if (data.success) setUnreadCount((data as { success: boolean; count: number }).count);
+      } catch {}
+    }
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    const onVisible = () => { if (document.visibilityState === "visible") fetchCount(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); };
+  }, [vendor]);
 
   // ── Guard rendering ─────────────────────────────────────────────────────────
   if (isLoading) {
@@ -264,6 +294,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <HamburgerIcon />
           </button>
 
+          <div className="flex items-center gap-2">
+            <Link href="/vendor/dashboard/notifications"
+              className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors hover:bg-gray-100 relative"
+              style={{ color: "var(--fg-muted)" }}>
+              <BellIcon />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1"
+                  style={{ background: "var(--primary)" }}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
+
           <div className="relative" ref={avatarRef}>
             {isLoading ? (
               <div className="w-9 h-9 rounded-full animate-pulse" style={{ background: "#E5E7EB" }} />
@@ -322,6 +365,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             )}
           </div>
+          </div>{/* end bell+avatar group */}
         </header>
 
         {/* ── Status Banners ─────────────────────────────────────────────── */}
@@ -347,7 +391,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         {/* Page Content */}
-        <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
+        <main className="flex-1 min-w-0 overflow-x-hidden">
+          <OfflineBarWrapper />
+          {children}
+        </main>
       </div>
 
       {/* Mobile Bottom Nav */}
@@ -432,4 +479,7 @@ function SettingsIcon() {
 }
 function LogoutIcon() {
   return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>;
+}
+function BellIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>;
 }

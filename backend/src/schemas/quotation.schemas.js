@@ -3,7 +3,7 @@ import { z } from "zod";
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const serviceSchema = z.object({
-    id:    z.string().max(100),
+    id:    z.string().max(100).optional(),
     label: z.string().max(200),
     unit:  z.string().max(100).optional().default(""),
     price: z.string().max(20).optional().default(""),
@@ -14,7 +14,7 @@ export const createQuotationSchema = z.object({
     phone:        z.string().max(20).optional().default(""),
     email:        z.string().max(200).optional().default(""),
     event:        z.string().min(1, "Event type is required").max(100),
-    hall:         z.string().min(1, "Hall is required").max(100),
+    hall:         z.string().max(100).optional().default(""),
     date:         z.preprocess(
                     v => (v === "" ? undefined : v),
                     z.string().regex(DATE_REGEX, "Date must be YYYY-MM-DD").optional()
@@ -30,7 +30,7 @@ export const updateQuotationSchema = z.object({
     phone:        z.string().max(20).optional(),
     email:        z.string().max(200).optional(),
     event:        z.string().min(1).max(100).optional(),
-    hall:         z.string().min(1).max(100).optional(),
+    hall:         z.string().max(100).optional(),
     date:         z.preprocess(
                     v => (v === "" ? undefined : v),
                     z.string().regex(DATE_REGEX).optional()

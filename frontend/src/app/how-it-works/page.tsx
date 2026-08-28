@@ -232,7 +232,7 @@ export default function HowItWorksPage() {
             </div>
 
             <div className="mt-6 flex justify-center">
-              <Link href="/vendor/onboarding/business-info"
+              <Link href="/vendor/onboarding"
                 className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
                 style={{ background: "#7C3AED" }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -274,7 +274,7 @@ export default function HowItWorksPage() {
                 style={{ color: PRIMARY }}>
                 Find a Venue
               </Link>
-              <Link href="/vendor/onboarding/business-info"
+              <Link href="/vendor/onboarding"
                 className="px-6 py-2.5 rounded-xl text-sm font-bold border-2 border-white text-white transition-opacity hover:opacity-80">
                 List Your Business
               </Link>

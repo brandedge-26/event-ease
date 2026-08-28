@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-const VENDOR_TYPES = ["Banquet Hall", "Ballroom", "Marquee"];
+const VENDOR_TYPES = [
+    "Banquet Hall", "Marquee", "Ballroom", "Wedding Lawn", "Hotel Banquet",
+    "Rooftop Venue", "Farm House", "Beauty Parlor", "Florist",
+    "Catering", "Decoration", "Photography", "Sound & Lights", "Car Rental", "Fireworks",
+];
 
 // ─── Send OTP ─────────────────────────────────────────────────────────────────
 export const sendOtpSchema = z.object({

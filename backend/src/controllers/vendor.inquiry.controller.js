@@ -2,6 +2,7 @@ import { eq, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { inquiries, vendors } from "../db/schema.js";
+import { notifyVendor } from "../utils/notifyVendor.js";
 
 // POST /api/vendor/inquiry/:vendorId — public, no auth
 export async function createInquiry(req, res) {
@@ -31,6 +32,15 @@ export async function createInquiry(req, res) {
             guests:    guests ? Number(guests) : null,
             status:    "new",
         }).returning({ id: inquiries.id });
+
+        notifyVendor({
+            vendorId,
+            type:  "inquiry",
+            title: "New Inquiry Received",
+            body:  `${name.trim()} sent you an inquiry${eventType ? ` for ${eventType}` : ""}.`,
+            link:  "/vendor/dashboard/inquiries",
+            refId: inquiry.id,
+        });
 
         return res.status(201).json({ success: true, inquiryId: inquiry.id });
     } catch (err) {
