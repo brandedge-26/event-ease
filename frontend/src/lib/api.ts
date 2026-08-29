@@ -2,6 +2,16 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
 type ApiResponse<T = unknown> = { success: boolean; message?: string } & T;
 
+let _activeBranchId: string | null = null;
+
+export function setActiveBranch(id: string | null) {
+  _activeBranchId = id;
+}
+
+export function getActiveBranchId(): string | null {
+  return _activeBranchId;
+}
+
 async function request<T = unknown>(
   method: string,
   path: string,
@@ -14,6 +24,7 @@ async function request<T = unknown>(
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(_activeBranchId ? { "X-Branch-Id": _activeBranchId } : {}),
     },
     credentials: "include", // send httpOnly refresh cookie
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -45,4 +56,15 @@ export type VendorSession = {
   isVerified:   boolean;
   isBlocked:    boolean;
   businessType: string;
+};
+
+export type Branch = {
+  id:        string;
+  vendorId:  string;
+  name:      string;
+  city:      string;
+  area:      string;
+  address:   string;
+  isDefault: boolean;
+  createdAt: string;
 };

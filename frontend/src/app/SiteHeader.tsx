@@ -187,9 +187,9 @@ function getInitials(name: string) {
 
 // ─── Main Header ──────────────────────────────────────────────────────────────
 export default function SiteHeader() {
-  const [open,     setOpen]     = useState<string | null>(null);
-  const [scrolled, setScrolled] = useState(false);
-  const [userMenu, setUserMenu] = useState(false);
+  const [open,       setOpen]       = useState<string | null>(null);
+  const [scrolled,   setScrolled]   = useState(false);
+  const [userMenu,   setUserMenu]   = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname    = usePathname();
   const router      = useRouter();
@@ -614,6 +614,7 @@ export default function SiteHeader() {
         </div>
 
       </div>
+
     </header>
   );
 }

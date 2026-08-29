@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const inputClass =
@@ -35,15 +35,15 @@ export default function BusinessInfoPage() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-    businessName: "",
-    businessType: "",
-    mobile: "",
-    whatsapp: "",
-    city: "",
-    area: "",
-    address: "",
-    cnic: "",
+    businessName: "", businessType: "", mobile: "", whatsapp: "", city: "", area: "", address: "", cnic: "",
   });
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("ob_step1");
+      if (saved) setForm(prev => ({ ...prev, ...JSON.parse(saved) }));
+    } catch {}
+  }, []);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     setForm({ ...form, [e.target.name]: e.target.value });

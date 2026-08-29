@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { OfflineBar } from "@/components/OfflineBar";
+import BranchSwitcher from "@/components/vendor/BranchSwitcher";
 
 const VENUE_TYPES = ["Banquet Hall","Marquee","Ballroom","Wedding Lawn","Hotel Banquet","Rooftop Venue","Farm House"];
 
@@ -302,6 +303,7 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
           </button>
 
           <div className="flex items-center gap-2">
+            <BranchSwitcher />
             <Link href="/vendor/general/dashboard/notifications"
               className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors hover:bg-gray-100 relative"
               style={{ color: "var(--fg-muted)" }}>

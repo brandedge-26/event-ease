@@ -17,7 +17,7 @@ function decodeSvc(s: string) {
 const INP   = "w-full px-5 py-4 rounded-2xl text-base outline-none transition-all duration-200 border border-[#D1D5DB] focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-1";
 const INP_S = { background: "var(--bg-subtle)", color: "var(--fg)" };
 
-type Tab     = "basic" | "about" | "services" | "gallery";
+type Tab     = "basic" | "about" | "services" | "gallery" | "branches";
 // Reuse halls API but treat each entry as a service (capacity=0)
 type Service = { id: string; name: string; price: number; desc: string | null };
 
@@ -291,6 +291,180 @@ function ServiceDrawer({ initial, onSave, onClose, loading }: {
   );
 }
 
+// ─── Branches Tab ─────────────────────────────────────────────────────────────
+function BranchesTab({ accessToken }: { accessToken: string }) {
+  const { branches, activeBranchId, setBranches, setBranch } = useAuthStore();
+  const [adding,   setAdding]   = useState(false);
+  const [editId,   setEditId]   = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [saving,   setSaving]   = useState(false);
+  const [form,     setForm]     = useState({ name: "", city: "", area: "", address: "" });
+  const [editForm, setEditForm] = useState({ name: "", city: "", area: "", address: "" });
+
+  async function handleAdd() {
+    if (!form.name || !form.city || !form.area || !form.address) return;
+    setSaving(true);
+    try {
+      const res = await api.post<{ branch: any }>("/api/vendor/branches", form, accessToken);
+      if (res.success && res.branch) {
+        const updated = [...branches, res.branch];
+        setBranches(updated, activeBranchId ?? undefined);
+      }
+      setAdding(false);
+      setForm({ name: "", city: "", area: "", address: "" });
+    } finally { setSaving(false); }
+  }
+
+  async function handleEdit(id: string) {
+    setSaving(true);
+    try {
+      const res = await api.patch<{ branch: any }>(`/api/vendor/branches/${id}`, editForm, accessToken);
+      if (res.success && res.branch) {
+        const updated = branches.map(b => b.id === id ? res.branch : b);
+        setBranches(updated, activeBranchId ?? undefined);
+      }
+      setEditId(null);
+    } finally { setSaving(false); }
+  }
+
+  async function handleDelete(id: string) {
+    setDeleting(id);
+    try {
+      const res = await api.delete(`/api/vendor/branches/${id}`, accessToken);
+      if (res.success) {
+        const updated = branches.filter(b => b.id !== id);
+        const newActive = id === activeBranchId ? (updated[0]?.id ?? null) : activeBranchId;
+        setBranches(updated, newActive ?? undefined);
+        if (newActive) setBranch(newActive);
+      }
+    } finally { setDeleting(null); }
+  }
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #E5E7EB", background: "#fff" }}>
+      <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "#F3F4F6" }}>
+        <div>
+          <h2 className="text-sm font-bold" style={{ color: "#111827" }}>Your Branches</h2>
+          <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>Manage your business locations</p>
+        </div>
+        <button
+          onClick={() => { setAdding(true); setEditId(null); }}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer"
+          style={{ background: "var(--primary)" }}
+        >
+          <PlusIcon /> Add Branch
+        </button>
+      </div>
+
+      {/* Add Branch Form */}
+      {adding && (
+        <div className="px-5 py-4 border-b" style={{ borderColor: "#F3F4F6", background: "#FAFAFA" }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: "#374151" }}>New Branch Details</p>
+          <div className="flex flex-col gap-2">
+            <input className={INP} style={INP_S} placeholder="Branch name *" value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <input className={INP} style={INP_S} placeholder="City *" value={form.city}
+                onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+              <input className={INP} style={INP_S} placeholder="Area *" value={form.area}
+                onChange={e => setForm(f => ({ ...f, area: e.target.value }))} />
+            </div>
+            <input className={INP} style={INP_S} placeholder="Address *" value={form.address}
+              onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+            <div className="flex gap-2 mt-1">
+              <button onClick={() => setAdding(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
+                style={{ background: "#F3F4F6", color: "#374151" }}>
+                Cancel
+              </button>
+              <button onClick={handleAdd} disabled={saving}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer disabled:opacity-50"
+                style={{ background: "var(--primary)" }}>
+                {saving ? "Saving…" : "Save Branch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Branch List */}
+      <div className="divide-y" style={{ borderColor: "#F3F4F6" }}>
+        {branches.length === 0 && (
+          <div className="px-5 py-8 text-center">
+            <p className="text-sm font-semibold" style={{ color: "#374151" }}>No branches yet</p>
+            <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>Add your first branch above</p>
+          </div>
+        )}
+        {branches.map(branch => (
+          <div key={branch.id} className="px-5 py-4">
+            {editId === branch.id ? (
+              <div className="flex flex-col gap-2">
+                <input className={INP} style={INP_S} placeholder="Branch name" value={editForm.name}
+                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+                <div className="grid grid-cols-2 gap-2">
+                  <input className={INP} style={INP_S} placeholder="City" value={editForm.city}
+                    onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))} />
+                  <input className={INP} style={INP_S} placeholder="Area" value={editForm.area}
+                    onChange={e => setEditForm(f => ({ ...f, area: e.target.value }))} />
+                </div>
+                <input className={INP} style={INP_S} placeholder="Address" value={editForm.address}
+                  onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => setEditId(null)}
+                    className="flex-1 py-2 rounded-xl text-sm font-semibold cursor-pointer"
+                    style={{ background: "#F3F4F6", color: "#374151" }}>Cancel</button>
+                  <button onClick={() => handleEdit(branch.id)} disabled={saving}
+                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer disabled:opacity-50"
+                    style={{ background: "var(--primary)" }}>
+                    {saving ? "Saving…" : "Update"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-2 h-2 rounded-full mt-2 shrink-0"
+                    style={{ background: branch.id === activeBranchId ? "var(--primary)" : "#D1D5DB" }} />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold" style={{ color: "#111827" }}>{branch.name}</span>
+                      {branch.isDefault && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F0FDF4", color: "#16A34A" }}>Default</span>
+                      )}
+                      {branch.id === activeBranchId && !branch.isDefault && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#FFF1F3", color: "var(--primary)" }}>Active</span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>{branch.city} · {branch.area}</p>
+                    <p className="text-xs" style={{ color: "#9CA3AF" }}>{branch.address}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => { setEditId(branch.id); setEditForm({ name: branch.name, city: branch.city, area: branch.area, address: branch.address }); setAdding(false); }}
+                    className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
+                    style={{ color: "#6B7280" }}>
+                    <EditIcon />
+                  </button>
+                  {branches.length > 1 && (
+                    <button
+                      onClick={() => handleDelete(branch.id)}
+                      disabled={deleting === branch.id}
+                      className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-red-50 disabled:opacity-40"
+                      style={{ color: "#EF4444" }}>
+                      {deleting === branch.id ? <Spinner /> : <TrashIcon />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ManageProfilePage() {
   const { accessToken, vendor: authVendor } = useAuthStore();
@@ -466,6 +640,7 @@ export default function ManageProfilePage() {
     { key: "about",    label: "About" },
     { key: "services", label: `Services (${services.length})` },
     { key: "gallery",  label: `Gallery (${profile.galleryImages.length})` },
+    { key: "branches", label: "Branches" },
   ];
 
   function SaveBtn({ onClick }: { onClick: () => void }) {
@@ -700,6 +875,11 @@ export default function ManageProfilePage() {
           )}
           <p className="text-xs" style={{ color: "#9CA3AF" }}>{profile.galleryImages.length}/30 photos · JPG, PNG, WEBP</p>
         </Card>
+      )}
+
+      {/* ── Branches ── */}
+      {tab === "branches" && (
+        <BranchesTab accessToken={accessToken!} />
       )}
 
       {/* Service Drawer */}

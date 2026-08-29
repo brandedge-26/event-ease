@@ -40,11 +40,15 @@ export default function HallDetailsPage() {
 
   const [businessType, setBusinessType] = useState<string>("");
   const [form, setForm] = useState({
-    numberOfHalls: "",
-    maxCapacity:   "",
-    startingPrice: "",
-    description:   "",
+    numberOfHalls: "", maxCapacity: "", startingPrice: "", description: "",
   });
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("ob_step2");
+      if (saved) setForm(prev => ({ ...prev, ...JSON.parse(saved) }));
+    } catch {}
+  }, []);
 
   const [logo,           setLogo]           = useState<string | null>(null);
   const [logoFile,       setLogoFile]       = useState<File | null>(null);

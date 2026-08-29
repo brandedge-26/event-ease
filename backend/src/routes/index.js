@@ -1,6 +1,7 @@
 import { Router } from "express";
 import userAuthRoutes         from "./user.auth.routes.js";
 import vendorAuthRoutes       from "./vendor.auth.routes.js";
+import vendorBranchRoutes     from "./vendor.branch.routes.js";
 import vendorProfileRoutes    from "./vendor.profile.routes.js";
 import vendorUploadRoutes     from "./vendor.upload.routes.js";
 import vendorInquiryRoutes    from "./vendor.inquiry.routes.js";
@@ -52,5 +53,6 @@ router.use("/vendor/staff",      vendorStaffRoutes);
 router.use("/vendor/packages",   vendorPackageRoutes);
 router.use("/vendor/reports",        vendorReportsRoutes);
 router.use("/vendor/notifications",  vendorNotificationsRoutes);
+router.use("/vendor/branches",       vendorBranchRoutes);
 
 export default router;

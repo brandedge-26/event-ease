@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { api } from "@/lib/api";
-import { useAuthStore, getCachedVendor } from "@/store/useAuthStore";
-import type { VendorSession } from "@/lib/api";
+import { useAuthStore, getCachedVendor, getCachedBranches } from "@/store/useAuthStore";
+import type { VendorSession, Branch } from "@/lib/api";
 
 // Runs once on app load — tries to restore session via refresh cookie.
 // If cookie is valid, backend returns a new access token + vendor info.
@@ -11,11 +11,11 @@ import type { VendorSession } from "@/lib/api";
 // If offline on load, vendor is restored from localStorage so user stays logged in.
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setAuth, clearAuth } = useAuthStore();
+  const { setAuth, clearAuth, setBranches } = useAuthStore();
 
   async function restoreSession() {
     try {
-      const res = await api.post<{ accessToken?: string; vendor?: VendorSession }>(
+      const res = await api.post<{ accessToken?: string; vendor?: VendorSession; branches?: Branch[] }>(
         "/api/vendor/auth/refresh",
         {},
         undefined,
@@ -30,6 +30,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
         if (vendor) {
           setAuth(res.accessToken, vendor);
+          if (res.branches && res.branches.length > 0) {
+            const defaultBranch = res.branches.find((b) => b.isDefault);
+            setBranches(res.branches, defaultBranch?.id);
+          }
         } else {
           clearAuth();
         }
@@ -40,7 +44,12 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         // a real connection. clearAuth only if we're genuinely online.
         if (!navigator.onLine) {
           const cached = getCachedVendor();
-          if (cached) { setAuth("offline-session", cached); return; }
+          if (cached) {
+            const { branches, activeBranchId } = getCachedBranches();
+            setAuth("offline-session", cached);
+            if (branches.length > 0) setBranches(branches, activeBranchId ?? undefined);
+            return;
+          }
         }
         clearAuth();
       }
@@ -52,7 +61,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       if (cached) {
         // Restore vendor from cache with a placeholder token.
         // Real API calls won't work but cached data + offline booking queue will.
+        const { branches, activeBranchId } = getCachedBranches();
         setAuth("offline-session", cached);
+        if (branches.length > 0) setBranches(branches, activeBranchId ?? undefined);
         return;
       }
       clearAuth();

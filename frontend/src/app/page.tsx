@@ -490,7 +490,7 @@ const OFFER_CARDS = [
   {
     label: "Venues & Halls",
     desc:  "Grand banquet halls, marquees & ballrooms",
-    href:  "/venues",
+    href:  "/venues?type=Banquet+Hall",
     bg:    "#FFF3E6",
     accent:"#C2763A",
     gradient: "linear-gradient(to right, #FFF3E6 38%, transparent 75%)",
@@ -499,7 +499,7 @@ const OFFER_CARDS = [
   {
     label: "Photography",
     desc:  "Professional wedding photographers",
-    href:  "/venues?q=photography",
+    href:  "/venues?type=Photography",
     bg:    "#EDEAFF",
     accent:"#6D28D9",
     gradient: "linear-gradient(to right, #EDEAFF 38%, transparent 75%)",
@@ -508,7 +508,7 @@ const OFFER_CARDS = [
   {
     label: "Bridal Makeup",
     desc:  "Glamorous beauty for your big day",
-    href:  "/venues?q=makeup",
+    href:  "/venues?type=Beauty+Parlor",
     bg:    "#FFE8EE",
     accent:"#BE185D",
     gradient: "linear-gradient(to right, #FFE8EE 38%, transparent 75%)",
@@ -517,7 +517,7 @@ const OFFER_CARDS = [
   {
     label: "Decoration",
     desc:  "Stunning floral & stage setups",
-    href:  "/venues?q=decoration",
+    href:  "/venues?type=Decoration",
     bg:    "#FFE0D4",
     accent:"#C2410C",
     gradient: "linear-gradient(to right, #FFE0D4 38%, transparent 75%)",
@@ -526,7 +526,7 @@ const OFFER_CARDS = [
   {
     label: "Catering",
     desc:  "Gourmet menus for every occasion",
-    href:  "/venues?q=catering",
+    href:  "/venues?type=Catering",
     bg:    "#E8F5E0",
     accent:"#166534",
     gradient: "linear-gradient(to right, #E8F5E0 38%, transparent 75%)",
@@ -535,7 +535,7 @@ const OFFER_CARDS = [
   {
     label: "Mehndi & Henna",
     desc:  "Intricate traditional henna art",
-    href:  "/venues?event=mehndi",
+    href:  "/venues?q=mehndi",
     bg:    "#FFF0E0",
     accent:"#92400E",
     gradient: "linear-gradient(to right, #FFF0E0 38%, transparent 75%)",

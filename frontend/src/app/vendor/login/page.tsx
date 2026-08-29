@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { api } from "@/lib/api";
+import type { Branch } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export default function VendorLoginPage() {
   const router  = useRouter();
-  const setAuth = useAuthStore((s) => s.setAuth);
+  const setAuth      = useAuthStore((s) => s.setAuth);
+  const setBranches  = useAuthStore((s) => s.setBranches);
 
   const [email,        setEmail]        = useState("");
   const [password,     setPassword]     = useState("");
@@ -22,7 +24,7 @@ export default function VendorLoginPage() {
     setLoading(true);
 
     try {
-      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string; ownerName: string; slug: string; businessType: string; isVerified: boolean; isBlocked: boolean } }>(
+      const res = await api.post<{ accessToken?: string; vendor?: { id: string; name: string; email: string; ownerName: string; slug: string; businessType: string; isVerified: boolean; isBlocked: boolean }; branches?: Branch[] }>(
         "/api/vendor/auth/login",
         { email: email.trim(), password },
       );
@@ -33,6 +35,10 @@ export default function VendorLoginPage() {
       }
 
       setAuth(res.accessToken, res.vendor);
+      if (res.branches && res.branches.length > 0) {
+        const defaultBranch = res.branches.find((b) => b.isDefault);
+        setBranches(res.branches, defaultBranch?.id);
+      }
       const VENUE_TYPES = ["Banquet Hall","Marquee","Ballroom","Wedding Lawn","Hotel Banquet","Rooftop Venue","Farm House"];
       if (VENUE_TYPES.includes(res.vendor.businessType)) {
         router.push("/vendor/dashboard");

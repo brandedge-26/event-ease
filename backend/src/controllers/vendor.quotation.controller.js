@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { quotations } from "../db/schema.js";
@@ -15,10 +15,14 @@ function parseQuotation(q) {
 export async function getQuotations(req, res) {
     try {
         const vendorId = req.vendor.id;
+        const filter = req.branchId
+            ? and(eq(quotations.vendorId, vendorId), eq(quotations.branchId, req.branchId))
+            : eq(quotations.vendorId, vendorId);
+
         const rows = await db
             .select()
             .from(quotations)
-            .where(eq(quotations.vendorId, vendorId))
+            .where(filter)
             .orderBy(desc(quotations.createdAt));
 
         return res.status(200).json({ success: true, quotations: rows.map(parseQuotation) });
@@ -40,6 +44,7 @@ export async function createQuotation(req, res) {
         await db.insert(quotations).values({
             id,
             vendorId,
+            branchId:   req.branchId ?? null,
             customerName,
             phone:      phone      ?? "",
             email:      email      ?? "",

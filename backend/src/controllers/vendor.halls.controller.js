@@ -1,4 +1,4 @@
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { halls } from "../db/schema.js";
@@ -6,10 +6,14 @@ import { halls } from "../db/schema.js";
 // GET /api/vendor/halls
 export async function getHalls(req, res) {
     try {
+        const filter = req.branchId
+            ? and(eq(halls.vendorId, req.vendor.id), eq(halls.branchId, req.branchId))
+            : eq(halls.vendorId, req.vendor.id);
+
         const vendorHalls = await db
             .select()
             .from(halls)
-            .where(eq(halls.vendorId, req.vendor.id))
+            .where(filter)
             .orderBy(asc(halls.createdAt));
         return res.status(200).json({ success: true, halls: vendorHalls });
     } catch (err) {
@@ -28,6 +32,7 @@ export async function createHall(req, res) {
         const [hall] = await db.insert(halls).values({
             id:       randomUUID(),
             vendorId: req.vendor.id,
+            branchId: req.branchId ?? null,
             name:     name.trim(),
             capacity: Number(capacity),
             price:    Number(price),

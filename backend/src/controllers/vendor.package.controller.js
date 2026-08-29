@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { packages } from "../db/schema.js";
@@ -7,8 +7,12 @@ import { packages } from "../db/schema.js";
 export async function getPackages(req, res) {
     try {
         const vendorId = req.vendor.id;
+        const filter = req.branchId
+            ? and(eq(packages.vendorId, vendorId), eq(packages.branchId, req.branchId))
+            : eq(packages.vendorId, vendorId);
+
         const rows = await db.select().from(packages)
-            .where(eq(packages.vendorId, vendorId))
+            .where(filter)
             .orderBy(desc(packages.createdAt));
         return res.status(200).json({ success: true, packages: rows });
     } catch (err) {
@@ -27,6 +31,7 @@ export async function createPackage(req, res) {
         await db.insert(packages).values({
             id,
             vendorId,
+            branchId:    req.branchId ?? null,
             name,
             category:    category    ?? "Other",
             description: description ?? null,

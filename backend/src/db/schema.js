@@ -51,10 +51,23 @@ export const vendors = pgTable("vendors", {
     updatedAt:     timestamp("updated_at").defaultNow(),
 });
 
+// ─── Branches ─────────────────────────────────────────────────────────────────
+export const branches = pgTable("branches", {
+    id:        text("id").primaryKey(),
+    vendorId:  text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    name:      text("name").notNull(),          // e.g. "Lahore Branch"
+    city:      text("city").notNull(),
+    area:      text("area").notNull(),
+    address:   text("address").notNull(),
+    isDefault: boolean("is_default").default(false),
+    createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ─── Halls ────────────────────────────────────────────────────────────────────
 export const halls = pgTable("halls", {
     id:        text("id").primaryKey(),
     vendorId:  text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:  text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     name:      text("name").notNull(),
     capacity:  integer("capacity").notNull(),
     price:     integer("price").notNull(),
@@ -66,6 +79,7 @@ export const halls = pgTable("halls", {
 export const customers = pgTable("customers", {
     id:        text("id").primaryKey(),
     vendorId:  text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:  text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     name:      text("name").notNull(),
     phone:     text("phone").notNull(),
     email:     text("email"),
@@ -76,6 +90,7 @@ export const customers = pgTable("customers", {
 export const bookings = pgTable("bookings", {
     id:          text("id").primaryKey(),
     vendorId:    text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:    text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     customerId:  text("customer_id").references(() => customers.id),
     customerName: text("customer_name").notNull(),
     phone:       text("phone").notNull(),
@@ -100,6 +115,7 @@ export const payments = pgTable("payments", {
     id:          text("id").primaryKey(),
     bookingId:   text("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
     vendorId:    text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:    text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     amount:      integer("amount").notNull(),
     method:      paymentMethodEnum("method").default("Cash"),
     note:        text("note"),
@@ -111,6 +127,7 @@ export const payments = pgTable("payments", {
 export const packages = pgTable("packages", {
     id:          text("id").primaryKey(),
     vendorId:    text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:    text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     name:        text("name").notNull(),
     category:    text("category").notNull(),
     description: text("description"),
@@ -127,6 +144,7 @@ export const packages = pgTable("packages", {
 export const inquiries = pgTable("inquiries", {
     id:        text("id").primaryKey(),
     vendorId:  text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:  text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     name:      text("name").notNull(),
     phone:     text("phone").notNull(),
     email:     text("email"),
@@ -142,6 +160,7 @@ export const inquiries = pgTable("inquiries", {
 export const vendorNotifications = pgTable("vendor_notifications", {
     id:        text("id").primaryKey(),
     vendorId:  text("vendor_id").notNull(),
+    branchId:  text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     type:      text("type").notNull(),      // "inquiry", "booking", "review", "system"
     title:     text("title").notNull(),
     body:      text("body").notNull(),
@@ -155,6 +174,7 @@ export const vendorNotifications = pgTable("vendor_notifications", {
 export const staff = pgTable("staff", {
     id:          text("id").primaryKey(),
     vendorId:    text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:    text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     name:        text("name").notNull(),
     email:       text("email"),
     phone:       text("phone"),
@@ -231,6 +251,7 @@ export const quotationStatusEnum = pgEnum("quotation_status", ["pending", "accep
 export const quotations = pgTable("quotations", {
     id:           text("id").primaryKey(),
     vendorId:     text("vendor_id").notNull().references(() => vendors.id, { onDelete: "cascade" }),
+    branchId:     text("branch_id").references(() => branches.id, { onDelete: "set null" }),
     customerName: text("customer_name").notNull(),
     phone:        text("phone").default(""),
     email:        text("email").default(""),

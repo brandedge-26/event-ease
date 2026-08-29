@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -16,11 +16,22 @@ export default function AccountInfoPage() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-    ownerName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
+    ownerName: "", email: "", password: "", confirmPassword: "",
   });
+
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem("ob_step3");
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      setForm({
+        ownerName:       parsed.ownerName       ?? "",
+        email:           parsed.email           ?? "",
+        password:        parsed.password        ?? "",
+        confirmPassword: parsed.password        ?? "",
+      });
+    } catch {}
+  }, []);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm,  setShowConfirm]  = useState(false);

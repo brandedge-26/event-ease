@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { vendors, halls } from "../db/schema.js";
+import { vendors, halls, branches } from "../db/schema.js";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../utils/jwt.js";
 import { otpStore } from "../utils/otp.js";
 import { sendOtpEmail } from "../utils/email.js";
@@ -84,11 +84,15 @@ export async function register(req, res, next) {
         const passwordHash = await bcrypt.hash(password, 12);
         const slug         = `${slugify(businessName.trim())}-${vendorId.slice(0, 6)}`;
 
+        // ── Auto-create default branch ──
+        const branchId = crypto.randomUUID();
+
         const hallRows = hallsInput
             .filter((h) => h.name?.trim())
             .map((h) => ({
                 id:       crypto.randomUUID(),
                 vendorId,
+                branchId,
                 name:     h.name.trim(),
                 capacity: Number(h.capacity) || 0,
                 price:    Number(h.price)    || 0,
@@ -112,6 +116,16 @@ export async function register(req, res, next) {
             cnic:         cnic?.trim()     || null,
             about:        about?.trim()    || null,
             isVerified:   false,
+        });
+
+        await db.insert(branches).values({
+            id:        branchId,
+            vendorId,
+            name:      `${businessName.trim()} — ${city.trim()}`,
+            city:      city.trim(),
+            area:      area.trim(),
+            address:   address.trim(),
+            isDefault: true,
         });
 
         if (hallRows.length) {
@@ -168,6 +182,7 @@ export async function login(req, res, next) {
                 businessType: vendors.businessType,
                 city:         vendors.city,
                 area:         vendors.area,
+                address:      vendors.address,
                 isVerified:   vendors.isVerified,
                 isBlocked:    vendors.isBlocked,
             })
@@ -199,13 +214,43 @@ export async function login(req, res, next) {
 
         res.cookie("refreshToken", refreshToken, REFRESH_COOKIE_OPTIONS);
 
-        const { passwordHash, ...vendorData } = vendor;
+        const { passwordHash, address, ...vendorData } = vendor;
+
+        // Fetch branches — auto-create default if none exist (existing vendors migration)
+        let vendorBranches = await db
+            .select()
+            .from(branches)
+            .where(eq(branches.vendorId, vendor.id))
+            .orderBy(branches.createdAt);
+
+        if (vendorBranches.length === 0) {
+            // Re-check inside to prevent race condition with concurrent requests
+            const [existing] = await db.select({ id: branches.id }).from(branches)
+                .where(eq(branches.vendorId, vendor.id)).limit(1);
+            if (!existing) {
+                const branchId = crypto.randomUUID();
+                const [newBranch] = await db.insert(branches).values({
+                    id:        branchId,
+                    vendorId:  vendor.id,
+                    name:      `${vendor.name} — ${vendor.city}`,
+                    city:      vendor.city,
+                    area:      vendor.area,
+                    address:   address ?? vendor.city,
+                    isDefault: true,
+                }).returning();
+                vendorBranches = [newBranch];
+            } else {
+                vendorBranches = await db.select().from(branches)
+                    .where(eq(branches.vendorId, vendor.id)).orderBy(branches.createdAt);
+            }
+        }
 
         return res.status(200).json({
             success:     true,
             message:     "Login successful.",
             accessToken,
             vendor:      vendorData,
+            branches:    vendorBranches,
         });
     } catch (err) {
         next(err);
@@ -235,6 +280,9 @@ export async function refreshAccessToken(req, res, next) {
                 email:        vendors.email,
                 ownerName:    vendors.ownerName,
                 refreshToken: vendors.refreshToken,
+                city:         vendors.city,
+                area:         vendors.area,
+                address:      vendors.address,
                 isVerified:   vendors.isVerified,
                 isBlocked:    vendors.isBlocked,
             })
@@ -262,6 +310,33 @@ export async function refreshAccessToken(req, res, next) {
 
         res.cookie("refreshToken", newRefreshToken, REFRESH_COOKIE_OPTIONS);
 
+        let vendorBranches = await db
+            .select()
+            .from(branches)
+            .where(eq(branches.vendorId, vendor.id))
+            .orderBy(branches.createdAt);
+
+        if (vendorBranches.length === 0) {
+            const [existing] = await db.select({ id: branches.id }).from(branches)
+                .where(eq(branches.vendorId, vendor.id)).limit(1);
+            if (!existing) {
+                const branchId = crypto.randomUUID();
+                const [newBranch] = await db.insert(branches).values({
+                    id:        branchId,
+                    vendorId:  vendor.id,
+                    name:      `${vendor.name} — ${vendor.city}`,
+                    city:      vendor.city,
+                    area:      vendor.area,
+                    address:   vendor.address ?? vendor.city,
+                    isDefault: true,
+                }).returning();
+                vendorBranches = [newBranch];
+            } else {
+                vendorBranches = await db.select().from(branches)
+                    .where(eq(branches.vendorId, vendor.id)).orderBy(branches.createdAt);
+            }
+        }
+
         return res.status(200).json({
             success:     true,
             accessToken: newAccessToken,
@@ -274,6 +349,7 @@ export async function refreshAccessToken(req, res, next) {
                 isVerified: vendor.isVerified,
                 isBlocked:  vendor.isBlocked,
             },
+            branches: vendorBranches,
         });
     } catch (err) {
         next(err);

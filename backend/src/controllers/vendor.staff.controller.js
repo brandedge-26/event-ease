@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { staff } from "../db/schema.js";
@@ -7,10 +7,14 @@ import { staff } from "../db/schema.js";
 export async function getStaff(req, res) {
     try {
         const vendorId = req.vendor.id;
+        const filter = req.branchId
+            ? and(eq(staff.vendorId, vendorId), eq(staff.branchId, req.branchId))
+            : eq(staff.vendorId, vendorId);
+
         const rows = await db
             .select()
             .from(staff)
-            .where(eq(staff.vendorId, vendorId))
+            .where(filter)
             .orderBy(desc(staff.createdAt));
 
         return res.status(200).json({ success: true, staff: rows });
@@ -31,6 +35,7 @@ export async function createStaff(req, res) {
         await db.insert(staff).values({
             id,
             vendorId,
+            branchId:    req.branchId ?? null,
             name,
             email:       email       ?? "",
             phone:       phone       ?? "",

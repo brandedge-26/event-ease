@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { inquiries, vendors } from "../db/schema.js";
@@ -52,10 +52,14 @@ export async function createInquiry(req, res) {
 // GET /api/vendor/inquiry — auth required, returns vendor's inquiries
 export async function getInquiries(req, res) {
     try {
+        const filter = req.branchId
+            ? and(eq(inquiries.vendorId, req.vendor.id), eq(inquiries.branchId, req.branchId))
+            : eq(inquiries.vendorId, req.vendor.id);
+
         const rows = await db
             .select()
             .from(inquiries)
-            .where(eq(inquiries.vendorId, req.vendor.id))
+            .where(filter)
             .orderBy(desc(inquiries.createdAt));
 
         return res.status(200).json({ success: true, inquiries: rows });

@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { bookings, payments } from "../db/schema.js";
@@ -16,12 +16,20 @@ export async function getBookings(req, res) {
     try {
         const vendorId = req.vendor.id;
 
+        const bookingFilter = req.branchId
+            ? and(eq(bookings.vendorId, vendorId), eq(bookings.branchId, req.branchId))
+            : eq(bookings.vendorId, vendorId);
+
+        const paymentFilter = req.branchId
+            ? and(eq(payments.vendorId, vendorId), eq(payments.branchId, req.branchId))
+            : eq(payments.vendorId, vendorId);
+
         const [vendorBookings, vendorPayments] = await Promise.all([
             db.select().from(bookings)
-                .where(eq(bookings.vendorId, vendorId))
+                .where(bookingFilter)
                 .orderBy(desc(bookings.createdAt)),
             db.select().from(payments)
-                .where(eq(payments.vendorId, vendorId))
+                .where(paymentFilter)
                 .orderBy(desc(payments.createdAt)),
         ]);
 
@@ -56,6 +64,7 @@ export async function createBooking(req, res) {
         await db.insert(bookings).values({
             id,
             vendorId,
+            branchId:   req.branchId ?? null,
             customerName,
             phone:      phone ?? "",
             event,
