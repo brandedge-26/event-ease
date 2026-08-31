@@ -66,5 +66,6 @@ export type Branch = {
   area:      string;
   address:   string;
   isDefault: boolean;
+  isActive:  boolean;
   createdAt: string;
 };

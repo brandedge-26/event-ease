@@ -1,14 +1,14 @@
 import { eq, desc, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
-import { inquiries, vendors } from "../db/schema.js";
+import { inquiries, vendors, branches } from "../db/schema.js";
 import { notifyVendor } from "../utils/notifyVendor.js";
 
 // POST /api/vendor/inquiry/:vendorId — public, no auth
 export async function createInquiry(req, res) {
     try {
         const { vendorId } = req.params;
-        const { name, phone, email, message, eventDate, eventType, guests } = req.body;
+        const { name, phone, email, message, eventDate, eventType, guests, branchId } = req.body;
 
         if (!name?.trim() || !phone?.trim() || !message?.trim()) {
             return res.status(400).json({ success: false, message: "Name, phone, and message are required." });
@@ -20,9 +20,20 @@ export async function createInquiry(req, res) {
             return res.status(404).json({ success: false, message: "Vendor not found." });
         }
 
+        // Validate branchId belongs to this vendor (if provided)
+        let resolvedBranchId = null;
+        if (branchId) {
+            const [branch] = await db.select({ id: branches.id })
+                .from(branches)
+                .where(and(eq(branches.id, branchId), eq(branches.vendorId, vendorId)))
+                .limit(1);
+            resolvedBranchId = branch?.id ?? null;
+        }
+
         const [inquiry] = await db.insert(inquiries).values({
             id:        randomUUID(),
             vendorId,
+            branchId:  resolvedBranchId,
             name:      name.trim(),
             phone:     phone.trim(),
             email:     email?.trim() || null,

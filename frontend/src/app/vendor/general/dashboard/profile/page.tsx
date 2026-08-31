@@ -294,10 +294,12 @@ function ServiceDrawer({ initial, onSave, onClose, loading }: {
 // ─── Branches Tab ─────────────────────────────────────────────────────────────
 function BranchesTab({ accessToken }: { accessToken: string }) {
   const { branches, activeBranchId, setBranches, setBranch } = useAuthStore();
-  const [adding,   setAdding]   = useState(false);
-  const [editId,   setEditId]   = useState<string | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [saving,   setSaving]   = useState(false);
+  const [adding,          setAdding]          = useState(false);
+  const [editId,          setEditId]          = useState<string | null>(null);
+  const [deleting,        setDeleting]        = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteError,     setDeleteError]     = useState("");
+  const [saving,          setSaving]          = useState(false);
   const [form,     setForm]     = useState({ name: "", city: "", area: "", address: "" });
   const [editForm, setEditForm] = useState({ name: "", city: "", area: "", address: "" });
 
@@ -329,15 +331,27 @@ function BranchesTab({ accessToken }: { accessToken: string }) {
 
   async function handleDelete(id: string) {
     setDeleting(id);
+    setDeleteError("");
     try {
-      const res = await api.delete(`/api/vendor/branches/${id}`, accessToken);
+      const res = await api.delete<{ message?: string }>(`/api/vendor/branches/${id}`, accessToken);
       if (res.success) {
-        const updated = branches.filter(b => b.id !== id);
-        const newActive = id === activeBranchId ? (updated[0]?.id ?? null) : activeBranchId;
-        setBranches(updated, newActive ?? undefined);
-        if (newActive) setBranch(newActive);
+        // Re-fetch from server to ensure UI is in sync
+        const fresh = await api.get<{ branches: any[] }>("/api/vendor/branches", accessToken);
+        if (fresh.success && fresh.branches) {
+          const newActive = id === activeBranchId
+            ? (fresh.branches[0]?.id ?? null)
+            : activeBranchId;
+          setBranches(fresh.branches, newActive ?? undefined);
+          if (newActive && newActive !== activeBranchId) setBranch(newActive);
+        }
+      } else {
+        setDeleteError(res.message ?? "Failed to delete branch.");
       }
-    } finally { setDeleting(null); }
+    } catch {
+      setDeleteError("Something went wrong. Please try again.");
+    } finally {
+      setDeleting(null);
+    }
   }
 
   return (
@@ -387,8 +401,15 @@ function BranchesTab({ accessToken }: { accessToken: string }) {
         </div>
       )}
 
+      {/* Delete error */}
+      {deleteError && (
+        <div className="mx-5 mt-3 px-4 py-2.5 rounded-xl text-xs font-medium" style={{ background: "#FEE2E2", color: "#DC2626" }}>
+          {deleteError}
+        </div>
+      )}
+
       {/* Branch List */}
-      <div className="divide-y" style={{ borderColor: "#F3F4F6" }}>
+      <div className="divide-y divide-[#F3F4F6]">
         {branches.length === 0 && (
           <div className="px-5 py-8 text-center">
             <p className="text-sm font-semibold" style={{ color: "#374151" }}>No branches yet</p>
@@ -440,20 +461,40 @@ function BranchesTab({ accessToken }: { accessToken: string }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => { setEditId(branch.id); setEditForm({ name: branch.name, city: branch.city, area: branch.area, address: branch.address }); setAdding(false); }}
-                    className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
-                    style={{ color: "#6B7280" }}>
-                    <EditIcon />
-                  </button>
-                  {branches.length > 1 && (
-                    <button
-                      onClick={() => handleDelete(branch.id)}
-                      disabled={deleting === branch.id}
-                      className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-red-50 disabled:opacity-40"
-                      style={{ color: "#EF4444" }}>
-                      {deleting === branch.id ? <Spinner /> : <TrashIcon />}
-                    </button>
+                  {confirmDeleteId === branch.id ? (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: "#FEF2F2", border: "1px solid #FECACA" }}>
+                      <span className="text-xs font-medium mr-1" style={{ color: "#DC2626" }}>Delete?</span>
+                      <button
+                        onClick={() => { handleDelete(branch.id); setConfirmDeleteId(null); }}
+                        disabled={deleting === branch.id}
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white cursor-pointer disabled:opacity-50"
+                        style={{ background: "#DC2626" }}>
+                        {deleting === branch.id ? "…" : "Yes"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
+                        style={{ background: "#F3F4F6", color: "#374151" }}>
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => { setEditId(branch.id); setEditForm({ name: branch.name, city: branch.city, area: branch.area, address: branch.address }); setAdding(false); setConfirmDeleteId(null); }}
+                        className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
+                        style={{ color: "#6B7280" }}>
+                        <EditIcon />
+                      </button>
+                      {branches.length > 1 && (
+                        <button
+                          onClick={() => setConfirmDeleteId(branch.id)}
+                          className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-red-50"
+                          style={{ color: "#EF4444" }}>
+                          <TrashIcon />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

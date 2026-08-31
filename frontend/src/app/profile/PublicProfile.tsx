@@ -22,9 +22,10 @@ function decodeSvc(s: string): { name: string; price: string } {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
-type InquiryForm = { name: string; phone: string; message: string; eventDate: string; eventType: string; guests: string };
+type InquiryForm = { name: string; phone: string; message: string; eventDate: string; eventType: string; guests: string; branchId: string };
+type PublicBranch = { id: string; name: string; city: string; isDefault: boolean };
 
-export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor: Vendor; vendorId: string }) {
+export default function PublicProfile({ vendor: vendorProp, vendorId, branches = [] }: { vendor: Vendor; vendorId: string; branches?: PublicBranch[] }) {
   const { vendorProfile } = useStore();
   const vendor = vendorProfile.slug === vendorProp.slug ? vendorProfile : vendorProp;
   const isVenue = VENUE_TYPES.has(vendor.businessType ?? "");
@@ -70,7 +71,8 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
 
   // Inquiry modal state
   const [inquiryOpen, setInquiryOpen] = useState(false);
-  const [inquiryForm, setInquiryForm] = useState<InquiryForm>({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "" });
+  const defaultBranch = branches.find(b => b.isDefault) ?? branches[0];
+  const [inquiryForm, setInquiryForm] = useState<InquiryForm>({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "", branchId: defaultBranch?.id ?? "" });
   const [inquirySending, setInquirySending] = useState(false);
   const [inquiryDone,    setInquiryDone]    = useState(false);
   const [inquiryError,   setInquiryError]   = useState("");
@@ -89,7 +91,8 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
           message:   inquiryForm.message || undefined,
           eventDate: inquiryForm.eventDate || undefined,
           eventType: inquiryForm.eventType || undefined,
-          guests:    isVenue ? Number(inquiryForm.guests) : 0,
+          guests:    inquiryForm.guests ? Number(inquiryForm.guests) : undefined,
+          branchId:  inquiryForm.branchId || undefined,
         }),
       });
       const data = await res.json();
@@ -108,7 +111,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
   function openInquiry() {
     setInquiryDone(false);
     setInquiryError("");
-    setInquiryForm({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "" });
+    setInquiryForm({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "", branchId: defaultBranch?.id ?? "" });
     setInquiryOpen(true);
   }
 
@@ -943,6 +946,24 @@ export default function PublicProfile({ vendor: vendorProp, vendorId }: { vendor
                       />
                     </div>
                   </div>
+
+                  {branches.length > 1 && (
+                    <div>
+                      <label className="text-xs font-semibold mb-1 block" style={{ color: "#6B7280" }}>Select Branch *</label>
+                      <select
+                        required
+                        value={inquiryForm.branchId}
+                        onChange={e => setInquiryForm(f => ({ ...f, branchId: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl text-sm border outline-none focus:ring-2"
+                        style={{ borderColor: "#E5E7EB", background: "#F9FAFB", color: inquiryForm.branchId ? "#111" : "#9CA3AF" }}
+                      >
+                        <option value="">Choose a branch</option>
+                        {branches.map(b => (
+                          <option key={b.id} value={b.id}>{b.name} — {b.city}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

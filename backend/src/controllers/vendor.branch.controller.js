@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { branches } from "../db/schema.js";
@@ -73,6 +73,36 @@ export async function updateBranch(req, res) {
     } catch (err) {
         console.error("[updateBranch]", err);
         return res.status(500).json({ success: false, message: "Failed to update branch." });
+    }
+}
+
+// PATCH /api/vendor/branches/:id/default
+export async function setDefaultBranch(req, res) {
+    try {
+        const vendorId = req.vendor.id;
+        const { id } = req.params;
+
+        const [existing] = await db.select({ vendorId: branches.vendorId })
+            .from(branches).where(eq(branches.id, id)).limit(1);
+
+        if (!existing || existing.vendorId !== vendorId) {
+            return res.status(403).json({ success: false, message: "Forbidden." });
+        }
+
+        // Unset all defaults, then set this one
+        await db.update(branches)
+            .set({ isDefault: false })
+            .where(and(eq(branches.vendorId, vendorId), ne(branches.id, id)));
+
+        const [updated] = await db.update(branches)
+            .set({ isDefault: true })
+            .where(eq(branches.id, id))
+            .returning();
+
+        return res.status(200).json({ success: true, branch: updated });
+    } catch (err) {
+        console.error("[setDefaultBranch]", err);
+        return res.status(500).json({ success: false, message: "Failed to set default branch." });
     }
 }
 

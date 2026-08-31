@@ -67,7 +67,9 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
   const [avatarOpen,  setAvatarOpen]  = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const avatarRef = useRef<HTMLDivElement>(null);
-  const { vendor, clearAuth, isLoading, accessToken } = useAuthStore();
+  const { vendor, clearAuth, isLoading, accessToken, branches, activeBranchId } = useAuthStore();
+  const activeBranch = branches.find(b => b.id === activeBranchId);
+  const branchDeactivated = activeBranch ? activeBranch.isActive === false : false;
 
   async function handleLogout() {
     await api.post("/api/vendor/auth/logout", {});
@@ -399,11 +401,51 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
           </div>
         )}
 
+        {/* Branch Deactivated */}
+        {branchDeactivated && (
+          <div className="flex-1 flex items-center justify-center p-6" style={{ background: "#F9FAFB" }}>
+            <div className="flex flex-col items-center text-center max-w-md w-full">
+              {/* Icon */}
+              <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6" style={{ background: "#FEE2E2" }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                </svg>
+              </div>
+
+              {/* Heading */}
+              <h2 className="text-2xl font-black mb-2" style={{ color: "#111827" }}>Branch Suspended</h2>
+              <p className="text-sm leading-relaxed mb-6" style={{ color: "#6B7280" }}>
+                <span className="font-semibold" style={{ color: "#374151" }}>{activeBranch?.name}</span> has been deactivated by the admin.
+                You cannot view or manage data for this branch until it is reactivated.
+              </p>
+
+              {/* Info box */}
+              <div className="w-full rounded-2xl px-5 py-4 mb-6 text-left" style={{ background: "#FFF7ED", border: "1px solid #FED7AA" }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: "#92400E" }}>What you can do:</p>
+                <ul className="text-xs space-y-1" style={{ color: "#B45309" }}>
+                  <li>• Switch to another active branch from the top header</li>
+                  <li>• Contact admin or support to reactivate this branch</li>
+                </ul>
+              </div>
+
+              {/* Switch branch hint */}
+              {branches.filter(b => b.isActive && b.id !== activeBranchId).length > 0 && (
+                <p className="text-xs" style={{ color: "#9CA3AF" }}>
+                  Use the branch switcher in the top right to switch branches
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Page Content */}
-        <main className="flex-1 min-w-0 overflow-x-hidden">
-          <OfflineBarWrapper />
-          {children}
-        </main>
+        {!branchDeactivated && (
+          <main className="flex-1 min-w-0 overflow-x-hidden">
+            <OfflineBarWrapper />
+            {children}
+          </main>
+        )}
       </div>
 
       {/* Mobile Bottom Nav */}

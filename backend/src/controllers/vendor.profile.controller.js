@@ -1,6 +1,6 @@
 import { eq, desc, count, and, lt } from "drizzle-orm";
 import { db } from "../db/index.js";
-import { vendors, halls, reviews, bookings } from "../db/schema.js";
+import { vendors, halls, reviews, bookings, branches } from "../db/schema.js";
 
 // GET /api/vendor/profile/me — auth required
 export async function getOwnProfile(req, res) {
@@ -189,6 +189,13 @@ export async function getPublicProfile(req, res) {
             .where(eq(reviews.vendorId, vendor.id))
             .orderBy(desc(reviews.createdAt));
 
+        // Fetch vendor's branches (public — only id, name, city)
+        const vendorBranches = await db
+            .select({ id: branches.id, name: branches.name, city: branches.city, isDefault: branches.isDefault })
+            .from(branches)
+            .where(eq(branches.vendorId, vendor.id))
+            .orderBy(branches.createdAt);
+
         const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
         const [{ confirmedCount }] = await db
             .select({ confirmedCount: count() })
@@ -205,6 +212,7 @@ export async function getPublicProfile(req, res) {
             halls:        vendorHalls,
             reviews:      vendorReviews,
             totalEvents:  confirmedCount ?? 0,
+            branches:     vendorBranches,
         });
     } catch (err) {
         console.error("[getPublicProfile]", err);

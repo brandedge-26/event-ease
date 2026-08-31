@@ -60,6 +60,7 @@ export const branches = pgTable("branches", {
     area:      text("area").notNull(),
     address:   text("address").notNull(),
     isDefault: boolean("is_default").default(false),
+    isActive:  boolean("is_active").default(true),
     createdAt: timestamp("created_at").defaultNow(),
 });
 

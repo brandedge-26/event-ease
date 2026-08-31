@@ -18,6 +18,7 @@ type Vendor = {
   isVerified:   boolean;
   isBlocked:    boolean;
   hallCount:    number;
+  branchCount:  number;
   createdAt:    string;
 };
 
@@ -34,6 +35,11 @@ type VendorDetail = Vendor & {
   galleryImages: string[] | null;
   mapUrl:        string | null;
   halls: { id: string; name: string; capacity: number; price: number; desc: string | null }[];
+  branches: {
+    id: string; name: string; city: string; area: string; address: string;
+    isDefault: boolean; isActive: boolean; createdAt: string;
+    stats: { total: number; confirmed: number; revenue: number; paid: number };
+  }[];
 };
 
 type ModalType = "verify" | "block" | "delete" | null;
@@ -147,6 +153,25 @@ export default function VendorsPage() {
 
   const drawerOpen = drawer !== null || drawerLoading;
 
+  const [togglingBranch, setTogglingBranch] = useState<string | null>(null);
+
+  async function toggleBranchActive(vendorId: string, branchId: string) {
+    if (togglingBranch) return;
+    setTogglingBranch(branchId);
+    try {
+      const res  = await adminFetch(`/admin/vendors/${vendorId}/branches/${branchId}/toggle-active`, { method: "PATCH" });
+      const data = await res.json();
+      if (data.success) {
+        setDrawer(d => d ? {
+          ...d,
+          branches: d.branches.map(b => b.id === branchId ? { ...b, isActive: data.isActive } : b),
+        } : d);
+      }
+    } finally {
+      setTogglingBranch(null);
+    }
+  }
+
   return (
     <div className="p-4 lg:p-6 min-h-screen" style={{ background: "var(--bg-subtle)" }}>
 
@@ -176,6 +201,7 @@ export default function VendorsPage() {
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Contact</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Location</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Halls</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Branches</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Status</th>
                 <th className="text-left px-5 py-3 text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Joined</th>
                 <th className="text-right px-5 py-3 text-xs font-semibold" style={{ color: "var(--fg-muted)" }}>Actions</th>
@@ -235,6 +261,19 @@ export default function VendorsPage() {
                     {/* Halls */}
                     <td className="px-5 py-4">
                       <span className="font-semibold" style={{ color: "#111827" }}>{v.hallCount}</span>
+                    </td>
+
+                    {/* Branches */}
+                    <td className="px-5 py-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold ${v.branchCount > 1 ? "bg-blue-50 text-blue-600" : ""}`}
+                        style={v.branchCount <= 1 ? { color: "#111827" } : {}}>
+                        {v.branchCount > 1 && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                          </svg>
+                        )}
+                        {v.branchCount}
+                      </span>
                     </td>
 
                     {/* Status */}
@@ -343,6 +382,8 @@ export default function VendorsPage() {
                   <span>{v.city}{v.area ? `, ${v.area}` : ""}</span>
                   <span>·</span>
                   <span>{v.hallCount} hall{v.hallCount !== 1 ? "s" : ""}</span>
+                  <span>·</span>
+                  <span>{v.branchCount} branch{v.branchCount !== 1 ? "es" : ""}</span>
                   <span>·</span>
                   <span>{new Date(v.createdAt).toLocaleDateString("en-PK", { month: "short", year: "numeric" })}</span>
                 </div>
@@ -564,6 +605,68 @@ export default function VendorsPage() {
                     </Section>
                   )}
 
+                  {/* Branches */}
+                  {drawer.branches && drawer.branches.length > 0 && (
+                    <Section title={`Branches (${drawer.branches.length})`}>
+                      <div className="flex flex-col gap-3">
+                        {drawer.branches.map(b => (
+                          <div key={b.id} className="rounded-xl overflow-hidden"
+                            style={{ border: "1px solid var(--border)" }}>
+                            {/* Branch header */}
+                            <div className="flex items-center justify-between px-3 py-2.5"
+                              style={{ background: b.isActive ? "var(--bg-subtle)" : "#FFF7ED", borderBottom: "1px solid var(--border)" }}>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-sm font-semibold truncate" style={{ color: "#111827" }}>{b.name}</p>
+                                  {b.isDefault && (
+                                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0" style={{ background: "#DCFCE7", color: "#15803D" }}>
+                                      Default
+                                    </span>
+                                  )}
+                                  {!b.isActive && (
+                                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0" style={{ background: "#FEE2E2", color: "#DC2626" }}>
+                                      Deactivated
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs mt-0.5" style={{ color: "var(--fg-muted)" }}>
+                                  {[b.city, b.area].filter(Boolean).join(" · ")}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => toggleBranchActive(drawer!.id, b.id)}
+                                disabled={togglingBranch === b.id}
+                                className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg cursor-pointer transition-colors flex items-center gap-1.5 disabled:opacity-60"
+                                style={b.isActive
+                                  ? { background: "#FEE2E2", color: "#DC2626" }
+                                  : { background: "#DCFCE7", color: "#15803D" }
+                                }
+                              >
+                                {togglingBranch === b.id ? (
+                                  <>
+                                    <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                      <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/>
+                                    </svg>
+                                    {b.isActive ? "Deactivating…" : "Activating…"}
+                                  </>
+                                ) : (
+                                  b.isActive ? "Deactivate" : "Activate"
+                                )}
+                              </button>
+                            </div>
+                            {/* Branch stats */}
+                            <div className="grid grid-cols-4 divide-x divide-[var(--border)]">
+                              <StatBox label="Bookings"  value={b.stats.total} />
+                              <StatBox label="Confirmed" value={b.stats.confirmed} color="var(--success)" />
+                              <StatBox label="Revenue"   value={`Rs ${(b.stats.revenue / 1000).toFixed(0)}k`} />
+                              <StatBox label="Collected" value={`Rs ${(b.stats.paid / 1000).toFixed(0)}k`} color="var(--primary)" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+                  )}
+
                   {/* Gallery */}
                   {drawer.galleryImages && drawer.galleryImages.length > 0 && (
                     <Section title={`Gallery (${drawer.galleryImages.length})`}>
@@ -692,6 +795,15 @@ function Badge({ label, bg = "var(--bg-hover)", color = "var(--fg-muted)" }: { l
     <span className="px-2 py-0.5 rounded-lg text-xs font-semibold" style={{ background: bg, color }}>
       {label}
     </span>
+  );
+}
+
+function StatBox({ label, value, color = "#111827" }: { label: string; value: string | number; color?: string }) {
+  return (
+    <div className="flex flex-col items-center py-2.5 px-1">
+      <p className="text-sm font-bold" style={{ color }}>{value}</p>
+      <p className="text-[10px] mt-0.5 font-medium" style={{ color: "var(--fg-muted)" }}>{label}</p>
+    </div>
   );
 }
 

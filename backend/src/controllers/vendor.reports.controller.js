@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { bookings, payments, staff } from "../db/schema.js";
 
@@ -37,7 +37,12 @@ function getRangeDates(range) {
     return { start, end, prevStart, prevEnd };
 }
 
-function toYMD(d) { return d.toISOString().slice(0, 10); }
+function toYMD(d) {
+    const y  = d.getFullYear();
+    const m  = String(d.getMonth() + 1).padStart(2, "0");
+    const dy = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dy}`;
+}
 function inRange(dateStr, start, end) {
     if (!start) return true;
     return dateStr >= toYMD(start) && dateStr <= toYMD(end);
@@ -65,6 +70,15 @@ export async function getReports(req, res) {
         }
 
         const vendorId = req.vendor.id;
+        const branchId = req.branchId;
+
+        const bookingFilter = branchId
+            ? and(eq(bookings.vendorId, vendorId), eq(bookings.branchId, branchId))
+            : eq(bookings.vendorId, vendorId);
+
+        const staffFilter = branchId
+            ? and(eq(staff.vendorId, vendorId), eq(staff.branchId, branchId))
+            : eq(staff.vendorId, vendorId);
 
         // Fetch all vendor bookings
         const allBookings = await db
@@ -83,13 +97,13 @@ export async function getReports(req, res) {
                 status:       bookings.status,
             })
             .from(bookings)
-            .where(eq(bookings.vendorId, vendorId));
+            .where(bookingFilter);
 
         // Fetch all vendor staff
         const allStaff = await db
             .select({ salary: staff.salary, status: staff.status })
             .from(staff)
-            .where(eq(staff.vendorId, vendorId));
+            .where(staffFilter);
 
         // ── Filter by range ──
         const filtered = allBookings.filter(b => inRange(b.date, start, end));

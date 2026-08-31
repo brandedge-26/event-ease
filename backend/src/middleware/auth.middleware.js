@@ -24,13 +24,16 @@ export async function authenticateVendor(req, res, next) {
     const branchId = req.headers["x-branch-id"];
     if (branchId) {
         const [branch] = await db
-            .select({ id: branches.id })
+            .select({ id: branches.id, isActive: branches.isActive })
             .from(branches)
             .where(and(eq(branches.id, branchId), eq(branches.vendorId, decoded.id)))
             .limit(1);
 
         if (!branch) {
             return res.status(403).json({ success: false, message: "Invalid branch." });
+        }
+        if (!branch.isActive) {
+            return res.status(403).json({ success: false, message: "BRANCH_DEACTIVATED", branchDeactivated: true });
         }
         req.branchId = branch.id;
     } else {

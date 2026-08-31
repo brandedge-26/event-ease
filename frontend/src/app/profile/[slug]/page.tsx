@@ -46,6 +46,7 @@ export default async function VendorProfilePage({
   let dbHalls: DbHall[] = [];
   let dbReviews: DbReview[] = [];
   let totalEvents = 0;
+  let dbBranches: { id: string; name: string; city: string; isDefault: boolean }[] = [];
 
   try {
     const res = await fetch(`${API_BASE}/api/vendor/profile/${slug}`, {
@@ -54,9 +55,10 @@ export default async function VendorProfilePage({
     const data = await res.json();
     if (data.success) {
       vendor      = data.vendor;
-      dbHalls     = data.halls    ?? [];
-      dbReviews   = data.reviews  ?? [];
-      totalEvents = data.totalEvents ?? 0;
+      dbHalls     = data.halls     ?? [];
+      dbReviews   = data.reviews   ?? [];
+      totalEvents  = data.totalEvents ?? 0;
+      dbBranches  = data.branches  ?? [];
     }
   } catch {
     // network error — show 404
@@ -151,5 +153,5 @@ export default async function VendorProfilePage({
     reviews: dbReviews.map(r => ({ name: r.name, rating: r.rating, text: r.text, date: fmtDate(r.createdAt) })),
   };
 
-  return <PublicProfile vendor={mappedVendor} vendorId={vendor.id} />;
+  return <PublicProfile vendor={mappedVendor} vendorId={vendor.id} branches={dbBranches} />;
 }

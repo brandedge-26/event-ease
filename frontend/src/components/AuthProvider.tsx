@@ -31,8 +31,14 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         if (vendor) {
           setAuth(res.accessToken, vendor);
           if (res.branches && res.branches.length > 0) {
+            // Prefer the user's last-selected branch (persisted in localStorage).
+            // Fall back to the default branch only if the cached id is gone/invalid.
+            const { activeBranchId: cachedId } = getCachedBranches();
+            const validCachedId = cachedId && res.branches.find((b) => b.id === cachedId)
+              ? cachedId
+              : undefined;
             const defaultBranch = res.branches.find((b) => b.isDefault);
-            setBranches(res.branches, defaultBranch?.id);
+            setBranches(res.branches, validCachedId ?? defaultBranch?.id);
           }
         } else {
           clearAuth();

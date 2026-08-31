@@ -9,6 +9,7 @@ export const createInquirySchema = z.object({
     eventDate: z.string().max(20).optional(),
     eventType: z.enum(EVENT_TYPES).optional(),
     guests:    z.number({ error: "Guests must be a number" }).int().min(1).max(100000).optional(),
+    branchId:  z.string().uuid().optional(),
 });
 
 export const updateInquiryStatusSchema = z.object({
