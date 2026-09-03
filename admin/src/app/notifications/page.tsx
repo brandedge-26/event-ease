@@ -25,19 +25,21 @@ type Notification = {
 
 type Pagination = { page: number; pageSize: number; total: number; totalPages: number };
 
-type Filter = "all" | "unread" | "new_application" | "new_vendor";
+type Filter = "all" | "unread" | "new_application" | "new_vendor" | "new_branch";
 
 const FILTERS: { label: string; value: Filter }[] = [
   { label: "All",          value: "all" },
   { label: "Unread",       value: "unread" },
   { label: "Applications", value: "new_application" },
   { label: "Vendors",      value: "new_vendor" },
+  { label: "Branches",     value: "new_branch" },
 ];
 
 // Where to navigate on click per notification type
 const TYPE_ROUTE: Record<string, string> = {
   new_application: "/applications",
   new_vendor:      "/vendors",
+  new_branch:      "/branches",
 };
 
 function timeAgo(iso: string) {
@@ -61,6 +63,11 @@ const TYPE_ICON: Record<string, { bg: string; stroke: string; path: React.ReactN
     bg:     "#F0FDF4",
     stroke: "#16A34A",
     path:   <><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></>,
+  },
+  new_branch: {
+    bg:     "#F5F3FF",
+    stroke: "#7C3AED",
+    path:   <><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 01-9 9"/></>,
   },
   default: {
     bg:     "#EFF6FF",

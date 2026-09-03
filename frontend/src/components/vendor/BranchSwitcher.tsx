@@ -68,7 +68,7 @@ export default function BranchSwitcher() {
               <div key={branch.id} className="group relative">
                 {/* Click to switch branch */}
                 <button
-                  onClick={() => { setBranch(branch.id); setOpen(false); window.location.reload(); }}
+                  onClick={() => { setBranch(branch.id); setOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors hover:bg-[var(--bg-subtle)] cursor-pointer"
                   style={{ color: "var(--fg)" }}
                 >

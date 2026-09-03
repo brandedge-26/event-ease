@@ -13,18 +13,19 @@ import BranchSwitcher from "@/components/vendor/BranchSwitcher";
 const VENUE_TYPES = ["Banquet Hall","Marquee","Ballroom","Wedding Lawn","Hotel Banquet","Rooftop Venue","Farm House"];
 
 const nav = [
-  { label: "Dashboard",      href: "/vendor/general/dashboard",                icon: <GridIcon /> },
-  { label: "Calendar",       href: "/vendor/general/dashboard/calendar",        icon: <CalendarIcon /> },
-  { label: "Bookings",       href: "/vendor/general/dashboard/bookings",        icon: <BookIcon /> },
-  { label: "Inquiries",      href: "/vendor/general/dashboard/inquiries",       icon: <InboxIcon /> },
-  { label: "Notifications",  href: "/vendor/general/dashboard/notifications",   icon: <BellIcon /> },
-  { label: "Customers",      href: "/vendor/general/dashboard/customers",       icon: <UsersIcon /> },
-  { label: "Payments",       href: "/vendor/general/dashboard/payments",        icon: <PaymentIcon /> },
-  { label: "Quotations",     href: "/vendor/general/dashboard/quotations",      icon: <FileIcon /> },
-  { label: "Packages",       href: "/vendor/general/dashboard/packages",        icon: <PackageIcon /> },
-  { label: "Manage Profile", href: "/vendor/general/dashboard/profile",         icon: <BuildingIcon /> },
-  { label: "Staff",          href: "/vendor/general/dashboard/staff",           icon: <StaffIcon /> },
-  { label: "Reports",        href: "/vendor/general/dashboard/reports",         icon: <ChartIcon /> },
+  { label: "Dashboard",      href: "/vendor/general/dashboard",                icon: <GridIcon />,     multiBranchOnly: false },
+  { label: "Overview",       href: "/vendor/general/dashboard/overview",       icon: <OverviewIcon />, multiBranchOnly: true  },
+  { label: "Calendar",       href: "/vendor/general/dashboard/calendar",       icon: <CalendarIcon />, multiBranchOnly: false },
+  { label: "Bookings",       href: "/vendor/general/dashboard/bookings",       icon: <BookIcon />,     multiBranchOnly: false },
+  { label: "Inquiries",      href: "/vendor/general/dashboard/inquiries",      icon: <InboxIcon />,    multiBranchOnly: false },
+  { label: "Notifications",  href: "/vendor/general/dashboard/notifications",  icon: <BellIcon />,     multiBranchOnly: false },
+  { label: "Customers",      href: "/vendor/general/dashboard/customers",      icon: <UsersIcon />,    multiBranchOnly: false },
+  { label: "Payments",       href: "/vendor/general/dashboard/payments",       icon: <PaymentIcon />,  multiBranchOnly: false },
+  { label: "Quotations",     href: "/vendor/general/dashboard/quotations",     icon: <FileIcon />,     multiBranchOnly: false },
+  { label: "Packages",       href: "/vendor/general/dashboard/packages",       icon: <PackageIcon />,  multiBranchOnly: false },
+  { label: "Manage Profile", href: "/vendor/general/dashboard/profile",        icon: <BuildingIcon />, multiBranchOnly: false },
+  { label: "Staff",          href: "/vendor/general/dashboard/staff",          icon: <StaffIcon />,    multiBranchOnly: false },
+  { label: "Reports",        href: "/vendor/general/dashboard/reports",        icon: <ChartIcon />,    multiBranchOnly: false },
 ];
 
 // Shown directly in bottom bar
@@ -36,14 +37,15 @@ const bottomNavMain = [
 
 // Shown in "More" modal
 const bottomNavMore = [
-  { label: "Inquiries",      href: "/vendor/general/dashboard/inquiries",      icon: <InboxIcon /> },
-  { label: "Customers",      href: "/vendor/general/dashboard/customers",      icon: <UsersIcon /> },
-  { label: "Payments",       href: "/vendor/general/dashboard/payments",       icon: <PaymentIcon /> },
-  { label: "Quotations",     href: "/vendor/general/dashboard/quotations",     icon: <FileIcon /> },
-  { label: "Packages",       href: "/vendor/general/dashboard/packages",       icon: <PackageIcon /> },
-  { label: "Manage Profile", href: "/vendor/general/dashboard/profile",        icon: <BuildingIcon /> },
-  { label: "Staff",          href: "/vendor/general/dashboard/staff",          icon: <StaffIcon /> },
-  { label: "Reports",        href: "/vendor/general/dashboard/reports",        icon: <ChartIcon /> },
+  { label: "Overview",       href: "/vendor/general/dashboard/overview",      icon: <OverviewIcon />, multiBranchOnly: true  },
+  { label: "Inquiries",      href: "/vendor/general/dashboard/inquiries",     icon: <InboxIcon />,    multiBranchOnly: false },
+  { label: "Customers",      href: "/vendor/general/dashboard/customers",     icon: <UsersIcon />,    multiBranchOnly: false },
+  { label: "Payments",       href: "/vendor/general/dashboard/payments",      icon: <PaymentIcon />,  multiBranchOnly: false },
+  { label: "Quotations",     href: "/vendor/general/dashboard/quotations",    icon: <FileIcon />,     multiBranchOnly: false },
+  { label: "Packages",       href: "/vendor/general/dashboard/packages",      icon: <PackageIcon />,  multiBranchOnly: false },
+  { label: "Manage Profile", href: "/vendor/general/dashboard/profile",       icon: <BuildingIcon />, multiBranchOnly: false },
+  { label: "Staff",          href: "/vendor/general/dashboard/staff",         icon: <StaffIcon />,    multiBranchOnly: false },
+  { label: "Reports",        href: "/vendor/general/dashboard/reports",       icon: <ChartIcon />,    multiBranchOnly: false },
 ];
 
 function OfflineBarWrapper() {
@@ -70,6 +72,7 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
   const { vendor, clearAuth, isLoading, accessToken, branches, activeBranchId } = useAuthStore();
   const activeBranch = branches.find(b => b.id === activeBranchId);
   const branchDeactivated = activeBranch ? activeBranch.isActive === false : false;
+  const branchPendingApproval = activeBranch ? (!activeBranch.isDefault && activeBranch.isApproved === false) : false;
 
   async function handleLogout() {
     await api.post("/api/vendor/auth/logout", {});
@@ -183,7 +186,7 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
           )}
         </div>
         <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5" style={{ overflowY: "auto", scrollbarWidth: "none" }}>
-          {nav.map((item) => (
+          {nav.filter(item => !item.multiBranchOnly || branches.length > 1).map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -260,7 +263,7 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
         </div>
         <p className="text-sm font-semibold px-5 pb-3" style={{ color: "var(--fg-muted)" }}>More</p>
         <div className="grid grid-cols-4 gap-1 px-3 pb-8">
-          {bottomNavMore.map((item) => (
+          {bottomNavMore.filter(item => !item.multiBranchOnly || branches.length > 1).map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -439,9 +442,48 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
           </div>
         )}
 
+        {/* Branch Pending Approval */}
+        {!branchDeactivated && branchPendingApproval && (
+          <div className="flex-1 flex items-center justify-center p-6" style={{ background: "#F9FAFB" }}>
+            <div className="flex flex-col items-center text-center max-w-md w-full">
+              {/* Icon */}
+              <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6" style={{ background: "#FEF3C7" }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+
+              {/* Heading */}
+              <h2 className="text-2xl font-black mb-2" style={{ color: "#111827" }}>Under Review</h2>
+              <p className="text-sm leading-relaxed mb-6" style={{ color: "#6B7280" }}>
+                <span className="font-semibold" style={{ color: "#374151" }}>{activeBranch?.name}</span> is awaiting admin approval.
+                Our team reviews new branches 24/7 and you'll be able to use this branch once it's approved.
+              </p>
+
+              {/* Info box */}
+              <div className="w-full rounded-2xl px-5 py-4 mb-6 text-left" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+                <p className="text-xs font-semibold mb-2" style={{ color: "#92400E" }}>What you can do:</p>
+                <ul className="text-xs space-y-1" style={{ color: "#B45309" }}>
+                  <li>• Switch to your approved branch from the top header</li>
+                  <li>• Approval usually takes a few hours — we're available 24/7</li>
+                  <li>• Contact support if approval is delayed</li>
+                </ul>
+              </div>
+
+              {/* Switch branch hint */}
+              {branches.filter((b: any) => b.isApproved && b.isActive && b.id !== activeBranchId).length > 0 && (
+                <p className="text-xs" style={{ color: "#9CA3AF" }}>
+                  Use the branch switcher in the top right to switch to an approved branch
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Page Content */}
-        {!branchDeactivated && (
-          <main className="flex-1 min-w-0 overflow-x-hidden">
+        {!branchDeactivated && !branchPendingApproval && (
+          <main key={activeBranchId} className="flex-1 min-w-0 overflow-x-hidden">
             <OfflineBarWrapper />
             {children}
           </main>
@@ -480,6 +522,9 @@ export default function GeneralDashboardLayout({ children }: { children: React.R
   );
 }
 
+function OverviewIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M3 14h7v7H3z"/><path d="M14 17.5h7M17.5 14v7"/></svg>;
+}
 function CalendarIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 }

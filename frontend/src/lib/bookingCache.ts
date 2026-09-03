@@ -1,22 +1,32 @@
-// LocalStorage cache for bookings — shown when user is offline
+// LocalStorage cache for bookings — shown when user is offline.
+// Keys are automatically scoped per branch so switching branches offline
+// serves the correct branch's data instead of shared/overwritten data.
+
+import { resolveActiveBranchId } from "@/lib/api";
 
 const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 type CacheEntry<T> = { data: T[]; savedAt: number };
 
+// Append the current branch ID to the base key so each branch has its own slot.
+function scopedKey(base: string): string {
+  const branchId = resolveActiveBranchId();
+  return branchId ? `${base}_${branchId}` : base;
+}
+
 export function saveToCache<T>(key: string, data: T[]): void {
   try {
-    localStorage.setItem(key, JSON.stringify({ data, savedAt: Date.now() } satisfies CacheEntry<T>));
+    localStorage.setItem(scopedKey(key), JSON.stringify({ data, savedAt: Date.now() } satisfies CacheEntry<T>));
   } catch { /* storage full — ignore */ }
 }
 
 export function loadFromCache<T>(key: string): T[] | null {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(scopedKey(key));
     if (!raw) return null;
     const entry = JSON.parse(raw) as CacheEntry<T>;
     if (Date.now() - entry.savedAt > MAX_AGE_MS) {
-      localStorage.removeItem(key);
+      localStorage.removeItem(scopedKey(key));
       return null;
     }
     return entry.data;

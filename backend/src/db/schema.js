@@ -59,9 +59,19 @@ export const branches = pgTable("branches", {
     city:      text("city").notNull(),
     area:      text("area").notNull(),
     address:   text("address").notNull(),
-    isDefault: boolean("is_default").default(false),
-    isActive:  boolean("is_active").default(true),
-    createdAt: timestamp("created_at").defaultNow(),
+    // Branch-specific contact
+    phone:         text("phone"),
+    whatsapp:      text("whatsapp"),
+    email:         text("email"),
+    // Branch-specific details
+    established:   integer("established"),
+    startingPrice: integer("starting_price"),
+    mapUrl:        text("map_url"),
+    galleryImages: text("gallery_images").array(),
+    isDefault:  boolean("is_default").default(false),
+    isActive:   boolean("is_active").default(true),
+    isApproved: boolean("is_approved").default(false),
+    createdAt:  timestamp("created_at").defaultNow(),
 });
 
 // ─── Halls ────────────────────────────────────────────────────────────────────

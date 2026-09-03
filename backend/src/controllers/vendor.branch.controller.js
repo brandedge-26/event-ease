@@ -2,6 +2,7 @@ import { eq, and, ne } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "../db/index.js";
 import { branches } from "../db/schema.js";
+import { createNotification } from "../utils/notify.js";
 
 // GET /api/vendor/branches
 export async function getBranches(req, res) {
@@ -21,22 +22,44 @@ export async function getBranches(req, res) {
 export async function createBranch(req, res) {
     try {
         const vendorId = req.vendor.id;
-        const { name, city, area, address } = req.body;
+        const { name, city, area, address, phone, whatsapp, email, established, startingPrice, mapUrl } = req.body;
 
         if (!name || !city || !area || !address) {
             return res.status(400).json({ success: false, message: "name, city, area, address are required." });
+        }
+
+        // Smart-extract map URL from iframe embed code
+        let resolvedMapUrl = mapUrl ?? null;
+        if (resolvedMapUrl) {
+            const match = resolvedMapUrl.match(/src="([^"]+)"/);
+            if (match) resolvedMapUrl = match[1];
         }
 
         const id = randomUUID();
         const [branch] = await db.insert(branches).values({
             id,
             vendorId,
-            name:      name.trim(),
-            city:      city.trim(),
-            area:      area.trim(),
-            address:   address.trim(),
-            isDefault: false,
+            name:          name.trim(),
+            city:          city.trim(),
+            area:          area.trim(),
+            address:       address.trim(),
+            phone:         phone?.trim()   || null,
+            whatsapp:      whatsapp?.trim() || null,
+            email:         email?.trim()   || null,
+            established:   established ? Number(established) : null,
+            startingPrice: startingPrice ? Number(startingPrice) : null,
+            mapUrl:        resolvedMapUrl,
+            isDefault:     false,
+            isApproved:    false,
         }).returning();
+
+        // Notify admin about new branch awaiting approval
+        createNotification({
+            type:  "new_branch",
+            title: "New Branch Awaiting Approval",
+            body:  `${req.vendor.name} added a new branch "${branch.name}" in ${branch.city}. Review and approve it in the Branches section.`,
+            refId: branch.id,
+        });
 
         return res.status(201).json({ success: true, branch });
     } catch (err) {
@@ -50,7 +73,7 @@ export async function updateBranch(req, res) {
     try {
         const vendorId = req.vendor.id;
         const { id } = req.params;
-        const { name, city, area, address } = req.body;
+        const { name, city, area, address, phone, whatsapp, email, established, startingPrice, mapUrl, galleryImages } = req.body;
 
         const [existing] = await db.select({ vendorId: branches.vendorId })
             .from(branches).where(eq(branches.id, id)).limit(1);
@@ -59,13 +82,28 @@ export async function updateBranch(req, res) {
             return res.status(403).json({ success: false, message: "Forbidden." });
         }
 
+        // Smart-extract map URL from iframe embed code
+        let resolvedMapUrl = mapUrl;
+        if (resolvedMapUrl != null) {
+            const match = resolvedMapUrl.match(/src="([^"]+)"/);
+            if (match) resolvedMapUrl = match[1];
+        }
+
+        const updates = {};
+        if (name          !== undefined) updates.name          = name.trim();
+        if (city          !== undefined) updates.city          = city.trim();
+        if (area          !== undefined) updates.area          = area.trim();
+        if (address       !== undefined) updates.address       = address.trim();
+        if (phone         !== undefined) updates.phone         = phone?.trim()   || null;
+        if (whatsapp      !== undefined) updates.whatsapp      = whatsapp?.trim() || null;
+        if (email         !== undefined) updates.email         = email?.trim()   || null;
+        if (established   !== undefined) updates.established   = established ? Number(established) : null;
+        if (startingPrice !== undefined) updates.startingPrice = startingPrice ? Number(startingPrice) : null;
+        if (resolvedMapUrl !== undefined) updates.mapUrl       = resolvedMapUrl || null;
+        if (galleryImages !== undefined) updates.galleryImages = galleryImages;
+
         const [updated] = await db.update(branches)
-            .set({
-                ...(name    ? { name:    name.trim()    } : {}),
-                ...(city    ? { city:    city.trim()    } : {}),
-                ...(area    ? { area:    area.trim()    } : {}),
-                ...(address ? { address: address.trim() } : {}),
-            })
+            .set(updates)
             .where(eq(branches.id, id))
             .returning();
 

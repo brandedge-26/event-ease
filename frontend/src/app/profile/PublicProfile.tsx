@@ -23,7 +23,21 @@ function decodeSvc(s: string): { name: string; price: string } {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
 type InquiryForm = { name: string; phone: string; message: string; eventDate: string; eventType: string; guests: string; branchId: string };
-type PublicBranch = { id: string; name: string; city: string; isDefault: boolean };
+type PublicBranch = {
+  id:            string;
+  name:          string;
+  city:          string;
+  area:          string;
+  address:       string;
+  isDefault:     boolean;
+  phone:         string | null;
+  whatsapp:      string | null;
+  email:         string | null;
+  established:   number | null;
+  startingPrice: number | null;
+  mapUrl:        string | null;
+  galleryImages: string[] | null;
+};
 
 export default function PublicProfile({ vendor: vendorProp, vendorId, branches = [] }: { vendor: Vendor; vendorId: string; branches?: PublicBranch[] }) {
   const { vendorProfile } = useStore();
@@ -31,21 +45,38 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
   const isVenue = VENUE_TYPES.has(vendor.businessType ?? "");
   const [tab, setTab] = useState<Tab>("about");
   const [slide, setSlide] = useState(0);
+  const defaultBranch = branches.find(b => b.isDefault) ?? branches[0];
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(defaultBranch?.id ?? "");
+  const activeBranch = branches.find(b => b.id === selectedBranchId) ?? defaultBranch ?? null;
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [loadedGalleryImages, setLoadedGalleryImages] = useState<Set<number>>(new Set());
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  const minPrice = vendor.halls.length > 0 ? Math.min(...vendor.halls.map(h => h.price)) : 0;
+
+  // Branch-aware display values (fall back to vendor when branch has no override)
+  const displayPhone    = activeBranch?.phone    || vendor.phone;
+  const displayWhatsapp = activeBranch?.whatsapp || vendor.whatsapp;
+  const displayMapUrl   = activeBranch?.mapUrl   || vendor.mapUrl;
+  const displayLocation = activeBranch
+    ? [activeBranch.city, activeBranch.area, activeBranch.address].filter(Boolean).join(", ")
+    : vendor.location;
+  const displayEstablished = activeBranch?.established ?? vendor.established;
+  const displayStartingPrice = activeBranch?.startingPrice ?? (vendor.halls.length > 0 ? Math.min(...vendor.halls.map(h => h.price)) : null);
+  const branchGallery = activeBranch?.galleryImages?.length
+    ? activeBranch.galleryImages.map((url, i) => ({ label: `Photo ${i + 1}`, sublabel: vendor.name, gradient: vendor.coverGradient, icon: "", imageUrl: url }))
+    : vendor.gallery;
+
   useEffect(() => {
     if (lightboxIndex === null) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowRight") setLightboxIndex(i => i !== null ? (i + 1) % vendor.gallery.length : null);
-      if (e.key === "ArrowLeft")  setLightboxIndex(i => i !== null ? (i - 1 + vendor.gallery.length) % vendor.gallery.length : null);
+      if (e.key === "ArrowRight") setLightboxIndex(i => i !== null ? (i + 1) % branchGallery.length : null);
+      if (e.key === "ArrowLeft")  setLightboxIndex(i => i !== null ? (i - 1 + branchGallery.length) % branchGallery.length : null);
       if (e.key === "Escape")     setLightboxIndex(null);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxIndex, vendor.gallery.length]);
-  const minPrice = vendor.halls.length > 0 ? Math.min(...vendor.halls.map(h => h.price)) : 0;
+  }, [lightboxIndex, branchGallery.length]);
 
   // Local reviews state (starts with server-fetched reviews, updated optimistically)
   const [localReviews, setLocalReviews] = useState(vendor.reviews);
@@ -71,11 +102,17 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
 
   // Inquiry modal state
   const [inquiryOpen, setInquiryOpen] = useState(false);
-  const defaultBranch = branches.find(b => b.isDefault) ?? branches[0];
   const [inquiryForm, setInquiryForm] = useState<InquiryForm>({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "", branchId: defaultBranch?.id ?? "" });
   const [inquirySending, setInquirySending] = useState(false);
   const [inquiryDone,    setInquiryDone]    = useState(false);
   const [inquiryError,   setInquiryError]   = useState("");
+
+  // Sync inquiry branch when user switches branch
+  useEffect(() => {
+    if (selectedBranchId) {
+      setInquiryForm(f => ({ ...f, branchId: selectedBranchId }));
+    }
+  }, [selectedBranchId]);
 
   async function submitInquiry(e: React.FormEvent) {
     e.preventDefault();
@@ -111,7 +148,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
   function openInquiry() {
     setInquiryDone(false);
     setInquiryError("");
-    setInquiryForm({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "", branchId: defaultBranch?.id ?? "" });
+    setInquiryForm({ name: "", phone: "", message: "", eventDate: "", eventType: "", guests: "", branchId: selectedBranchId || defaultBranch?.id || "" });
     setInquiryOpen(true);
   }
 
@@ -144,7 +181,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
     }
   }
 
-  const galleryImages = vendor.gallery.filter(g => g.imageUrl);
+  const galleryImages = branchGallery.filter(g => g.imageUrl);
   const hasGallery = galleryImages.length > 0;
   const prevSlide = () => setSlide(s => (s - 1 + galleryImages.length) % galleryImages.length);
   const nextSlide = () => setSlide(s => (s + 1) % galleryImages.length);
@@ -267,12 +304,12 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
 
               {/* CTA buttons — visible everywhere */}
               <div className="flex gap-2.5 lg:gap-3">
-                <a href={`tel:${vendor.phone}`}
+                <a href={`tel:${displayPhone}`}
                   className="flex items-center justify-center gap-1.5 flex-1 py-2.5 lg:py-3 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
                   style={{ background: PRIMARY, color: "#fff" }}>
                   <PhoneIcon /> Call Now
                 </a>
-                <a href={`https://wa.me/${vendor.whatsapp}`} target="_blank" rel="noopener noreferrer"
+                <a href={`https://wa.me/${displayWhatsapp}`} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-1.5 flex-1 py-2.5 lg:py-3 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50"
                   style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
                   <WhatsAppIcon /> WhatsApp
@@ -321,6 +358,27 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
             </div>
 
           </div>
+
+          {/* Branch Selector */}
+          {branches.length > 1 && (
+            <div className="flex gap-2 flex-wrap mb-4">
+              {branches.map(b => (
+                <button
+                  key={b.id}
+                  onClick={() => setSelectedBranchId(b.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer"
+                  style={selectedBranchId === b.id
+                    ? { background: PRIMARY, color: "#fff", borderColor: PRIMARY }
+                    : { background: "#fff", color: "#374151", borderColor: "#E5E7EB" }
+                  }
+                >
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="10" cy="10" r="3"/></svg>
+                  {b.name}
+                  {b.isDefault && selectedBranchId !== b.id && <span className="opacity-50">(Main)</span>}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Stats row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-3 mt-4 lg:mt-0">
@@ -423,9 +481,9 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
                   <Label>Contact Information</Label>
                   <div className="space-y-2.5">
                     {[
-                      { label: "Phone",   value: vendor.phone,    icon: <PhoneIcon2 />, href: `tel:${vendor.phone}` },
-                      { label: "Email",   value: vendor.email,    icon: <EmailIcon />,  href: `mailto:${vendor.email}` },
-                      { label: "Address", value: vendor.location, icon: <LocationIcon />, href: undefined },
+                      { label: "Phone",   value: displayPhone,    icon: <PhoneIcon2 />, href: `tel:${displayPhone}` },
+                      { label: "Email",   value: activeBranch?.email ?? vendor.email, icon: <EmailIcon />,  href: `mailto:${activeBranch?.email ?? vendor.email}` },
+                      { label: "Address", value: displayLocation, icon: <LocationIcon />, href: undefined },
                     ].map(row => (
                       <div key={row.label} className="flex items-center gap-3 py-2.5 px-3 lg:px-4 rounded-xl" style={{ background: "#F9FAFB" }}>
                         <div className="w-8 h-8 lg:w-9 lg:h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#F3F4F6", color: "#6B7280" }}>
@@ -442,13 +500,13 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
                     ))}
                   </div>
                 </div>
-                {vendor.mapUrl && (
+                {displayMapUrl && (
                   <div className="bg-white rounded-2xl overflow-hidden" style={{ border: "1px solid #F0F0F0" }}>
                     <div className="px-4 lg:px-5 pt-4 lg:pt-5 pb-3">
                       <Label>Location on Map</Label>
                     </div>
                     <iframe
-                      src={vendor.mapUrl!}
+                      src={displayMapUrl}
                       width="100%"
                       height="300"
                       style={{ border: 0, display: "block" }}
@@ -464,7 +522,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
             {/* ── Gallery ── */}
             {tab === "gallery" && (
               <div>
-                {vendor.gallery.length === 0 ? (
+                {branchGallery.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-sm font-medium text-black mb-1">No photos yet</p>
                     <p className="text-xs" style={{ color: "#9CA3AF" }}>Gallery photos will appear here once added.</p>
@@ -472,7 +530,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
                 ) : (
                   <>
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 lg:gap-3">
-                      {vendor.gallery.map((g, i) => (
+                      {branchGallery.map((g, i) => (
                         <div key={i} onClick={() => setLightboxIndex(i)} className="rounded-2xl overflow-hidden relative group cursor-pointer" style={{ aspectRatio: "4/3" }}>
                           {g.imageUrl ? (
                             <>
@@ -506,7 +564,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
                         </div>
                       ))}
                     </div>
-                    <p className="text-center text-xs mt-3" style={{ color: "#9CA3AF" }}>{vendor.gallery.length} event highlights</p>
+                    <p className="text-center text-xs mt-3" style={{ color: "#9CA3AF" }}>{branchGallery.length} event highlights</p>
                   </>
                 )}
               </div>
@@ -668,9 +726,9 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
             <div className="sticky top-16 rounded-2xl overflow-hidden" style={{ border: "1px solid #E5E7EB", background: "#fff" }}>
               <div className="p-5">
                 <p className="text-[11px] font-medium mb-1" style={{ color: "#9CA3AF" }}>Starting from</p>
-                {vendor.halls.length > 0 ? (
+                {displayStartingPrice !== null ? (
                   <>
-                    <p className="text-3xl font-black leading-tight" style={{ color: PRIMARY }}>Rs. {minPrice.toLocaleString("en-PK")}</p>
+                    <p className="text-3xl font-black leading-tight" style={{ color: PRIMARY }}>Rs. {(displayStartingPrice ?? 0).toLocaleString("en-PK")}</p>
                     <p className="text-xs mt-0.5 mb-5" style={{ color: "#9CA3AF" }}>
                       per event · {vendor.halls.length} {isVenue ? `hall${vendor.halls.length > 1 ? "s" : ""}` : `service${vendor.halls.length > 1 ? "s" : ""}`} available
                     </p>
@@ -678,12 +736,12 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
                 ) : (
                   <p className="text-xl font-bold mb-5" style={{ color: PRIMARY }}>Contact for pricing</p>
                 )}
-                <a href={`tel:${vendor.phone}`}
+                <a href={`tel:${displayPhone}`}
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold mb-2.5 transition-opacity hover:opacity-90"
                   style={{ background: PRIMARY, color: "#fff" }}>
                   <PhoneIcon /> Call Now
                 </a>
-                <a href={`https://wa.me/${vendor.whatsapp}`} target="_blank" rel="noopener noreferrer"
+                <a href={`https://wa.me/${displayWhatsapp}`} target="_blank" rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-bold border transition-colors hover:bg-gray-50 mb-2.5"
                   style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
                   <WhatsAppIcon /> WhatsApp
@@ -702,7 +760,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
                         : (vendor.totalEvents === 1 ? "Event Covered" : "Events Covered"),
                       v: `${vendor.totalEvents.toLocaleString()}+` },
                     { k: "Rating",        v: `${localRating} / 5` },
-                    { k: "Established",   v: `${vendor.established}` },
+                    { k: "Established",   v: `${displayEstablished}` },
                   ].filter(Boolean).map(row => (
                     <div key={row!.k} className="flex items-center justify-between">
                       <span className="text-sm" style={{ color: "#6B7280" }}>{row!.k}</span>
@@ -727,9 +785,9 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
 
       {/* ── Lightbox ── */}
       {lightboxIndex !== null && (() => {
-        const g    = vendor.gallery[lightboxIndex];
-        const prev = () => setLightboxIndex((lightboxIndex - 1 + vendor.gallery.length) % vendor.gallery.length);
-        const next = () => setLightboxIndex((lightboxIndex + 1) % vendor.gallery.length);
+        const g    = branchGallery[lightboxIndex];
+        const prev = () => setLightboxIndex((lightboxIndex - 1 + branchGallery.length) % branchGallery.length);
+        const next = () => setLightboxIndex((lightboxIndex + 1) % branchGallery.length);
         return (
           <div className="fixed inset-0 z-[60] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.92)" }}
             onClick={() => setLightboxIndex(null)}>
@@ -744,11 +802,11 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
             {/* Counter */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full text-xs font-semibold text-white z-10"
               style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)" }}>
-              {lightboxIndex + 1} / {vendor.gallery.length}
+              {lightboxIndex + 1} / {branchGallery.length}
             </div>
 
             {/* Prev */}
-            {vendor.gallery.length > 1 && (
+            {branchGallery.length > 1 && (
               <button onClick={(e) => { e.stopPropagation(); prev(); }}
                 className="absolute left-3 lg:left-6 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer transition-colors hover:bg-white/10 z-10"
                 style={{ color: "#fff", background: "rgba(255,255,255,0.1)" }}>
@@ -778,7 +836,7 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
             </div>
 
             {/* Next */}
-            {vendor.gallery.length > 1 && (
+            {branchGallery.length > 1 && (
               <button onClick={(e) => { e.stopPropagation(); next(); }}
                 className="absolute right-3 lg:right-6 w-11 h-11 rounded-full flex items-center justify-center cursor-pointer transition-colors hover:bg-white/10 z-10"
                 style={{ color: "#fff", background: "rgba(255,255,255,0.1)" }}>
@@ -787,9 +845,9 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
             )}
 
             {/* Dot indicators */}
-            {vendor.gallery.length > 1 && (
+            {branchGallery.length > 1 && (
               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-                {vendor.gallery.map((_, i) => (
+                {branchGallery.map((_, i) => (
                   <button key={i} onClick={(e) => { e.stopPropagation(); setLightboxIndex(i); }}
                     className="rounded-full transition-all cursor-pointer"
                     style={{ width: i === lightboxIndex ? 20 : 6, height: 6, background: i === lightboxIndex ? "#fff" : "rgba(255,255,255,0.35)" }} />
@@ -1042,9 +1100,9 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
         <div className="flex items-center gap-2.5 px-4 py-3">
           <div className="flex-1 min-w-0">
             <p className="text-[10px]" style={{ color: "#9CA3AF" }}>Starting from</p>
-            {vendor.halls.length > 0 ? (
+            {displayStartingPrice !== null ? (
               <p className="text-sm font-bold leading-tight truncate" style={{ color: PRIMARY }}>
-                Rs. {minPrice.toLocaleString("en-PK")}
+                Rs. {displayStartingPrice.toLocaleString("en-PK")}
               </p>
             ) : (
               <p className="text-sm font-bold leading-tight truncate" style={{ color: PRIMARY }}>
@@ -1052,12 +1110,12 @@ export default function PublicProfile({ vendor: vendorProp, vendorId, branches =
               </p>
             )}
           </div>
-          <a href={`tel:${vendor.phone}`}
+          <a href={`tel:${displayPhone}`}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-90 shrink-0"
             style={{ background: PRIMARY, color: "#fff" }}>
             <PhoneIcon /> Call
           </a>
-          <a href={`https://wa.me/${vendor.whatsapp}`} target="_blank" rel="noopener noreferrer"
+          <a href={`https://wa.me/${displayWhatsapp}`} target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-center w-10 h-10 rounded-xl border transition-colors hover:bg-gray-50 shrink-0"
             style={{ background: "#fff", color: "#111", borderColor: "#E5E7EB" }}>
             <WhatsAppIcon />

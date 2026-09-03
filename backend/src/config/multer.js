@@ -75,3 +75,19 @@ export const uploadPromoBanner = multer({
     storage: promoBannerStorage,
     limits:  IMG_LIMIT,
 });
+
+// ─── Branch gallery ────────────────────────────────────────────────────────────
+// eventease/vendors/{vendorId}/branches/{branchId}/gallery
+const branchGalleryStorage = new CloudinaryStorage({
+    cloudinary,
+    params: async (req) => ({
+        folder:          `eventease/vendors/${req.vendor?.id ?? "unknown"}/branches/${req.params.id ?? "unknown"}/gallery`,
+        allowed_formats: FORMATS,
+        transformation:  [{ width: 1200, height: 800, crop: "limit", quality: "auto" }],
+    }),
+});
+
+export const uploadBranchGallery = multer({
+    storage: branchGalleryStorage,
+    limits:  IMG_LIMIT,
+});

@@ -62,6 +62,8 @@ export default function VendorsPage() {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState("");
   const [actingId,   setActingId]   = useState<string | null>(null);
+  const [search,     setSearch]     = useState("");
+  const searchRef = useRef("");
 
   // Drawer
   const [drawer,        setDrawer]        = useState<VendorDetail | null>(null);
@@ -71,12 +73,24 @@ export default function VendorsPage() {
   const [modal,     setModal]     = useState<{ type: ModalType; vendor: Vendor } | null>(null);
   const [modalBusy, setModalBusy] = useState(false);
 
-  useEffect(() => { fetchVendors(1); }, []);
+  useEffect(() => { fetchVendors(1, ""); }, []);
 
-  async function fetchVendors(page: number) {
+  // Debounce search — fires 400ms after user stops typing
+  useEffect(() => {
+    const q = search.trim();
+    searchRef.current = q;
+    const t = setTimeout(() => {
+      if (searchRef.current === q) fetchVendors(1, q);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [search]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function fetchVendors(page: number, q: string) {
     setLoading(true);
     try {
-      const res  = await adminFetch(`/admin/vendors?page=${page}`);
+      const params = new URLSearchParams({ page: String(page) });
+      if (q) params.set("search", q);
+      const res  = await adminFetch(`/admin/vendors?${params}`);
       const data = await res.json();
       if (data.success) {
         setVendors(data.vendors);
@@ -93,7 +107,7 @@ export default function VendorsPage() {
 
   function goToPage(p: number) {
     if (p < 1 || p > pagination.totalPages) return;
-    fetchVendors(p);
+    fetchVendors(p, search.trim());
   }
 
   async function openDrawer(id: string) {
@@ -176,11 +190,39 @@ export default function VendorsPage() {
     <div className="p-4 lg:p-6 min-h-screen" style={{ background: "var(--bg-subtle)" }}>
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-bold" style={{ color: "#111827" }}>Vendors</h1>
-        <p className="text-sm mt-0.5" style={{ color: "var(--fg-muted)" }}>
-          {loading ? "Loading…" : `${pagination.total} registered vendor${pagination.total !== 1 ? "s" : ""}`}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: "#111827" }}>Vendors</h1>
+          <p className="text-sm mt-0.5" style={{ color: "var(--fg-muted)" }}>
+            {loading ? "Loading…" : `${pagination.total} vendor${pagination.total !== 1 ? "s" : ""}${search.trim() ? " found" : " registered"}`}
+          </p>
+        </div>
+        {/* Search */}
+        <div className="relative w-full sm:w-72">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "var(--fg-muted)" }}>
+            <SearchIcon />
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name, email, city…"
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none border transition-all"
+            style={{
+              background: "#fff",
+              borderColor: "var(--border)",
+              color: "#111827",
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer transition-opacity hover:opacity-70"
+              style={{ color: "var(--fg-muted)" }}>
+              <CloseIcon />
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -220,8 +262,8 @@ export default function VendorsPage() {
                 ))
               ) : vendors.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-16 text-center text-sm" style={{ color: "var(--fg-muted)" }}>
-                    No vendors registered yet.
+                  <td colSpan={8} className="px-5 py-16 text-center text-sm" style={{ color: "var(--fg-muted)" }}>
+                    {search.trim() ? `No vendors found for "${search.trim()}".` : "No vendors registered yet."}
                   </td>
                 </tr>
               ) : (
@@ -344,7 +386,9 @@ export default function VendorsPage() {
               </div>
             ))
           ) : vendors.length === 0 ? (
-            <p className="p-8 text-center text-sm" style={{ color: "var(--fg-muted)" }}>No vendors yet.</p>
+            <p className="p-8 text-center text-sm" style={{ color: "var(--fg-muted)" }}>
+              {search.trim() ? `No vendors found for "${search.trim()}".` : "No vendors yet."}
+            </p>
           ) : (
             vendors.map(v => (
               <div key={v.id} className="p-4 flex flex-col gap-3">
@@ -841,5 +885,6 @@ function ShieldIcon() { return <svg width="15" height="15" viewBox="0 0 24 24" f
 function BlockIcon()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>; }
 function TrashIcon()  { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>; }
 function CloseIcon()       { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>; }
+function SearchIcon()      { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>; }
 function ChevronLeftIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>; }
 function ChevronRightIcon(){ return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>; }

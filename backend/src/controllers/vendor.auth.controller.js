@@ -119,13 +119,14 @@ export async function register(req, res, next) {
         });
 
         await db.insert(branches).values({
-            id:        branchId,
+            id:         branchId,
             vendorId,
-            name:      `${businessName.trim()} — ${city.trim()}`,
-            city:      city.trim(),
-            area:      area.trim(),
-            address:   address.trim(),
-            isDefault: true,
+            name:       `${businessName.trim()} — ${city.trim()}`,
+            city:       city.trim(),
+            area:       area.trim(),
+            address:    address.trim(),
+            isDefault:  true,
+            isApproved: true,
         });
 
         if (hallRows.length) {
@@ -230,13 +231,14 @@ export async function login(req, res, next) {
             if (!existing) {
                 const branchId = crypto.randomUUID();
                 const [newBranch] = await db.insert(branches).values({
-                    id:        branchId,
-                    vendorId:  vendor.id,
-                    name:      `${vendor.name} — ${vendor.city}`,
-                    city:      vendor.city,
-                    area:      vendor.area,
-                    address:   address ?? vendor.city,
-                    isDefault: true,
+                    id:         branchId,
+                    vendorId:   vendor.id,
+                    name:       `${vendor.name} — ${vendor.city}`,
+                    city:       vendor.city,
+                    area:       vendor.area,
+                    address:    address ?? vendor.city,
+                    isDefault:  true,
+                    isApproved: true,
                 }).returning();
                 vendorBranches = [newBranch];
             } else {
@@ -322,13 +324,14 @@ export async function refreshAccessToken(req, res, next) {
             if (!existing) {
                 const branchId = crypto.randomUUID();
                 const [newBranch] = await db.insert(branches).values({
-                    id:        branchId,
-                    vendorId:  vendor.id,
-                    name:      `${vendor.name} — ${vendor.city}`,
-                    city:      vendor.city,
-                    area:      vendor.area,
-                    address:   vendor.address ?? vendor.city,
-                    isDefault: true,
+                    id:         branchId,
+                    vendorId:   vendor.id,
+                    name:       `${vendor.name} — ${vendor.city}`,
+                    city:       vendor.city,
+                    area:       vendor.area,
+                    address:    vendor.address ?? vendor.city,
+                    isDefault:  true,
+                    isApproved: true,
                 }).returning();
                 vendorBranches = [newBranch];
             } else {

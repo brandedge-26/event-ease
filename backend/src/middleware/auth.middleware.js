@@ -3,6 +3,23 @@ import { db } from "../db/index.js";
 import { branches } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 
+// Vendor-only auth — validates token but skips branch checking entirely.
+// Use for routes that intentionally aggregate across all branches (e.g. overview).
+export async function authenticateVendorNoBranch(req, res, next) {
+    const header = req.headers.authorization;
+    if (!header?.startsWith("Bearer ")) {
+        return res.status(401).json({ success: false, message: "Access token required." });
+    }
+    const token = header.slice(7);
+    try {
+        req.vendor = verifyAccessToken(token);
+    } catch {
+        return res.status(401).json({ success: false, message: "Invalid or expired access token." });
+    }
+    req.branchId = null;
+    next();
+}
+
 // Protects vendor routes — expects Bearer token in Authorization header
 export async function authenticateVendor(req, res, next) {
     const header = req.headers.authorization;
@@ -24,13 +41,17 @@ export async function authenticateVendor(req, res, next) {
     const branchId = req.headers["x-branch-id"];
     if (branchId) {
         const [branch] = await db
-            .select({ id: branches.id, isActive: branches.isActive })
+            .select({ id: branches.id, isActive: branches.isActive, isApproved: branches.isApproved, isDefault: branches.isDefault })
             .from(branches)
             .where(and(eq(branches.id, branchId), eq(branches.vendorId, decoded.id)))
             .limit(1);
 
         if (!branch) {
             return res.status(403).json({ success: false, message: "Invalid branch." });
+        }
+        // Default branches are always pre-approved — only check secondary branches
+        if (!branch.isDefault && !branch.isApproved) {
+            return res.status(403).json({ success: false, message: "BRANCH_PENDING_APPROVAL", branchPendingApproval: true });
         }
         if (!branch.isActive) {
             return res.status(403).json({ success: false, message: "BRANCH_DEACTIVATED", branchDeactivated: true });

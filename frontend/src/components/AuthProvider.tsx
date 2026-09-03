@@ -78,17 +78,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     restoreSession();
-
-    // When internet comes back, if we're in offline-session mode, get a real token
-    function handleOnline() {
-      const { accessToken } = useAuthStore.getState();
-      if (accessToken === "offline-session") {
-        restoreSession();
-      }
-    }
-
-    window.addEventListener("online", handleOnline);
-    return () => window.removeEventListener("online", handleOnline);
+    // Token refresh on reconnect is handled by useOfflineSync (refreshTokenAndSync).
+    // Adding a second handler here creates duplicate refresh calls that race with
+    // the sync and can overwrite post-sync data with a pre-sync fetch result.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <>{children}</>;

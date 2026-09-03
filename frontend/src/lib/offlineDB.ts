@@ -36,7 +36,9 @@ export async function addPending(
   return new Promise((resolve, reject) => {
     const tx  = db.transaction(STORE, "readwrite");
     const req = tx.objectStore(STORE).add({ ...data, id, retries: 0 });
-    req.onsuccess = () => resolve(id);
+    // Resolve on tx.oncomplete (data is durably committed), not req.onsuccess
+    tx.oncomplete = () => resolve(id);
+    tx.onabort    = () => reject(tx.error);
     req.onerror   = () => reject(req.error);
   });
 }

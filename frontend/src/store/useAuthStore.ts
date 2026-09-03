@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { VendorSession, Branch } from "@/lib/api";
-import { setActiveBranch } from "@/lib/api";
+import { setActiveBranch, registerBranchGetter } from "@/lib/api";
 
 interface AuthState {
   accessToken:    string | null;
@@ -64,6 +64,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ branches, activeBranchId });
   },
 }));
+
+// Wire api.ts to always read the live branch ID straight from Zustand state.
+// This is the most reliable source — no module-variable staleness, no localStorage timing gaps.
+registerBranchGetter(() => useAuthStore.getState().activeBranchId);
 
 /** Read cached vendor without touching Zustand state */
 export function getCachedVendor(): VendorSession | null {

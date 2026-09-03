@@ -1,16 +1,26 @@
-import { eq, desc, count, and, sum } from "drizzle-orm";
+import { eq, desc, count, and, sum, or, ilike } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { vendors, halls, branches, bookings } from "../db/schema.js";
 
 const PAGE_SIZE = 10;
 
-// GET /api/admin/vendors?page=1 — paginated vendors with hall count
+// GET /api/admin/vendors?page=1&search=query — paginated vendors with hall count
 export async function getAllVendors(req, res) {
     try {
         const page   = Math.max(1, parseInt(req.query.page) || 1);
         const offset = (page - 1) * PAGE_SIZE;
+        const search = req.query.search?.trim() ?? "";
 
-        const [{ total }] = await db.select({ total: count() }).from(vendors);
+        const where = search
+            ? or(
+                ilike(vendors.name,  `%${search}%`),
+                ilike(vendors.email, `%${search}%`),
+                ilike(vendors.city,  `%${search}%`),
+                ilike(vendors.phone, `%${search}%`),
+              )
+            : undefined;
+
+        const [{ total }] = await db.select({ total: count() }).from(vendors).where(where);
 
         const pageVendors = await db
             .select({
@@ -28,6 +38,7 @@ export async function getAllVendors(req, res) {
                 createdAt:    vendors.createdAt,
             })
             .from(vendors)
+            .where(where)
             .orderBy(desc(vendors.createdAt))
             .limit(PAGE_SIZE)
             .offset(offset);

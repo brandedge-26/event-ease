@@ -291,61 +291,352 @@ function ServiceDrawer({ initial, onSave, onClose, loading }: {
   );
 }
 
+// ─── Branch Drawer ────────────────────────────────────────────────────────────
+function BranchDrawer({ initial, onSave, onClose, accessToken }: {
+  initial?: import("@/lib/api").Branch;
+  onSave: (formData: Record<string, string>, files: File[]) => Promise<void>;
+  onClose: () => void;
+  accessToken: string;
+}) {
+  const [form, setForm] = useState({
+    name:          initial?.name          ?? "",
+    city:          initial?.city          ?? "",
+    area:          initial?.area          ?? "",
+    address:       initial?.address       ?? "",
+    phone:         initial?.phone         ?? "",
+    whatsapp:      initial?.whatsapp      ?? "",
+    email:         initial?.email         ?? "",
+    established:   initial?.established?.toString()   ?? "",
+    startingPrice: initial?.startingPrice?.toString() ?? "",
+    mapUrl:        initial?.mapUrl        ?? "",
+  });
+  const [gallery,       setGallery]       = useState<string[]>(initial?.galleryImages ?? []);
+  const [pendingFiles,  setPendingFiles]  = useState<File[]>([]);
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
+  const [saving,        setSaving]        = useState(false);
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [deleteError,   setDeleteError]   = useState("");
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
+
+  // Generate object-URL previews for pending files
+  useEffect(() => {
+    const urls = pendingFiles.map(f => URL.createObjectURL(f));
+    setPendingPreviews(urls);
+    return () => { urls.forEach(u => URL.revokeObjectURL(u)); };
+  }, [pendingFiles]);
+
+  function pickGallery(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setPendingFiles(prev => [...prev, ...files].slice(0, 20));
+    if (galleryRef.current) galleryRef.current.value = "";
+  }
+
+  function removePending(i: number) {
+    setPendingFiles(prev => prev.filter((_, idx) => idx !== i));
+  }
+
+  async function removeExisting(url: string) {
+    if (!initial) return;
+    const updated = gallery.filter(u => u !== url);
+    setGallery(updated);
+    // persist immediately if editing
+    await fetch(`${API_BASE_URL}/api/vendor/branches/${initial.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ galleryImages: updated }),
+    });
+  }
+
+  async function handleSave() {
+    if (!form.name || !form.city || !form.area || !form.address) return;
+    setSaving(true);
+    setDeleteError("");
+    try {
+      await onSave(form as Record<string, string>, pendingFiles);
+    } catch (e: any) {
+      setDeleteError(e?.message ?? "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const allGallery = [...gallery, ...pendingPreviews];
+  const isNew = !initial;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className={[
+        "fixed z-50 bg-white flex flex-col",
+        "bottom-0 left-0 right-0 rounded-t-3xl max-h-[92dvh]",
+        "lg:bottom-0 lg:top-0 lg:right-0 lg:left-auto lg:w-[480px] lg:max-h-full lg:rounded-none lg:rounded-l-3xl",
+      ].join(" ")} style={{ boxShadow: "0 -4px 40px rgba(0,0,0,0.15)" }}>
+
+        {/* Mobile handle */}
+        <div className="flex justify-center pt-3 pb-1 lg:hidden shrink-0">
+          <div className="w-10 h-1 rounded-full" style={{ background: "#E5E7EB" }} />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: "#F4F4F5" }}>
+          <p className="text-base font-bold text-black">{isNew ? "Add Branch" : "Edit Branch"}</p>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 cursor-pointer" style={{ color: "#6B7280" }}><XIcon /></button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
+
+          {/* ── Location ── */}
+          <section>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#9CA3AF" }}>Location</p>
+            <div className="flex flex-col gap-2.5">
+              <div>
+                <Label>Branch Name *</Label>
+                <input className={INP} style={INP_S} placeholder="e.g. Lahore Branch" value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <Label>City *</Label>
+                  <input className={INP} style={INP_S} placeholder="Lahore" value={form.city}
+                    onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Area *</Label>
+                  <input className={INP} style={INP_S} placeholder="Gulberg" value={form.area}
+                    onChange={e => setForm(f => ({ ...f, area: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label>Full Address *</Label>
+                <input className={INP} style={INP_S} placeholder="Street, Block, Landmark…" value={form.address}
+                  onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Contact ── */}
+          <section>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#9CA3AF" }}>Contact Information</p>
+            <div className="flex flex-col gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <Label>Call Now Number</Label>
+                  <input className={INP} style={INP_S} placeholder="0300-1234567" value={form.phone}
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>WhatsApp Number</Label>
+                  <input className={INP} style={INP_S} placeholder="923001234567" value={form.whatsapp}
+                    onChange={e => setForm(f => ({ ...f, whatsapp: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label>Email Address</Label>
+                <input className={INP} style={INP_S} type="email" placeholder="branch@business.com" value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Details ── */}
+          <section>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#9CA3AF" }}>Details</p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <Label>Established Year</Label>
+                <input className={INP} style={INP_S} type="number" placeholder="2010" value={form.established}
+                  onChange={e => setForm(f => ({ ...f, established: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Starting Price (Rs.)</Label>
+                <input className={INP} style={INP_S} type="number" placeholder="50000" value={form.startingPrice}
+                  onChange={e => setForm(f => ({ ...f, startingPrice: e.target.value }))} />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Map ── */}
+          <section>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#9CA3AF" }}>Location Map</p>
+            <Label>Google Maps Embed URL</Label>
+            <input className={INP} style={INP_S} value={form.mapUrl}
+              onChange={e => {
+                let val = e.target.value;
+                const match = val.match(/src="([^"]+)"/);
+                if (match) val = match[1];
+                setForm(f => ({ ...f, mapUrl: val }));
+              }}
+              placeholder="https://www.google.com/maps/embed?pb=…" />
+            <p className="text-xs mt-1.5" style={{ color: "#9CA3AF" }}>Paste the full iframe code or just the URL from Google Maps → Share → Embed a map.</p>
+          </section>
+
+          {/* ── Gallery ── */}
+          <section>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#9CA3AF" }}>Gallery</p>
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {/* Existing saved images */}
+              {gallery.map((url, i) => (
+                <div key={`ex-${i}`} className="relative group rounded-xl overflow-hidden" style={{ aspectRatio: "4/3" }}>
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => removeExisting(url)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    style={{ background: "#EF4444", color: "#fff" }}>
+                    <XSmIcon />
+                  </button>
+                </div>
+              ))}
+              {/* Pending (not yet uploaded) */}
+              {pendingPreviews.map((url, i) => (
+                <div key={`pend-${i}`} className="relative group rounded-xl overflow-hidden" style={{ aspectRatio: "4/3" }}>
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.25)" }}>
+                    <span className="text-[10px] font-bold text-white px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.5)" }}>Pending</span>
+                  </div>
+                  <button type="button" onClick={() => removePending(i)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    style={{ background: "#EF4444", color: "#fff" }}>
+                    <XSmIcon />
+                  </button>
+                </div>
+              ))}
+              {/* Upload button */}
+              {allGallery.length < 20 && (
+                <button type="button" onClick={() => galleryRef.current?.click()}
+                  className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-gray-50 transition-colors"
+                  style={{ borderColor: "#D1D5DB", aspectRatio: "4/3" }}>
+                  <UploadIcon />
+                  <span className="text-[10px] font-semibold" style={{ color: "#9CA3AF" }}>Add</span>
+                </button>
+              )}
+            </div>
+            <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={pickGallery} />
+            <p className="text-xs" style={{ color: "#9CA3AF" }}>{allGallery.length}/20 photos · JPG, PNG, WEBP</p>
+            {pendingFiles.length > 0 && (
+              <p className="text-xs mt-1 font-medium" style={{ color: "var(--primary)" }}>{pendingFiles.length} photo{pendingFiles.length > 1 ? "s" : ""} will be uploaded when you save.</p>
+            )}
+          </section>
+
+          {deleteError && (
+            <div className="px-4 py-2.5 rounded-xl text-xs font-medium" style={{ background: "#FEE2E2", color: "#DC2626" }}>
+              {deleteError}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-5 py-4 border-t flex gap-3" style={{ borderColor: "#F4F4F5" }}>
+          <button onClick={onClose}
+            className="px-5 py-3 rounded-2xl text-sm font-semibold cursor-pointer hover:opacity-70 transition-opacity"
+            style={{ background: "var(--bg-subtle)", color: "var(--fg-muted)" }}>
+            Cancel
+          </button>
+          <button onClick={handleSave}
+            disabled={saving || !form.name || !form.city || !form.area || !form.address}
+            className="flex-1 py-3 rounded-2xl text-sm font-semibold text-white cursor-pointer transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+            style={{ background: "var(--primary)" }}>
+            {saving ? <><Spinner /> Saving…</> : isNew ? "Create Branch" : "Update Branch"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ─── Branches Tab ─────────────────────────────────────────────────────────────
 function BranchesTab({ accessToken }: { accessToken: string }) {
   const { branches, activeBranchId, setBranches, setBranch } = useAuthStore();
-  const [adding,          setAdding]          = useState(false);
-  const [editId,          setEditId]          = useState<string | null>(null);
+  const [drawerOpen,      setDrawerOpen]      = useState(false);
+  const [editBranch,      setEditBranch]      = useState<import("@/lib/api").Branch | undefined>(undefined);
   const [deleting,        setDeleting]        = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteError,     setDeleteError]     = useState("");
-  const [saving,          setSaving]          = useState(false);
-  const [form,     setForm]     = useState({ name: "", city: "", area: "", address: "" });
-  const [editForm, setEditForm] = useState({ name: "", city: "", area: "", address: "" });
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
-  async function handleAdd() {
-    if (!form.name || !form.city || !form.area || !form.address) return;
-    setSaving(true);
-    try {
-      const res = await api.post<{ branch: any }>("/api/vendor/branches", form, accessToken);
-      if (res.success && res.branch) {
-        const updated = [...branches, res.branch];
-        setBranches(updated, activeBranchId ?? undefined);
-      }
-      setAdding(false);
-      setForm({ name: "", city: "", area: "", address: "" });
-    } finally { setSaving(false); }
+  function openAdd() {
+    setEditBranch(undefined);
+    setDrawerOpen(true);
   }
 
-  async function handleEdit(id: string) {
-    setSaving(true);
-    try {
-      const res = await api.patch<{ branch: any }>(`/api/vendor/branches/${id}`, editForm, accessToken);
-      if (res.success && res.branch) {
-        const updated = branches.map(b => b.id === id ? res.branch : b);
-        setBranches(updated, activeBranchId ?? undefined);
+  function openEdit(branch: import("@/lib/api").Branch) {
+    setEditBranch(branch);
+    setDrawerOpen(true);
+  }
+
+  async function uploadGalleryFiles(branchId: string, files: File[]) {
+    if (!files.length) return;
+    const fd = new FormData();
+    files.forEach(f => fd.append("images", f));
+    const res = await fetch(`${API_BASE_URL}/api/vendor/branches/${branchId}/gallery`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body: fd,
+    });
+    const data = await res.json();
+    return data.success ? (data.galleryImages as string[]) : null;
+  }
+
+  async function handleSave(formData: Record<string, string>, files: File[]) {
+    if (editBranch) {
+      // Edit
+      const res = await fetch(`${API_BASE_URL}/api/vendor/branches/${editBranch.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message ?? "Failed to update.");
+      let updated = data.branch;
+      if (files.length) {
+        const newGallery = await uploadGalleryFiles(editBranch.id, files);
+        if (newGallery) updated = { ...updated, galleryImages: newGallery };
       }
-      setEditId(null);
-    } finally { setSaving(false); }
+      setBranches(branches.map((b: import("@/lib/api").Branch) => b.id === editBranch.id ? updated : b), activeBranchId ?? undefined);
+      setDrawerOpen(false);
+    } else {
+      // Create
+      const res = await fetch(`${API_BASE_URL}/api/vendor/branches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message ?? "Failed to create.");
+      let newBranch = data.branch;
+      if (files.length) {
+        const newGallery = await uploadGalleryFiles(newBranch.id, files);
+        if (newGallery) newBranch = { ...newBranch, galleryImages: newGallery };
+      }
+      setBranches([...branches, newBranch], activeBranchId ?? undefined);
+      setDrawerOpen(false);
+    }
   }
 
   async function handleDelete(id: string) {
     setDeleting(id);
     setDeleteError("");
     try {
-      const res = await api.delete<{ message?: string }>(`/api/vendor/branches/${id}`, accessToken);
-      if (res.success) {
-        // Re-fetch from server to ensure UI is in sync
-        const fresh = await api.get<{ branches: any[] }>("/api/vendor/branches", accessToken);
-        if (fresh.success && fresh.branches) {
+      const res = await fetch(`${API_BASE_URL}/api/vendor/branches/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        const fresh = await fetch(`${API_BASE_URL}/api/vendor/branches`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const freshData = await fresh.json();
+        if (freshData.success && freshData.branches) {
           const newActive = id === activeBranchId
-            ? (fresh.branches[0]?.id ?? null)
+            ? (freshData.branches[0]?.id ?? null)
             : activeBranchId;
-          setBranches(fresh.branches, newActive ?? undefined);
+          setBranches(freshData.branches, newActive ?? undefined);
           if (newActive && newActive !== activeBranchId) setBranch(newActive);
         }
       } else {
-        setDeleteError(res.message ?? "Failed to delete branch.");
+        setDeleteError(data.message ?? "Failed to delete branch.");
       }
     } catch {
       setDeleteError("Something went wrong. Please try again.");
@@ -361,45 +652,12 @@ function BranchesTab({ accessToken }: { accessToken: string }) {
           <h2 className="text-sm font-bold" style={{ color: "#111827" }}>Your Branches</h2>
           <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>Manage your business locations</p>
         </div>
-        <button
-          onClick={() => { setAdding(true); setEditId(null); }}
+        <button onClick={openAdd}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer"
-          style={{ background: "var(--primary)" }}
-        >
+          style={{ background: "var(--primary)" }}>
           <PlusIcon /> Add Branch
         </button>
       </div>
-
-      {/* Add Branch Form */}
-      {adding && (
-        <div className="px-5 py-4 border-b" style={{ borderColor: "#F3F4F6", background: "#FAFAFA" }}>
-          <p className="text-xs font-semibold mb-3" style={{ color: "#374151" }}>New Branch Details</p>
-          <div className="flex flex-col gap-2">
-            <input className={INP} style={INP_S} placeholder="Branch name *" value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-            <div className="grid grid-cols-2 gap-2">
-              <input className={INP} style={INP_S} placeholder="City *" value={form.city}
-                onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-              <input className={INP} style={INP_S} placeholder="Area *" value={form.area}
-                onChange={e => setForm(f => ({ ...f, area: e.target.value }))} />
-            </div>
-            <input className={INP} style={INP_S} placeholder="Address *" value={form.address}
-              onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
-            <div className="flex gap-2 mt-1">
-              <button onClick={() => setAdding(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold cursor-pointer"
-                style={{ background: "#F3F4F6", color: "#374151" }}>
-                Cancel
-              </button>
-              <button onClick={handleAdd} disabled={saving}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white cursor-pointer disabled:opacity-50"
-                style={{ background: "var(--primary)" }}>
-                {saving ? "Saving…" : "Save Branch"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete error */}
       {deleteError && (
@@ -416,92 +674,84 @@ function BranchesTab({ accessToken }: { accessToken: string }) {
             <p className="text-xs mt-1" style={{ color: "#9CA3AF" }}>Add your first branch above</p>
           </div>
         )}
-        {branches.map(branch => (
+        {branches.map((branch: import("@/lib/api").Branch) => (
           <div key={branch.id} className="px-5 py-4">
-            {editId === branch.id ? (
-              <div className="flex flex-col gap-2">
-                <input className={INP} style={INP_S} placeholder="Branch name" value={editForm.name}
-                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-                <div className="grid grid-cols-2 gap-2">
-                  <input className={INP} style={INP_S} placeholder="City" value={editForm.city}
-                    onChange={e => setEditForm(f => ({ ...f, city: e.target.value }))} />
-                  <input className={INP} style={INP_S} placeholder="Area" value={editForm.area}
-                    onChange={e => setEditForm(f => ({ ...f, area: e.target.value }))} />
-                </div>
-                <input className={INP} style={INP_S} placeholder="Address" value={editForm.address}
-                  onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
-                <div className="flex gap-2 mt-1">
-                  <button onClick={() => setEditId(null)}
-                    className="flex-1 py-2 rounded-xl text-sm font-semibold cursor-pointer"
-                    style={{ background: "#F3F4F6", color: "#374151" }}>Cancel</button>
-                  <button onClick={() => handleEdit(branch.id)} disabled={saving}
-                    className="flex-1 py-2 rounded-xl text-sm font-semibold text-white cursor-pointer disabled:opacity-50"
-                    style={{ background: "var(--primary)" }}>
-                    {saving ? "Saving…" : "Update"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full mt-2 shrink-0"
-                    style={{ background: branch.id === activeBranchId ? "var(--primary)" : "#D1D5DB" }} />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold" style={{ color: "#111827" }}>{branch.name}</span>
-                      {branch.isDefault && (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F0FDF4", color: "#16A34A" }}>Default</span>
-                      )}
-                      {branch.id === activeBranchId && !branch.isDefault && (
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#FFF1F3", color: "var(--primary)" }}>Active</span>
-                      )}
-                    </div>
-                    <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>{branch.city} · {branch.area}</p>
-                    <p className="text-xs" style={{ color: "#9CA3AF" }}>{branch.address}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-2 h-2 rounded-full mt-2 shrink-0"
+                  style={{ background: branch.id === activeBranchId ? "var(--primary)" : "#D1D5DB" }} />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold" style={{ color: "#111827" }}>{branch.name}</span>
+                    {branch.isDefault && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#F0FDF4", color: "#16A34A" }}>Default</span>
+                    )}
+                    {branch.id === activeBranchId && !branch.isDefault && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "#FFF1F3", color: "var(--primary)" }}>Active</span>
+                    )}
                   </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {confirmDeleteId === branch.id ? (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: "#FEF2F2", border: "1px solid #FECACA" }}>
-                      <span className="text-xs font-medium mr-1" style={{ color: "#DC2626" }}>Delete?</span>
-                      <button
-                        onClick={() => { handleDelete(branch.id); setConfirmDeleteId(null); }}
-                        disabled={deleting === branch.id}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white cursor-pointer disabled:opacity-50"
-                        style={{ background: "#DC2626" }}>
-                        {deleting === branch.id ? "…" : "Yes"}
-                      </button>
-                      <button
-                        onClick={() => setConfirmDeleteId(null)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
-                        style={{ background: "#F3F4F6", color: "#374151" }}>
-                        No
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => { setEditId(branch.id); setEditForm({ name: branch.name, city: branch.city, area: branch.area, address: branch.address }); setAdding(false); setConfirmDeleteId(null); }}
-                        className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
-                        style={{ color: "#6B7280" }}>
-                        <EditIcon />
-                      </button>
-                      {branches.length > 1 && (
-                        <button
-                          onClick={() => setConfirmDeleteId(branch.id)}
-                          className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-red-50"
-                          style={{ color: "#EF4444" }}>
-                          <TrashIcon />
-                        </button>
-                      )}
-                    </>
+                  <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>{branch.city} · {branch.area}</p>
+                  <p className="text-xs" style={{ color: "#9CA3AF" }}>{branch.address}</p>
+                  {(branch.phone || branch.whatsapp) && (
+                    <p className="text-xs mt-1" style={{ color: "#6B7280" }}>
+                      {branch.phone && <span>📞 {branch.phone}</span>}
+                      {branch.phone && branch.whatsapp && <span className="mx-1">·</span>}
+                      {branch.whatsapp && <span>💬 {branch.whatsapp}</span>}
+                    </p>
+                  )}
+                  {branch.galleryImages?.length > 0 && (
+                    <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>{branch.galleryImages.length} photo{branch.galleryImages.length !== 1 ? "s" : ""}</p>
                   )}
                 </div>
               </div>
-            )}
+              <div className="flex items-center gap-1 shrink-0">
+                {confirmDeleteId === branch.id ? (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ background: "#FEF2F2", border: "1px solid #FECACA" }}>
+                    <span className="text-xs font-medium mr-1" style={{ color: "#DC2626" }}>Delete?</span>
+                    <button
+                      onClick={() => { handleDelete(branch.id); setConfirmDeleteId(null); }}
+                      disabled={deleting === branch.id}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white cursor-pointer disabled:opacity-50"
+                      style={{ background: "#DC2626" }}>
+                      {deleting === branch.id ? "…" : "Yes"}
+                    </button>
+                    <button onClick={() => setConfirmDeleteId(null)}
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer"
+                      style={{ background: "#F3F4F6", color: "#374151" }}>
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => openEdit(branch)}
+                      className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-gray-100"
+                      style={{ color: "#6B7280" }}>
+                      <EditIcon />
+                    </button>
+                    {branches.length > 1 && (
+                      <button onClick={() => setConfirmDeleteId(branch.id)}
+                        className="p-2 rounded-xl cursor-pointer transition-colors hover:bg-red-50"
+                        style={{ color: "#EF4444" }}>
+                        <TrashIcon />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Branch Drawer */}
+      {drawerOpen && (
+        <BranchDrawer
+          initial={editBranch}
+          onSave={handleSave}
+          onClose={() => setDrawerOpen(false)}
+          accessToken={accessToken}
+        />
+      )}
     </div>
   );
 }

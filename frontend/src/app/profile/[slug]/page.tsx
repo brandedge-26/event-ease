@@ -46,7 +46,7 @@ export default async function VendorProfilePage({
   let dbHalls: DbHall[] = [];
   let dbReviews: DbReview[] = [];
   let totalEvents = 0;
-  let dbBranches: { id: string; name: string; city: string; isDefault: boolean }[] = [];
+  let dbBranches: { id: string; name: string; city: string; area: string; address: string; isDefault: boolean; phone: string | null; whatsapp: string | null; email: string | null; established: number | null; startingPrice: number | null; mapUrl: string | null; galleryImages: string[] | null }[] = [];
 
   try {
     const res = await fetch(`${API_BASE}/api/vendor/profile/${slug}`, {

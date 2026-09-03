@@ -1,6 +1,7 @@
 // Syncs pending offline bookings to the server when connection is restored
 
 import { getAllPending, deletePending, incrementRetries } from "./offlineDB";
+import { resolveActiveBranchId } from "./api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
@@ -19,11 +20,13 @@ export async function syncPending(currentToken?: string): Promise<{ synced: numb
     return { synced: 0, failed: 0 };
   }
 
+  // Read branch ID once — same for all pending items in this session
+  const branchId = resolveActiveBranchId();
+
   for (const booking of pending) {
-    // If the booking was queued during an offline-session, use the current real token
-    const tokenToUse = (booking.accessToken === "offline-session" && currentToken)
-      ? currentToken
-      : booking.accessToken;
+    // Always prefer the freshly-refreshed token so that bookings queued with
+    // an old (potentially expired) JWT still sync successfully.
+    const tokenToUse = currentToken ?? booking.accessToken;
 
     try {
       const method = booking.method ?? "POST";
@@ -32,6 +35,9 @@ export async function syncPending(currentToken?: string): Promise<{ synced: numb
         headers: {
           "Content-Type":  "application/json",
           "Authorization": `Bearer ${tokenToUse}`,
+          // Required — api.ts sends this on every request; without it the server
+          // cannot associate the booking with the correct branch and returns 400/false.
+          ...(branchId ? { "X-Branch-Id": branchId } : {}),
         },
         body: method === "DELETE" ? undefined : JSON.stringify(booking.payload),
         signal: AbortSignal.timeout(10_000),

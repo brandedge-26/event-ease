@@ -50,7 +50,8 @@ export function useOfflineSync(onSynced?: () => void | Promise<void>) {
 
   const sync = useCallback(() => doSyncRef.current(), []);
 
-  // Refresh token then sync — used by both manual button and auto online event
+  // Refresh token then sync — handles coming online from "offline-session" state.
+  // Always refreshes the token first so pending ops don't fail with a stale/fake token.
   const refreshTokenAndSync = useCallback(async () => {
     try {
       const resp = await fetch(`${API_BASE}/api/vendor/auth/refresh`, {
@@ -58,12 +59,11 @@ export function useOfflineSync(onSynced?: () => void | Promise<void>) {
         headers:     { "Content-Type": "application/json" },
         credentials: "include",
         body:        JSON.stringify({}),
-        signal:      AbortSignal.timeout(5000),
+        signal:      AbortSignal.timeout(8000),
       });
 
       if (resp.status >= 500) return; // backend down, still offline
 
-      // Restore real token if refresh succeeded
       try {
         const data = await resp.clone().json();
         if (data?.success && data?.accessToken) {
@@ -72,9 +72,9 @@ export function useOfflineSync(onSynced?: () => void | Promise<void>) {
         }
       } catch { /* response may not be JSON */ }
 
-      // Now sync with the (possibly refreshed) token
+      // Now sync with the refreshed token
       await doSyncRef.current();
-    } catch { /* still offline */ }
+    } catch { /* network still unstable — will retry on next interval */ }
   }, []);
 
   const refreshTokenAndSyncRef = useRef(refreshTokenAndSync);
@@ -91,14 +91,27 @@ export function useOfflineSync(onSynced?: () => void | Promise<void>) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    setIsOnline(navigator.onLine);
+    const online = navigator.onLine;
+    setIsOnline(online);
     refreshCount();
+
+    // If this hook mounts while already online (e.g. OfflineBarWrapper remounted
+    // after a key change and missed the window.online event), kick off a sync now.
+    if (online) {
+      const { accessToken } = useAuthStore.getState();
+      if (accessToken === "offline-session") {
+        // Token still stale — do a full refresh-then-sync
+        refreshTokenAndSyncRef.current();
+      } else {
+        // Real token already in place — just sync any pending items
+        doSyncRef.current();
+      }
+    }
 
     const handleOnline = () => {
       setIsOnline(true);
       setJustCameOnline(true);
       setTimeout(() => setJustCameOnline(false), 3000);
-      // Refresh token first so pending ops don't fail with "offline-session"
       refreshTokenAndSyncRef.current();
     };
     const handleOffline = () => setIsOnline(false);
@@ -106,9 +119,16 @@ export function useOfflineSync(onSynced?: () => void | Promise<void>) {
     window.addEventListener("online",  handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // Periodic sync every 30s when online
+    // Periodic sync every 30s — always use refreshTokenAndSync so a stale
+    // "offline-session" token is replaced before attempting the network write.
     const timer = setInterval(() => {
-      if (navigator.onLine) doSyncRef.current();
+      if (!navigator.onLine) return;
+      const { accessToken } = useAuthStore.getState();
+      if (accessToken === "offline-session") {
+        refreshTokenAndSyncRef.current();
+      } else {
+        doSyncRef.current();
+      }
     }, 30_000);
 
     return () => {

@@ -191,7 +191,21 @@ export async function getPublicProfile(req, res) {
 
         // Fetch vendor's branches (public — only id, name, city)
         const vendorBranches = await db
-            .select({ id: branches.id, name: branches.name, city: branches.city, isDefault: branches.isDefault })
+            .select({
+                id:            branches.id,
+                name:          branches.name,
+                city:          branches.city,
+                area:          branches.area,
+                address:       branches.address,
+                isDefault:     branches.isDefault,
+                phone:         branches.phone,
+                whatsapp:      branches.whatsapp,
+                email:         branches.email,
+                established:   branches.established,
+                startingPrice: branches.startingPrice,
+                mapUrl:        branches.mapUrl,
+                galleryImages: branches.galleryImages,
+            })
             .from(branches)
             .where(eq(branches.vendorId, vendor.id))
             .orderBy(branches.createdAt);

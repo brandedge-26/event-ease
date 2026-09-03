@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { NewBookingModal, DatePicker, EMPTY_FORM } from "../_components/NewBookingModal";
 import type { BookingStatus, ServiceEntry } from "../_components/NewBookingModal";
 import type { Booking, PaymentRecord, PaymentMethod } from "@/store/useStore";
@@ -901,10 +901,22 @@ export default function BookingsPage() {
   // Always derive selected from live local state
   const selected = selectedId ? bookings.find(b => b.id === selectedId) ?? null : null;
 
-  // Load bookings + halls — extracted so it can be called after offline sync
+  // After the first load completes, background refreshes run silently —
+  // no skeleton so cards never disappear.
+  const hasDoneFirstLoadRef = useRef(false);
+  // Only the newest call may write state — prevents stale responses overwriting fresh ones.
+  const loadGenRef = useRef(0);
+
   const loadBookings = useCallback(async () => {
-    if (!accessToken) return;
-    setLoading(true);
+    // Read token directly from Zustand — this is always the current value even
+    // if React hasn't re-rendered yet (e.g. when offline-synced fires on localhost
+    // before the React render cycle from setAuth has completed).
+    const token = useAuthStore.getState().accessToken;
+    if (!token) return;
+    const myGen = ++loadGenRef.current;
+
+    // Show skeleton only on the very first load; all subsequent calls are silent
+    if (!hasDoneFirstLoadRef.current) setLoading(true);
 
     // Only POST pending items become new booking cards; DELETE/PATCH mutate existing records
     function newPendingCards(pending: PendingBooking[]) {
@@ -929,18 +941,18 @@ export default function BookingsPage() {
             const pl = p.payload;
             return {
               ...b,
-              ...(pl.status       !== undefined ? { status:       pl.status as Status }        : {}),
-              ...(pl.customerName !== undefined ? { customerName: String(pl.customerName) }    : {}),
-              ...(pl.phone        !== undefined ? { phone:        String(pl.phone) }           : {}),
-              ...(pl.event        !== undefined ? { event:        String(pl.event) }           : {}),
-              ...(pl.hall         !== undefined ? { hall:         String(pl.hall) }            : {}),
-              ...(pl.date         !== undefined ? { date:         String(pl.date) }            : {}),
-              ...(pl.timeFrom     !== undefined ? { timeFrom:     String(pl.timeFrom) }        : {}),
-              ...(pl.timeTo       !== undefined ? { timeTo:       String(pl.timeTo) }          : {}),
-              ...(pl.amount       !== undefined ? { amount:       Number(pl.amount) }          : {}),
-              ...(pl.paid         !== undefined ? { paid:         Number(pl.paid) }            : {}),
-              ...(pl.guests       !== undefined ? { guests:       Number(pl.guests) }          : {}),
-              ...(pl.notes        !== undefined ? { notes:        String(pl.notes) }           : {}),
+              ...(pl.status       !== undefined ? { status:       pl.status as Status }     : {}),
+              ...(pl.customerName !== undefined ? { customerName: String(pl.customerName) } : {}),
+              ...(pl.phone        !== undefined ? { phone:        String(pl.phone) }        : {}),
+              ...(pl.event        !== undefined ? { event:        String(pl.event) }        : {}),
+              ...(pl.hall         !== undefined ? { hall:         String(pl.hall) }         : {}),
+              ...(pl.date         !== undefined ? { date:         String(pl.date) }         : {}),
+              ...(pl.timeFrom     !== undefined ? { timeFrom:     String(pl.timeFrom) }     : {}),
+              ...(pl.timeTo       !== undefined ? { timeTo:       String(pl.timeTo) }       : {}),
+              ...(pl.amount       !== undefined ? { amount:       Number(pl.amount) }       : {}),
+              ...(pl.paid         !== undefined ? { paid:         Number(pl.paid) }         : {}),
+              ...(pl.guests       !== undefined ? { guests:       Number(pl.guests) }       : {}),
+              ...(pl.notes        !== undefined ? { notes:        String(pl.notes) }        : {}),
             };
           });
         }
@@ -951,13 +963,15 @@ export default function BookingsPage() {
     function mergeWithPending(base: Booking[], pending: PendingBooking[]) {
       const { list, mutatedIds } = applyMutations(base, pending);
       const postIds = new Set(pending.filter(p => !p.method || p.method === "POST").map(p => p.id));
-      return { bookings: [...newPendingCards(pending), ...list], pendingIds: new Set([...postIds, ...mutatedIds]) };
+      const pendingIds = new Set([...postIds, ...mutatedIds]);
+      return { bookings: [...newPendingCards(pending), ...list], pendingIds };
     }
 
-    // Offline (session-restored OR mid-session): skip API, load from cache
-    if (accessToken === "offline-session" || !navigator.onLine) {
+    // Offline path: skip API, load from cache
+    if (token === "offline-session" || !navigator.onLine) {
       const cached = loadFromCache<Booking>(CACHE_KEYS.VENUE_BOOKINGS);
       const pending = await getAllPending().catch(() => [] as PendingBooking[]);
+      if (loadGenRef.current !== myGen) return;
       if (cached) {
         const { bookings, pendingIds } = mergeWithPending(cached, pending);
         setBookings(bookings);
@@ -966,18 +980,18 @@ export default function BookingsPage() {
       } else {
         setApiError("Offline — no cached data available.");
       }
+      hasDoneFirstLoadRef.current = true;
       setLoading(false);
       return;
     }
 
     try {
-      const [bookingsRes, hallsRes] = await Promise.all([
-        api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", accessToken),
-        api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", accessToken),
-      ]);
+      const bookingsRes = await api.get<{ bookings: DbBooking[] }>("/api/vendor/bookings", token);
+      if (loadGenRef.current !== myGen) return;
       if (bookingsRes.success) {
         const mapped = bookingsRes.bookings.filter(b => b.status !== "blocked").map(dbToLocal);
         const pending = await getAllPending().catch(() => [] as PendingBooking[]);
+        if (loadGenRef.current !== myGen) return;
         const { bookings, pendingIds } = mergeWithPending(mapped, pending);
         setBookings(bookings);
         setOfflinePendingIds(pendingIds);
@@ -986,11 +1000,14 @@ export default function BookingsPage() {
       } else {
         setApiError(bookingsRes.message ?? "Failed to load bookings.");
       }
-      if (hallsRes.success && hallsRes.halls.length > 0)
-        setHallNames(hallsRes.halls.map(h => h.name));
+      api.get<{ halls: { id: string; name: string }[] }>("/api/vendor/halls", token)
+        .then(r => { if (r.success && r.halls.length > 0) setHallNames(r.halls.map(h => h.name)); })
+        .catch(() => {});
     } catch {
+      if (loadGenRef.current !== myGen) return;
       const cached = loadFromCache<Booking>(CACHE_KEYS.VENUE_BOOKINGS);
       const pending = await getAllPending().catch(() => [] as PendingBooking[]);
+      if (loadGenRef.current !== myGen) return;
       if (cached) {
         const { bookings, pendingIds } = mergeWithPending(cached, pending);
         setBookings(bookings);
@@ -1000,13 +1017,19 @@ export default function BookingsPage() {
         setApiError("Offline — no cached data available.");
       }
     } finally {
-      setLoading(false);
+      if (loadGenRef.current === myGen) {
+        hasDoneFirstLoadRef.current = true;
+        setLoading(false);
+      }
     }
-  }, [accessToken]);
+  }, []); // stable — reads live token from Zustand getState() instead of closure
 
-  useEffect(() => { loadBookings(); }, [loadBookings]);
+  // Re-run loadBookings when accessToken changes (initial load + token refresh)
+  useEffect(() => { loadBookings(); }, [accessToken, loadBookings]);
 
-  // Reload when layout's useOfflineSync completes a sync
+  // Stable offline-synced listener — never removed/re-added on re-render.
+  // Calls loadBookings which reads the live token from Zustand, so it always
+  // uses the real token even if React hasn't re-rendered yet after setAuth().
   useEffect(() => {
     window.addEventListener("offline-synced", loadBookings);
     return () => window.removeEventListener("offline-synced", loadBookings);
@@ -1102,7 +1125,9 @@ export default function BookingsPage() {
         return;
       }
 
-      // Online path — try API; if network fails, fall back to offline queue
+      // Online path — try API; if network fails, fall back to offline queue.
+      // api.post catches network errors internally and returns { success: false,
+      // message: "No connection." } instead of throwing — handle that case too.
       let res: { success: boolean; id?: string; message?: string } | null = null;
       try {
         res = await api.post<{ id: string }>("/api/vendor/bookings", payload, accessToken);
@@ -1111,7 +1136,14 @@ export default function BookingsPage() {
         return;
       }
 
-      if (!res.success) { setApiError(res.message ?? "Failed to create booking."); return; }
+      if (!res.success) {
+        if (res.message === "No connection." || !navigator.onLine) {
+          await queueOffline();
+          return;
+        }
+        setApiError(res.message ?? "Failed to create booking.");
+        return;
+      }
 
       const newBooking: Booking = {
         id:           res.id!,
@@ -1157,12 +1189,18 @@ export default function BookingsPage() {
     try {
       const res = await api.patch(`/api/vendor/bookings/${id}/cancel`, {}, accessToken);
       if (!res.success) {
+        if (res.message === "No connection." || !navigator.onLine) {
+          await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${id}/cancel`, accessToken, payload: {}, createdAt: Date.now() });
+          setOfflinePendingIds(prev => new Set([...prev, id]));
+          return;
+        }
         setBookings(snapshot);
         setApiError(res.message ?? "Failed to cancel booking.");
       }
     } catch {
       // Already applied optimistically — queue for sync
       await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${id}/cancel`, accessToken, payload: {}, createdAt: Date.now() });
+      setOfflinePendingIds(prev => new Set([...prev, id]));
     }
   }
 
@@ -1199,12 +1237,25 @@ export default function BookingsPage() {
       }
 
       const res = await api.patch(`/api/vendor/bookings/${updated.id}`, payload, accessToken);
-      if (!res.success) { setApiError(res.message ?? "Failed to save changes."); return; }
+      if (!res.success) {
+        if (res.message === "No connection." || !navigator.onLine) {
+          setBookings(prev => prev.map(b => b.id === normalised.id ? normalised : b));
+          await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${updated.id}`, accessToken, payload, createdAt: Date.now() });
+          setOfflinePendingIds(prev => new Set([...prev, updated.id]));
+          setEditOpen(false);
+          return;
+        }
+        setApiError(res.message ?? "Failed to save changes.");
+        return;
+      }
 
       setBookings(prev => prev.map(b => b.id === normalised.id ? normalised : b));
       setEditOpen(false);
     } catch {
-      setApiError("Network error — changes were not saved.");
+      setBookings(prev => prev.map(b => b.id === normalised.id ? normalised : b));
+      await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${updated.id}`, accessToken, payload, createdAt: Date.now() });
+      setOfflinePendingIds(prev => new Set([...prev, updated.id]));
+      setEditOpen(false);
     } finally {
       setSaving(false);
     }
@@ -1291,29 +1342,20 @@ export default function BookingsPage() {
     try {
       const res = await api.delete(`/api/vendor/bookings/${id}`, accessToken);
       if (!res.success) {
+        if (res.message === "No connection." || !navigator.onLine) {
+          await addPending({ method: "DELETE", endpoint: `/api/vendor/bookings/${id}`, accessToken, payload: {}, createdAt: Date.now() });
+          return;
+        }
         setBookings(snapshot);
         setApiError(res.message ?? "Failed to delete booking.");
       }
     } catch {
       // Already removed optimistically — queue for sync
       await addPending({ method: "DELETE", endpoint: `/api/vendor/bookings/${id}`, accessToken, payload: {}, createdAt: Date.now() });
-      /* revert on network error was here — keeping deleted since queued */
-      setApiError("Network error — booking was not deleted.");
     }
   }
 
   function openDetail(b: Booking) { setSelectedId(b.id); setDetailOpen(true); }
-
-  if (loading) {
-    return (
-      <div className="p-4 lg:p-8 flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--primary)", borderTopColor: "transparent" }} />
-          <p className="text-sm" style={{ color: "var(--fg-muted)" }}>Loading bookings…</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -1418,7 +1460,25 @@ export default function BookingsPage() {
             </div>
 
             <div className="flex flex-col gap-2">
-              {paginated.length === 0 && (
+              {loading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white rounded-2xl shadow-sm p-4 animate-pulse">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 rounded-full shrink-0" style={{ background: "#E5E7EB" }} />
+                      <div className="flex-1">
+                        <div className="h-3.5 w-32 rounded mb-1.5" style={{ background: "#E5E7EB" }} />
+                        <div className="h-3 w-20 rounded" style={{ background: "#E5E7EB" }} />
+                      </div>
+                      <div className="h-5 w-16 rounded-full shrink-0" style={{ background: "#E5E7EB" }} />
+                    </div>
+                    <div className="flex gap-2 mb-3">
+                      <div className="h-5 w-16 rounded-full" style={{ background: "#E5E7EB" }} />
+                      <div className="h-5 w-24 rounded-full" style={{ background: "#E5E7EB" }} />
+                    </div>
+                    <div className="h-2 w-full rounded-full" style={{ background: "#E5E7EB" }} />
+                  </div>
+                ))
+              ) : paginated.length === 0 ? (
                 <div className="bg-white rounded-2xl shadow-sm py-16 flex flex-col items-center text-center">
                   <EmptyIcon />
                   <p className="text-sm font-medium mt-3 text-black">{bookings.length === 0 ? "No bookings yet" : "No bookings found"}</p>
@@ -1426,8 +1486,7 @@ export default function BookingsPage() {
                     {bookings.length === 0 ? "Click \"New Booking\" to create your first booking" : "Try changing the filter or search"}
                   </p>
                 </div>
-              )}
-              {paginated.map(b => {
+              ) : paginated.map(b => {
                 const cfg      = STATUS_CONFIG[b.status];
                 const balance  = b.amount - b.paid;
                 const paidPct  = b.amount > 0 ? Math.min(100, Math.round((b.paid / b.amount) * 100)) : 0;
