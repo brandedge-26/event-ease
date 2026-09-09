@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 
 const STEPS = [
   { label: "Business Info", path: "/vendor/onboarding/business-info" },
-  { label: "Hall Details",  path: "/vendor/onboarding/halls"          },
+  { label: "Business Details",  path: "/vendor/onboarding/halls"          },
   { label: "Account Info",  path: "/vendor/onboarding/account"        },
   { label: "Verify Email",  path: "/vendor/onboarding/verify"         },
 ];

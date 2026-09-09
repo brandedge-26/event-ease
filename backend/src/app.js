@@ -31,8 +31,12 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 
 // CORS CONFIGURATION
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+    : ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"];
+
 app.use(cors({
-    origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Branch-Id"],
@@ -59,3 +63,5 @@ app.get("/", (req, res) => {
 
 // Error Handling Middleware
 app.use(globalErrorHandler);
+
+export default app;

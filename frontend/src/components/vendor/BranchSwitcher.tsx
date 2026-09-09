@@ -5,7 +5,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { api } from "@/lib/api";
 
 export default function BranchSwitcher() {
-  const { branches, activeBranchId, setBranch, setBranches, accessToken } = useAuthStore();
+  const { branches, activeBranchId, setBranch, setBranches, accessToken, vendor } = useAuthStore();
   const [open, setOpen] = useState(false);
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
 
@@ -74,7 +74,11 @@ export default function BranchSwitcher() {
                 >
                   <div className={`w-2 h-2 rounded-full shrink-0 mt-0.5 ${branch.id === activeBranchId ? "bg-[var(--primary)]" : "bg-[#D1D5DB]"}`} />
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium leading-snug truncate">{branch.name}</div>
+                    <div className="font-medium leading-snug truncate">
+                      {vendor?.name && !branch.name.startsWith(vendor.name)
+                        ? `${vendor.name} — ${branch.name}`
+                        : branch.name}
+                    </div>
                     <div className="text-xs mt-0.5 flex items-center gap-1.5" style={{ color: "var(--fg-muted)" }}>
                       <span>{branch.city}</span>
                       {branch.isDefault && (

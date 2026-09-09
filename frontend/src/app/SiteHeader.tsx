@@ -545,22 +545,6 @@ export default function SiteHeader() {
 
                     {/* Menu items */}
                     <div className="py-1">
-                      <Link href="/profile" onClick={() => setUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors"
-                        style={{ color: "#374151" }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#FAFAFA"}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        My Profile
-                      </Link>
-                      <Link href="/bookings" onClick={() => setUserMenu(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors"
-                        style={{ color: "#374151" }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#FAFAFA"}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        My Bookings
-                      </Link>
                       {/* List Your Business — mobile only */}
                       <Link href="/vendor/onboarding" onClick={() => setUserMenu(false)}
                         className="sm:hidden flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors"
