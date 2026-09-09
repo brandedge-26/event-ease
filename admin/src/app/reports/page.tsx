@@ -232,7 +232,7 @@ export default function ReportsPage() {
                           <Cell key={i} fill={(entry as ByType & { color?: string }).color ?? TYPE_COLORS[entry.name] ?? "#9CA3AF"} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(v: number) => [v, "bookings"]} />
+                      <Tooltip formatter={(v) => [v ?? 0, "bookings"]} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="flex flex-col gap-2.5">

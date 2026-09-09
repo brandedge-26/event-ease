@@ -156,7 +156,7 @@ export default function VendorsPage() {
           const targetPage = remainingOnPage === 0 && pagination.page > 1
             ? pagination.page - 1
             : pagination.page;
-          await fetchVendors(targetPage);
+          await fetchVendors(targetPage, search.trim());
         }
       }
     } finally {

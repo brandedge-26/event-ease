@@ -646,9 +646,9 @@ function CTABanner() {
         </p>
 
         {/* Benefits */}
-        <ul className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8 w-full max-w-2xl">
+        <ul className="flex flex-col gap-2.5 mb-8 w-full max-w-xs text-left">
           {BENEFITS.map(b => (
-            <li key={b.label} className="flex items-center gap-2 justify-center sm:justify-start">
+            <li key={b.label} className="flex items-center gap-3">
               <span
                 className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: "#FFE4EA" }}
@@ -657,7 +657,7 @@ function CTABanner() {
                   <path d={b.icon} />
                 </svg>
               </span>
-              <span className="text-xs font-semibold text-left" style={{ color: "#374151" }}>{b.label}</span>
+              <span className="text-sm font-semibold" style={{ color: "#374151" }}>{b.label}</span>
             </li>
           ))}
         </ul>
