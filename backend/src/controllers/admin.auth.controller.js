@@ -5,10 +5,11 @@ import { db } from "../db/index.js";
 import { admins } from "../db/schema.js";
 
 const COOKIE_NAME = "admin_token";
+const IS_PROD = process.env.NODE_ENV === "production";
 const COOKIE_OPTS = {
     httpOnly: true,
-    sameSite: "lax",
-    secure:   process.env.NODE_ENV === "production",
+    sameSite: IS_PROD ? "none" : "lax",
+    secure:   IS_PROD,
     maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -47,6 +48,6 @@ export async function adminMe(req, res) {
 
 // POST /api/admin/auth/logout
 export async function adminLogout(req, res) {
-    res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+    res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: IS_PROD ? "none" : "lax", secure: IS_PROD });
     return res.json({ success: true });
 }
