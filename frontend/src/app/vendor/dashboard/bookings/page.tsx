@@ -1207,27 +1207,25 @@ export default function BookingsPage() {
   async function handleSaveEdit(updated: Booking) {
     if (!accessToken) return;
     setSaving(true);
+    const normalised: Booking = { ...updated, timeFrom: toTimeInput(updated.timeFrom), timeTo: toTimeInput(updated.timeTo) };
+    const services = updated.services ?? [];
+    const payload = {
+      customerName: updated.customerName,
+      phone:        updated.phone,
+      event:        updated.event,
+      hall:         updated.hall,
+      date:         updated.date,
+      ...(toTimeInput(updated.timeFrom) ? { timeFrom: toTimeInput(updated.timeFrom) } : { timeFrom: "" }),
+      ...(toTimeInput(updated.timeTo)   ? { timeTo:   toTimeInput(updated.timeTo)   } : { timeTo:   "" }),
+      guests:     updated.guests,
+      amount:     updated.amount,
+      hallAmount: updated.hallAmount ?? 0,
+      paid:       updated.paid,
+      status:     updated.status,
+      notes:      updated.notes || undefined,
+      services,
+    };
     try {
-      const services = updated.services ?? [];
-      const payload = {
-        customerName: updated.customerName,
-        phone:        updated.phone,
-        event:        updated.event,
-        hall:         updated.hall,
-        date:         updated.date,
-        ...(toTimeInput(updated.timeFrom) ? { timeFrom: toTimeInput(updated.timeFrom) } : { timeFrom: "" }),
-        ...(toTimeInput(updated.timeTo)   ? { timeTo:   toTimeInput(updated.timeTo)   } : { timeTo:   "" }),
-        guests:     updated.guests,
-        amount:     updated.amount,
-        hallAmount: updated.hallAmount ?? 0,
-        paid:       updated.paid,
-        status:     updated.status,
-        notes:      updated.notes || undefined,
-        services,
-      };
-
-      const normalised: Booking = { ...updated, timeFrom: toTimeInput(updated.timeFrom), timeTo: toTimeInput(updated.timeTo) };
-
       if (accessToken === "offline-session" || !navigator.onLine) {
         setBookings(prev => prev.map(b => b.id === normalised.id ? normalised : b));
         await addPending({ method: "PATCH", endpoint: `/api/vendor/bookings/${updated.id}`, accessToken, payload, createdAt: Date.now() });
