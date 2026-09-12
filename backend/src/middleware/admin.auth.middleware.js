@@ -1,7 +1,10 @@
 import jwt from "jsonwebtoken";
 
 export function authenticateAdmin(req, res, next) {
-    const token = req.cookies?.admin_token;
+    // Prefer Authorization header (for Safari/ITP) then fall back to cookie
+    const authHeader = req.headers?.authorization;
+    const token = (authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null)
+        ?? req.cookies?.admin_token;
     if (!token)
         return res.status(401).json({ success: false, message: "Unauthorized." });
 

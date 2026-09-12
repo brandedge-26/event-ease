@@ -34,7 +34,7 @@ export async function adminLogin(req, res) {
 
         const token = jwt.sign({ id: admin.id, email: admin.email }, jwtSecret(), { expiresIn: "7d" });
         res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
-        return res.json({ success: true });
+        return res.json({ success: true, token });
     } catch (err) {
         console.error("[adminLogin]", err);
         return res.status(500).json({ success: false, message: "Login failed." });

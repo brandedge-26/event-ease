@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 
+import { adminFetch } from "@/lib/adminFetch";
+
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY = "#FF3B6B";
 
@@ -38,7 +40,7 @@ export default function ApplicationsPage() {
   const load = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const res  = await fetch(`${API}/api/admin/applications?page=${p}`, { credentials: "include" });
+      const res  = await adminFetch(`${API}/api/admin/applications?page=${p}`, { credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setRows(data.applications);
@@ -53,7 +55,7 @@ export default function ApplicationsPage() {
   async function openDrawer(app: Application) {
     setSelected(app);
     if (!app.isRead) {
-      await fetch(`${API}/api/admin/applications/${app.id}/read`, { method: "PATCH", credentials: "include" });
+      await adminFetch(`${API}/api/admin/applications/${app.id}/read`, { method: "PATCH", credentials: "include" });
       setRows(r => r.map(a => a.id === app.id ? { ...a, isRead: true } : a));
     }
   }
@@ -61,7 +63,7 @@ export default function ApplicationsPage() {
   async function confirmDelete() {
     if (!deleteId) return;
     setDeleting(true);
-    await fetch(`${API}/api/admin/applications/${deleteId}`, { method: "DELETE", credentials: "include" });
+    await adminFetch(`${API}/api/admin/applications/${deleteId}`, { method: "DELETE", credentials: "include" });
     setDeleting(false);
     setDeleteId(null);
     if (selected?.id === deleteId) setSelected(null);

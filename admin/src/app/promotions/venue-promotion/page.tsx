@@ -30,7 +30,15 @@ type Banner = {
 };
 
 function adminFetch(path: string, opts: RequestInit = {}) {
-  return fetch(`${API_BASE}/api${path}`, { ...opts, credentials: "include" });
+  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+  return fetch(`${API_BASE}/api${path}`, {
+    ...opts,
+    credentials: "include",
+    headers: {
+      ...(opts.headers as Record<string, string> ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
 }
 
 function formatExpiry(expiresAt: string | null): { label: string; expired: boolean } {

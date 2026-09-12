@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 
+import { adminFetch } from "@/lib/adminFetch";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY  = "#FF3B6B";
 
@@ -59,7 +61,7 @@ export default function AdminBranchesPage() {
   async function fetchBranches(p = page, s = statusFilter) {
     setLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/admin/branches?page=${p}&status=${s}`, { credentials: "include" });
+      const res  = await adminFetch(`${API_BASE}/api/admin/branches?page=${p}&status=${s}`, { credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setBranches(data.branches);
@@ -89,7 +91,7 @@ export default function AdminBranchesPage() {
     setVendorDetail(null);
     setDrawerLoading(true);
     try {
-      const res  = await fetch(`${API_BASE}/api/admin/vendors/${branch.vendorId}`, { credentials: "include" });
+      const res  = await adminFetch(`${API_BASE}/api/admin/vendors/${branch.vendorId}`, { credentials: "include" });
       const data = await res.json();
       if (data.success) setVendorDetail(data.vendor);
     } finally {
@@ -105,7 +107,7 @@ export default function AdminBranchesPage() {
   async function handleApprove(id: string) {
     setToggling(id);
     try {
-      const res  = await fetch(`${API_BASE}/api/admin/branches/${id}/approve`, { method: "PATCH", credentials: "include" });
+      const res  = await adminFetch(`${API_BASE}/api/admin/branches/${id}/approve`, { method: "PATCH", credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setBranches(prev => prev.map(b => b.id === id ? { ...b, isApproved: data.isApproved } : b));
@@ -118,7 +120,7 @@ export default function AdminBranchesPage() {
   async function handleDelete(id: string) {
     setDeleting(id);
     try {
-      const res  = await fetch(`${API_BASE}/api/admin/branches/${id}`, { method: "DELETE", credentials: "include" });
+      const res  = await adminFetch(`${API_BASE}/api/admin/branches/${id}`, { method: "DELETE", credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setBranches(prev => prev.filter(b => b.id !== id));

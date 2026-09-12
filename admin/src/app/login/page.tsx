@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { adminFetch, setAdminToken, getAdminToken } from "@/lib/adminFetch";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
@@ -13,7 +14,8 @@ export default function AdminLoginPage() {
 
   // Redirect to dashboard if already authenticated
   useEffect(() => {
-    fetch(`${API_BASE}/api/admin/auth/me`, { credentials: "include" })
+    if (!getAdminToken()) return;
+    adminFetch(`${API_BASE}/api/admin/auth/me`)
       .then(r => r.json())
       .then(d => { if (d.success) router.replace("/"); })
       .catch(() => {});
@@ -28,13 +30,14 @@ export default function AdminLoginPage() {
     setError("");
     try {
       const res  = await fetch(`${API_BASE}/api/admin/auth/login`, {
-        method:      "POST",
-        headers:     { "Content-Type": "application/json" },
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body:        JSON.stringify({ email, password }),
+        body:    JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (data.success) {
+        if (data.token) setAdminToken(data.token);
         router.replace("/");
       } else {
         setError(data.message ?? "Invalid credentials.");

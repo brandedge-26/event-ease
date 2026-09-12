@@ -5,8 +5,16 @@ import { useEffect, useState } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
-function adminFetch(path: string) {
-  return fetch(`${API_BASE}/api${path}`, { credentials: "include" });
+function adminFetch(path: string, opts: RequestInit = {}) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+  return fetch(`${API_BASE}/api${path}`, {
+    ...opts,
+    credentials: "include",
+    headers: {
+      ...(opts.headers as Record<string, string> ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

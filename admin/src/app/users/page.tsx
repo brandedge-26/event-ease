@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { adminFetch } from "@/lib/adminFetch";
+
 const API     = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY = "#FF3B6B";
 
@@ -81,7 +83,7 @@ export default function UsersPage() {
     try {
       const params = new URLSearchParams({ page: String(page), tab: currentTab });
       if (search) params.set("q", search);
-      const res  = await fetch(`${API}/api/admin/users?${params}`, { credentials: "include" });
+      const res  = await adminFetch(`${API}/api/admin/users?${params}`, { credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setRows(data.users);
@@ -102,7 +104,7 @@ export default function UsersPage() {
   async function confirmBlock() {
     if (!blockTarget) return;
     setBlocking(true);
-    await fetch(`${API}/api/admin/users/${blockTarget.id}/block`, {
+    await adminFetch(`${API}/api/admin/users/${blockTarget.id}/block`, {
       method:      "PATCH",
       credentials: "include",
       headers:     { "Content-Type": "application/json" },
@@ -120,7 +122,7 @@ export default function UsersPage() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
-    await fetch(`${API}/api/admin/users/${deleteTarget.id}`, {
+    await adminFetch(`${API}/api/admin/users/${deleteTarget.id}`, {
       method:      "DELETE",
       credentials: "include",
       headers:     { "Content-Type": "application/json" },

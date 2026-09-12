@@ -6,6 +6,8 @@ import {
 } from "recharts";
 import { useEffect, useState } from "react";
 
+import { adminFetch } from "@/lib/adminFetch";
+
 const API      = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY  = "#FF3B6B";
 const BLUE     = "#3B82F6";
@@ -120,7 +122,7 @@ export default function ReportsPage() {
   async function fetchReports(r: string) {
     setLoading(true);
     try {
-      const res  = await fetch(`${API}/api/admin/reports?range=${r}`, { credentials: "include" });
+      const res  = await adminFetch(`${API}/api/admin/reports?range=${r}`, { credentials: "include" });
       const data = await res.json();
       if (data.success) {
         setStats(data.stats);

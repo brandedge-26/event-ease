@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { adminFetch, clearAdminToken } from "@/lib/adminFetch";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 
@@ -67,7 +68,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (pathname === "/login") { setAuthed(false); setChecking(false); return; }
     setChecking(true);
-    fetch(`${API_BASE}/api/admin/auth/me`, { credentials: "include" })
+    adminFetch(`${API_BASE}/api/admin/auth/me`)
       .then(r => r.json())
       .then(d => { if (d.success) setAuthed(true); else router.replace("/login"); })
       .catch(() => router.replace("/login"))
@@ -78,7 +79,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (!authed) return;
     function fetchCount() {
-      fetch(`${API_BASE}/api/admin/notifications/unread-count`, { credentials: "include" })
+      adminFetch(`${API_BASE}/api/admin/notifications/unread-count`)
         .then(r => r.json())
         .then(d => { if (typeof d.count === "number") setUnreadCount(d.count); })
         .catch(() => {});
@@ -89,7 +90,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }, [authed]);
 
   async function handleLogout() {
-    await fetch(`${API_BASE}/api/admin/auth/logout`, { method: "POST", credentials: "include" });
+    clearAdminToken();
+    await adminFetch(`${API_BASE}/api/admin/auth/logout`, { method: "POST" });
     router.replace("/login");
   }
 

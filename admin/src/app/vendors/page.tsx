@@ -46,10 +46,15 @@ type ModalType = "verify" | "block" | "delete" | null;
 
 // ─── Fetch helper ─────────────────────────────────────────────────────────────
 function adminFetch(path: string, opts: RequestInit = {}) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
   return fetch(`${API_BASE}/api${path}`, {
     ...opts,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(opts.headers as Record<string, string> ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
   });
 }
 
