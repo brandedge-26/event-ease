@@ -262,25 +262,27 @@ export default function HeroSearch() {
     <>
       {/* ── Search Panel ── */}
       <div
-        className="w-full max-w-4xl rounded-2xl overflow-hidden"
+        className="w-full max-w-4xl rounded-3xl overflow-hidden transition-shadow duration-300"
         style={{
-          background:          "rgba(255,255,255,0.10)",
-          backdropFilter:      "blur(24px)",
-          WebkitBackdropFilter:"blur(24px)",
-          border:              "1px solid rgba(255,255,255,0.22)",
-          boxShadow:           "0 24px 64px rgba(0,0,0,0.35), 0 4px 16px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.18)",
+          background:          "rgba(255,255,255,0.13)",
+          backdropFilter:      "blur(28px)",
+          WebkitBackdropFilter:"blur(28px)",
+          border:              "1px solid rgba(255,255,255,0.28)",
+          boxShadow:           "0 30px 70px rgba(0,0,0,0.40), 0 6px 20px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.22)",
         }}
       >
         {/* Main row */}
-        <div className="grid grid-cols-3 sm:grid-cols-[1fr_1px_1fr_1px_1fr_1px_1fr_auto] items-stretch">
+        <div className="grid grid-cols-3 sm:grid-cols-[1.1fr_1px_1fr_1px_1fr_1px_1fr_auto] items-stretch">
 
           {/* Venue Name — full width on mobile */}
-          <div className="col-span-3 sm:col-span-1 flex items-center gap-3 px-5 py-4 border-b sm:border-b-0" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+          <div className="col-span-3 sm:col-span-1 flex items-center gap-3 px-5 py-4 border-b sm:border-b-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+            <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+            </span>
             <div className="flex-1 min-w-0 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>Venue</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.55)" }}>Venue</p>
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
@@ -297,12 +299,14 @@ export default function HeroSearch() {
           <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* City */}
-          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-r sm:border-r-0" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hidden sm:block shrink-0">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
-            </svg>
+          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-r sm:border-r-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+            <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
+              </svg>
+            </span>
             <div className="flex-1 min-w-0 text-left">
-              <p className="hidden sm:block text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>City</p>
+              <p className="hidden sm:block text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.55)" }}>City</p>
               <CustomSelect value={city} onChange={setCity} options={CITY_OPTIONS} placeholder="All Cities" minWidth={200} glass />
             </div>
           </div>
@@ -311,13 +315,15 @@ export default function HeroSearch() {
           <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* Venue Type */}
-          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-r sm:border-r-0" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hidden sm:block shrink-0">
-              <rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4"/>
-              <path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>
-            </svg>
+          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-r sm:border-r-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+            <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4"/>
+                <path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>
+              </svg>
+            </span>
             <div className="flex-1 min-w-0 text-left">
-              <p className="hidden sm:block text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>Type</p>
+              <p className="hidden sm:block text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.55)" }}>Type</p>
               <CustomSelect value={type} onChange={setType} options={TYPE_OPTIONS} placeholder="All Types" minWidth={180} glass />
             </div>
           </div>
@@ -326,13 +332,15 @@ export default function HeroSearch() {
           <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* Capacity */}
-          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.70)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="hidden sm:block shrink-0">
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
-            </svg>
+          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors hover:bg-white/[0.06]">
+            <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+              </svg>
+            </span>
             <div className="flex-1 min-w-0 text-left">
-              <p className="hidden sm:block text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>Guests</p>
+              <p className="hidden sm:block text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.55)" }}>Guests</p>
               <CustomSelect value={capacity} onChange={setCapacity} options={CAP_OPTIONS} placeholder="Any Cap" minWidth={160} glass />
             </div>
           </div>
@@ -341,8 +349,8 @@ export default function HeroSearch() {
           <div className="col-span-3 sm:col-span-1 flex items-center px-3 py-3 border-t sm:border-t-0" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
             <button
               onClick={() => search()}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 sm:py-3.5 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95 cursor-pointer whitespace-nowrap"
-              style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)", boxShadow: "0 4px 20px rgba(255,59,107,0.50)" }}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-7 py-3 sm:py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 hover:shadow-lg active:scale-95 cursor-pointer whitespace-nowrap"
+              style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)", boxShadow: "0 6px 24px rgba(255,59,107,0.55)" }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -355,24 +363,31 @@ export default function HeroSearch() {
         {/* Bottom bar — verified toggle */}
         <div
           className="flex items-center gap-4 px-5 py-2.5 border-t"
-          style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.12)" }}
+          style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.14)" }}
         >
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={verified}
-              onChange={e => setVerified(e.target.checked)}
-              className="w-3.5 h-3.5 rounded accent-pink-500"
-            />
-            <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.65)" }}>Verified venues only</span>
-          </label>
-          <span className="text-xs ml-auto" style={{ color: "rgba(255,255,255,0.20)" }}>|</span>
-          <span className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>Filter by city, type, and capacity</span>
+          <button
+            type="button"
+            onClick={() => setVerified(v => !v)}
+            className="flex items-center gap-2.5 cursor-pointer select-none"
+          >
+            <span
+              className="relative rounded-full transition-colors shrink-0"
+              style={{ width: 32, height: 18, background: verified ? PRIMARY : "rgba(255,255,255,0.25)" }}
+            >
+              <span
+                className="absolute top-0.5 rounded-full bg-white transition-transform"
+                style={{ width: 14, height: 14, left: 2, transform: verified ? "translateX(14px)" : "translateX(0)" }}
+              />
+            </span>
+            <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>Verified venues only</span>
+          </button>
+          <span className="text-xs ml-auto hidden sm:inline" style={{ color: "rgba(255,255,255,0.20)" }}>|</span>
+          <span className="text-xs hidden sm:inline" style={{ color: "rgba(255,255,255,0.40)" }}>Filter by city, type, and capacity</span>
         </div>
       </div>
 
       {/* ── City chips ── */}
-      <div className="flex items-center gap-2 mt-5 flex-wrap justify-center">
+      <div className="flex items-center gap-2 mt-5 flex-wrap justify-start">
         <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>Popular:</span>
         {["Karachi", "Lahore", "Islamabad", "Rawalpindi", "Multan"].map(c => (
           <button key={c} onClick={() => pickCity(c)}

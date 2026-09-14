@@ -9,16 +9,6 @@ import { useUserStore } from "@/store/useUserStore";
 
 const PRIMARY = "#FF3B6B";
 
-// ─── Chevron ──────────────────────────────────────────────────────────────────
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-      style={{ transition: "transform .2s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>
-      <polyline points="6 9 12 15 18 9"/>
-    </svg>
-  );
-}
-
 // ─── Services data ────────────────────────────────────────────────────────────
 const ICON_COLOR = "#6B7280";
 const ICON_BG    = "#F3F4F6";
@@ -177,8 +167,15 @@ const COMPANY_ITEMS = [
   },
 ];
 
-function navColor(t: boolean) { return t ? "rgba(255,255,255,0.92)" : "#374151"; }
-function navHoverBg(t: boolean) { return t ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)"; }
+// ─── Full-screen menu tabs ──────────────────────────────────────────────────────
+const MENU_TABS = [
+  { id: "Venues",   items: VENUE_TYPES },
+  { id: "Services", items: ADD_ONS },
+  { id: "Events",   items: EVENT_ITEMS },
+  { id: "Vendors",  items: VENDOR_ITEMS },
+  { id: "Company",  items: COMPANY_ITEMS },
+] as const;
+type MenuTabId = typeof MENU_TABS[number]["id"];
 
 // ─── Get initials from name ───────────────────────────────────────────────────
 function getInitials(name: string) {
@@ -187,14 +184,18 @@ function getInitials(name: string) {
 
 // ─── Main Header ──────────────────────────────────────────────────────────────
 export default function SiteHeader() {
-  const [open,       setOpen]       = useState<string | null>(null);
   const [scrolled,   setScrolled]   = useState(false);
   const [userMenu,   setUserMenu]   = useState(false);
+  const [menuOpen,   setMenuOpen]   = useState(false);
+  const [activeTab,  setActiveTab]  = useState<MenuTabId>("Venues");
   const userMenuRef = useRef<HTMLDivElement>(null);
   const pathname    = usePathname();
   const router      = useRouter();
   const isHome      = pathname === "/";
-  const tr          = isHome && !scrolled;
+  const tr          = isHome && !scrolled && !menuOpen;
+
+  // Close full-screen menu on route change
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   const user        = useUserStore((s) => s.user);
   const clearAuth   = useUserStore((s) => s.clearAuth);
@@ -249,237 +250,12 @@ export default function SiteHeader() {
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <Image src="/logo/logo-icon.svg" alt="Event Ease" width={28} height={28} className="rounded-lg" />
-          <span className="text-base font-black tracking-tight">
+          <Image src="/favicon.svg" alt="Event Ease" width={28} height={28} className="rounded-lg" />
+          <span className="text-lg font-black tracking-tight">
             <span style={{ color: tr ? "#fff" : "#111827" }}>Event</span>
             <span style={{ color: PRIMARY }}>Ease</span>
           </span>
         </Link>
-
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center">
-
-          {/* Venues */}
-          <Link href="/venues"
-            className="px-3.5 py-2 rounded-xl text-sm font-medium transition-colors"
-            style={{ color: navColor(tr) }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = navHoverBg(tr)}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-            Venues
-          </Link>
-
-          {/* ── Services ───────────────────────────────────────────────────── */}
-          <div className="relative"
-            onMouseEnter={() => setOpen("Services")}
-            onMouseLeave={() => setOpen(null)}>
-
-            <button className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-medium cursor-pointer"
-              style={{ color: navColor(tr), background: open === "Services" ? navHoverBg(tr) : "transparent" }}>
-              Services <Chevron open={open === "Services"} />
-            </button>
-
-            {open === "Services" && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 z-50 pt-3" style={{ minWidth: 600 }}>
-                <div className="rounded-2xl bg-white overflow-hidden"
-                  style={{ border: "1px solid #EBEBEB", boxShadow: "0 24px 60px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06)" }}>
-
-                  {/* Venue Types */}
-                  <div className="px-5 pt-4 pb-1">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#C0C0C0" }}>Venue Types</p>
-                  </div>
-                  <div className="grid grid-cols-2 px-3 pb-2">
-                    {VENUE_TYPES.map(v => (
-                      <Link key={v.label} href={v.href} onClick={() => setOpen(null)}
-                        className="flex items-center gap-3 px-2 py-2.5 rounded-xl group transition-colors"
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#F9FAFB"}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: ICON_BG }}>
-                          {v.icon}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold leading-tight" style={{ color: "#111827" }}>{v.label}</span>
-                          <span className="block text-[11px] leading-tight mt-0.5" style={{ color: "#9CA3AF" }}>{v.desc}</span>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-
-                  {/* Add-ons — no title, just separator */}
-                  <div className="grid grid-cols-2 px-3 pb-2" style={{ borderTop: "1px solid #F3F4F6" }}>
-                    {ADD_ONS.map(a => (
-                      <Link key={a.label} href={a.href} onClick={() => setOpen(null)}
-                        className="flex items-center gap-3 px-2 py-2.5 rounded-xl group transition-colors"
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#F9FAFB"}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: ICON_BG }}>
-                          {a.icon}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold leading-tight" style={{ color: "#111827" }}>{a.label}</span>
-                          <span className="block text-[11px] leading-tight mt-0.5" style={{ color: "#9CA3AF" }}>{a.desc}</span>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-5 py-3 flex items-center justify-between"
-                    style={{ borderTop: "1px solid #F3F4F6", background: "#FAFAFA" }}>
-                    <span className="text-xs" style={{ color: "#BBBBBB" }}>Browse all venues & services</span>
-                    <Link href="/venues" onClick={() => setOpen(null)}
-                      className="text-xs font-bold flex items-center gap-1 transition-opacity hover:opacity-70"
-                      style={{ color: PRIMARY }}>
-                      View All
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    </Link>
-                  </div>
-
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Events ─────────────────────────────────────────────────────── */}
-          <div className="relative"
-            onMouseEnter={() => setOpen("Events")}
-            onMouseLeave={() => setOpen(null)}>
-
-            <button className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-medium cursor-pointer"
-              style={{ color: navColor(tr), background: open === "Events" ? navHoverBg(tr) : "transparent" }}>
-              Events <Chevron open={open === "Events"} />
-            </button>
-
-            {open === "Events" && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 z-50 pt-3" style={{ minWidth: 560 }}>
-                <div className="rounded-2xl bg-white overflow-hidden"
-                  style={{ border: "1px solid #EBEBEB", boxShadow: "0 24px 60px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06)" }}>
-
-                  <div className="px-5 pt-4 pb-1">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#C0C0C0" }}>Plan Your Event</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 px-3 pb-2">
-                    {EVENT_ITEMS.map(ev => (
-                      <Link key={ev.label} href={ev.href} onClick={() => setOpen(null)}
-                        className="flex items-center gap-3 px-2 py-2.5 rounded-xl group transition-colors"
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#F9FAFB"}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: ICON_BG }}>
-                          {ev.icon}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold leading-tight" style={{ color: "#111827" }}>{ev.label}</span>
-                          <span className="block text-[11px] leading-tight mt-0.5" style={{ color: "#9CA3AF" }}>{ev.desc}</span>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-
-                  <div className="px-5 py-3 flex items-center justify-between"
-                    style={{ borderTop: "1px solid #F3F4F6", background: "#FAFAFA" }}>
-                    <span className="text-xs" style={{ color: "#BBBBBB" }}>Find the perfect venue for your occasion</span>
-                    <Link href="/venues" onClick={() => setOpen(null)}
-                      className="text-xs font-bold flex items-center gap-1 transition-opacity hover:opacity-70"
-                      style={{ color: PRIMARY }}>
-                      Explore
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    </Link>
-                  </div>
-
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Vendors ────────────────────────────────────────────────── */}
-          <div className="relative"
-            onMouseEnter={() => setOpen("Vendors")}
-            onMouseLeave={() => setOpen(null)}>
-
-            <button className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-medium cursor-pointer"
-              style={{ color: navColor(tr), background: open === "Vendors" ? navHoverBg(tr) : "transparent" }}>
-              Vendors <Chevron open={open === "Vendors"} />
-            </button>
-
-            {open === "Vendors" && (
-              <div className="absolute top-full left-1/2 -translate-x-1/2 z-50 pt-3" style={{ minWidth: 520 }}>
-                <div className="rounded-2xl bg-white overflow-hidden"
-                  style={{ border: "1px solid #EBEBEB", boxShadow: "0 24px 60px rgba(0,0,0,0.13), 0 4px 16px rgba(0,0,0,0.06)" }}>
-
-                  <div className="px-5 pt-4 pb-1">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "#C0C0C0" }}>Browse Vendors</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 px-3 pb-2">
-                    {VENDOR_ITEMS.map(v => (
-                      <Link key={v.label} href={v.href} onClick={() => setOpen(null)}
-                        className="flex items-center gap-3 px-2 py-2.5 rounded-xl transition-colors"
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#F9FAFB"}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                          style={{ background: ICON_BG }}>
-                          {v.icon}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold leading-tight" style={{ color: "#111827" }}>{v.label}</span>
-                          <span className="block text-[11px] leading-tight mt-0.5" style={{ color: "#9CA3AF" }}>{v.desc}</span>
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-
-                  <div className="px-5 py-3 flex items-center justify-between"
-                    style={{ borderTop: "1px solid #F3F4F6", background: "#FAFAFA" }}>
-                    <span className="text-xs" style={{ color: "#BBBBBB" }}>Find trusted vendors for your event</span>
-                    <Link href="/vendors" onClick={() => setOpen(null)}
-                      className="text-xs font-bold flex items-center gap-1 transition-opacity hover:opacity-70"
-                      style={{ color: PRIMARY }}>
-                      View All
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    </Link>
-                  </div>
-
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Company ────────────────────────────────────────────────────── */}
-          <div className="relative"
-            onMouseEnter={() => setOpen("Company")}
-            onMouseLeave={() => setOpen(null)}>
-
-            <button className="flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-medium cursor-pointer"
-              style={{ color: navColor(tr), background: open === "Company" ? navHoverBg(tr) : "transparent" }}>
-              Company <Chevron open={open === "Company"} />
-            </button>
-
-            {open === "Company" && (
-              <div className="absolute top-full left-0 z-50 pt-3" style={{ minWidth: 195 }}>
-                <div className="rounded-2xl bg-white overflow-hidden"
-                  style={{ border: "1px solid #EBEBEB", boxShadow: "0 16px 40px rgba(0,0,0,0.10)" }}>
-                  <div className="py-1.5">
-                    {COMPANY_ITEMS.map(item => (
-                      <Link key={item.label} href={item.href}
-                        onClick={() => setOpen(null)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors"
-                        style={{ color: "#374151" }}
-                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#FAFAFA"}
-                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                        {item.icon}
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-        </nav>
 
         {/* Auth buttons */}
         <div className="flex items-center gap-2 shrink-0">
@@ -575,7 +351,7 @@ export default function SiteHeader() {
           ) : (
             /* ── Guest login button ── */
             <Link href="/login"
-              className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-sm font-semibold border transition-all"
               style={{
                 borderColor: tr ? "rgba(255,255,255,0.45)" : "#E5E7EB",
                 color:       tr ? "#fff" : "#374151",
@@ -591,13 +367,114 @@ export default function SiteHeader() {
           )}
 
           <Link href="/vendor/onboarding"
-            className="hidden sm:block px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: PRIMARY }}>
+            className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
+            style={{
+              background:  "linear-gradient(135deg, #FF5478 0%, #FF3B6B 55%, #E8235A 100%)",
+              boxShadow:   "0 4px 18px rgba(255,59,107,0.45), inset 0 1px 0 rgba(255,255,255,0.35)",
+            }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+              <path d="M12 2l1.9 5.8L20 9.5l-5.1 3.6 1.6 6.1L12 15.8 7.5 19.2l1.6-6.1L4 9.5l6.1-1.7z"/>
+            </svg>
             List Your Business
           </Link>
+
+          {/* Menu toggle — desktop only */}
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-all cursor-pointer"
+            style={{
+              borderColor: tr ? "rgba(255,255,255,0.45)" : "#E5E7EB",
+              color:       tr ? "#fff" : "#374151",
+              background:  menuOpen ? (tr ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.05)") : "transparent",
+            }}
+          >
+            {menuOpen ? (
+              <>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Close
+              </>
+            ) : (
+              <>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+                Menu
+              </>
+            )}
+          </button>
         </div>
 
       </div>
+
+      {/* ── Full-screen menu overlay ── */}
+      {menuOpen && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 hidden md:block"
+          style={{ top: 64 }}
+          onClick={() => setMenuOpen(false)}
+        >
+          <div className="absolute inset-0" style={{ background: "rgba(17,24,39,0.35)" }} />
+
+          <div
+            className="relative bg-white overflow-hidden"
+            style={{ borderBottom: "1px solid #E5E7EB", boxShadow: "0 24px 60px rgba(0,0,0,0.15)" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-4 lg:px-8">
+
+              {/* Tabs row */}
+              <div className="flex items-center gap-7 overflow-x-auto scrollbar-hide" style={{ borderBottom: "1px solid #F3F4F6" }}>
+                {MENU_TABS.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className="py-4 text-sm font-bold whitespace-nowrap cursor-pointer"
+                  >
+                    <span
+                      className="px-1.5 py-0.5 rounded transition-colors"
+                      style={{
+                        background: activeTab === tab.id ? PRIMARY : "transparent",
+                        color:      activeTab === tab.id ? "#fff" : "#9CA3AF",
+                      }}
+                    >
+                      {tab.id}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Content */}
+              <div className="relative py-10" style={{ minHeight: 300 }}>
+                {/* Watermark */}
+                <img
+                  src="/home/fav_section/pattern.png"
+                  alt=""
+                  className="absolute -left-12 -bottom-20 w-[320px] opacity-[0.12] pointer-events-none select-none"
+                />
+
+                <div className="relative z-10 grid grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-4 max-w-3xl">
+                  {MENU_TABS.find(t => t.id === activeTab)?.items.map(item => (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      className="text-lg sm:text-xl font-bold transition-colors w-fit"
+                      style={{ color: "#111827" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = PRIMARY}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#111827"}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
 
     </header>
   );

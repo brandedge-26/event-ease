@@ -76,7 +76,7 @@ export default function RegisterPage() {
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <Link href="/">
-            <Image src="/logo/logo-icon.svg" alt="Event Ease" width={44} height={44} className="rounded-2xl" />
+            <Image src="/favicon.svg" alt="Event Ease" width={44} height={44} className="rounded-2xl" />
           </Link>
         </div>
 

@@ -78,14 +78,14 @@ export default function SiteFooter() {
           {/* Brand column */}
           <div className="col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2.5 mb-4">
-              <Image src="/logo/logo-icon.svg" alt="Event Ease" width={32} height={32} className="rounded-xl" />
+              <Image src="/favicon.svg" alt="Event Ease" width={32} height={32} className="rounded-xl" />
               <span className="text-lg font-black tracking-tight">
                 <span className="text-white">Event</span>
                 <span style={{ color: PRIMARY }}>Ease</span>
               </span>
             </Link>
             <p className="text-sm leading-relaxed mb-6 max-w-xs" style={{ color: "#9CA3AF" }}>
-              Pakistan&apos;s #1 venue discovery platform. Find, compare and book banquet halls, marquees &amp; wedding venues with confidence.
+              Pakistan&apos;s No. 1 venue discovery platform. Find, compare and book banquet halls, marquees &amp; wedding venues with confidence.
             </p>
 
             {/* Socials */}

@@ -14,7 +14,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
       {/* Top Bar */}
       <header className="flex items-center justify-between px-8 py-4 border-b border-[#E5E7EB]">
         <Image
-          src="/logo/logo-icon.svg"
+          src="/favicon.svg"
           alt="Event Ease"
           width={36}
           height={36}

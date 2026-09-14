@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     template: "%s — Event Ease",
     default:  "Event Ease",
   },
-  description: "Pakistan's #1 venue discovery & booking platform",
+  description: "Pakistan's No. 1 venue discovery & booking platform",
   icons: {
     icon: "/favicon.svg",
     apple: "/icons/iconX192.png",

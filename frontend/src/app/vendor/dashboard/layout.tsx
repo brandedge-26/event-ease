@@ -157,7 +157,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <>
         <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10 shrink-0" style={{ minHeight: collapsed && !mobile ? 60 : "auto" }}>
-          <Image src="/logo/logo-icon.svg" alt="Event Ease" width={24} height={24} className="rounded-lg shrink-0" />
+          <Image src="/favicon.svg" alt="Event Ease" width={24} height={24} className="rounded-lg shrink-0" />
           {show && (
             <div className="min-w-0 flex-1">
               {isLoading ? (

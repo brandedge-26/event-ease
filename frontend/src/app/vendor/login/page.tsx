@@ -61,7 +61,7 @@ export default function VendorLoginPage() {
         {/* Logo */}
         <div className="flex justify-center mb-6">
           <Image
-            src="/logo/logo-icon.svg"
+            src="/favicon.svg"
             alt="Event Ease Logo"
             width={44}
             height={44}

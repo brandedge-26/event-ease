@@ -16,7 +16,7 @@ export default function OnboardingCompletePage() {
       {/* Logo */}
       <div className="flex justify-center mb-6">
         <Image
-          src="/logo/logo-icon.svg"
+          src="/favicon.svg"
           alt="Event Ease"
           width={56}
           height={56}

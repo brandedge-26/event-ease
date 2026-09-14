@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Event Ease",
     short_name: "Event Ease",
-    description: "Pakistan's #1 venue discovery & booking platform",
+    description: "Pakistan's No. 1 venue discovery & booking platform",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

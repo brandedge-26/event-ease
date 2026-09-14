@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-2xl overflow-hidden mb-3">
-            <Image src="/logo/logo-icon.svg" alt="Event Ease" width={48} height={48} />
+            <Image src="/favicon.svg" alt="Event Ease" width={48} height={48} />
           </div>
           <h1 className="text-xl font-bold" style={{ color: "#111827" }}>Admin Login</h1>
           <p className="text-sm mt-1" style={{ color: "var(--fg-muted)" }}>Event Ease Admin Panel</p>

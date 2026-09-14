@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import HeroSearch from "./HeroSearch";
+import HeroBanner from "./HeroBanner";
 import SiteHeader from "./SiteHeader";
 import BottomNav from "./BottomNav";
 import CustomerReviews from "./CustomerReviews";
@@ -85,55 +86,23 @@ export default async function Home({
       <BottomNav />
 
       {/* ── Hero Banner ── */}
-      <div className="relative -mt-16" style={{ minHeight: 600 }}>
-        {/* Background image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/home/banner.webp')" }}
-        />
-        {/* Dark gradient overlay */}
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.68) 60%, rgba(0,0,0,0.80) 100%)" }}
-        />
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center justify-center text-center px-4 pt-36 pb-16">
-          {/* Eyebrow */}
-          <div className="flex items-center gap-2 mb-6">
-            {/* <span className="block w-8 h-px" style={{ background: "rgba(255,59,107,0.7)" }} /> */}
-            <span className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: "#FF8FA3" }}>
-              Pakistan&apos;s #1 Venue Platform
-            </span>
-            {/* <span className="block w-8 h-px" style={{ background: "rgba(255,59,107,0.7)" }} /> */}
-          </div>
-
-          {/* Headline */}
-          <div className="mb-8">
-            <h1
-              className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white"
-              style={{ lineHeight: 1.1 }}>
-              Your Event Starts
-            </h1>
-            <h2
-              className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight"
-              style={{ color: "#FF3B6B", lineHeight: 1.1 }}>
-              With The Perfect Venue
-            </h2>
-          </div>
-
-          {/* Search */}
-          <Suspense fallback={null}>
-            <HeroSearch />
-          </Suspense>
-        </div>
-      </div>
+      <HeroBanner>
+        <Suspense fallback={null}>
+          <HeroSearch />
+        </Suspense>
+      </HeroBanner>
 
       {/* ── What We Offer ── */}
       <WhatWeOffer />
 
+      {/* ── Trust & Safety ── */}
+      <TrustSection />
+
       {/* ── Why Event Ease ── */}
       <WhyEventEase />
+
+      {/* ── Our Mission ── */}
+      <MissionSection />
 
       {/* ── Customer Reviews ── */}
       <CustomerReviews />
@@ -384,6 +353,99 @@ function VenueCard({ v, featured = false }: { v: VendorCard; featured?: boolean 
   );
 }
 
+// ─── Our Mission — torn-edge banner ─────────────────────────────────────────────
+function MissionSection() {
+  return (
+    <section className="relative overflow-hidden">
+      <div className="relative w-full">
+        <img
+          src="/pattern.png"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: "top", opacity: 0.85 }}
+        />
+        <div className="relative z-10 flex flex-col items-center text-center px-4 pt-72 sm:pt-[26rem] lg:pt-[30rem] pb-16 sm:pb-20 max-w-3xl mx-auto">
+          <h2 className="font-black tracking-tight text-white mb-6" style={{ lineHeight: 1.18 }}>
+            <span className="block text-3xl sm:text-4xl lg:text-5xl">Our Mission:</span>
+            <span className="block text-3xl sm:text-4xl lg:text-5xl">empowering vendors, not just bookings</span>
+          </h2>
+          <p className="text-sm sm:text-base leading-relaxed mb-8 max-w-xl" style={{ color: "rgba(255,255,255,0.90)" }}>
+            We don&apos;t just process bookings — we empower vendors. Event Ease replaces paper
+            diaries, Excel sheets, and WhatsApp chaos with one simple system that helps banquet
+            halls and event businesses across Pakistan save time and grow revenue.
+          </p>
+          <Link
+            href="/how-it-works"
+            className="inline-flex items-center justify-center px-7 py-3.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
+            style={{ background: "#111827" }}
+          >
+            Learn More
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Trust & Safety ─────────────────────────────────────────────────────────────
+function TrustSection() {
+  return (
+    <section className="px-4 lg:px-8 py-16" style={{ background: "#fff" }}>
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <span className="inline-block text-xs font-bold uppercase tracking-[0.22em] mb-4 px-3.5 py-1.5 rounded-full"
+            style={{ background: "#FFF0F4", color: PRIMARY }}>
+            Trust &amp; Safety
+          </span>
+          <h2 className="text-3xl lg:text-5xl font-black text-black tracking-tight">
+            Your trust is our priority
+          </h2>
+        </div>
+
+        {/* Card */}
+        <div className="relative rounded-3xl overflow-hidden" style={{ background: "#FFE1EA" }}>
+          {/* Watermark shield */}
+          <img
+            src="/home/fav_section/pattern.png"
+            alt=""
+            className="absolute -left-14 -top-16 w-[360px] sm:w-[480px] opacity-60 pointer-events-none select-none"
+          />
+
+          <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-stretch">
+            {/* Person image */}
+            <div className="w-full sm:w-[36%] flex items-end justify-center shrink-0 pt-8">
+              <img
+                src="/home/fav_section/new_user.png"
+                alt=""
+                className="h-[260px] sm:h-[420px] w-auto object-contain"
+              />
+            </div>
+
+            {/* Text */}
+            <div className="flex-1 flex flex-col justify-center px-6 sm:pl-2 sm:pr-14 py-8 sm:py-14">
+              <h3 className="text-2xl sm:text-3xl font-black text-black mb-4 tracking-tight">
+                Verification is non-negotiable.
+              </h3>
+              <p className="text-sm sm:text-base leading-relaxed mb-7 max-w-md" style={{ color: "#4B5563" }}>
+                Every vendor on Event Ease is verified before they go live — real businesses, real
+                reviews, and secure advance payments. Book your venue with confidence, every time.
+              </p>
+              <Link
+                href="/how-it-works"
+                className="inline-flex items-center justify-center w-fit px-6 py-3.5 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
+                style={{ background: PRIMARY }}
+              >
+                Learn More
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── What We Offer ─────────────────────────────────────────────────────────────
 // ─── Why Event Ease ───────────────────────────────────────────────────────────
 const WHY_STATS = [
@@ -486,122 +548,112 @@ function WhyEventEase() {
   );
 }
 
-const OFFER_CARDS = [
+const SERVICES = [
   {
-    label: "Venues & Halls",
-    desc:  "Grand banquet halls, marquees & ballrooms",
-    href:  "/venues?type=Banquet+Hall",
-    bg:    "#FFF3E6",
-    accent:"#C2763A",
-    gradient: "linear-gradient(to right, #FFF3E6 38%, transparent 75%)",
-    img:   "/home/banners/banquet.png",
+    label: "Venue Halls",
+    desc:  "Grand banquet halls, marquees & ballrooms for every celebration.",
+    img:   "/home/services/venuehalls.png",
+    browseHref:  "/venues?type=Banquet+Hall",
+    browseLabel: "Browse Venues",
   },
   {
     label: "Photography",
-    desc:  "Professional wedding photographers",
-    href:  "/venues?type=Photography",
-    bg:    "#EDEAFF",
-    accent:"#6D28D9",
-    gradient: "linear-gradient(to right, #EDEAFF 38%, transparent 75%)",
-    img:   "/home/banners/a_professional_wedding_photographer_in_action_holding_a_high_end_camera_focused.png",
+    desc:  "Professional wedding photographers & cinematic videographers.",
+    img:   "/home/services/photographey.png",
+    browseHref:  "/venues?type=Photography",
+    browseLabel: "Browse Photographers",
   },
   {
     label: "Bridal Makeup",
-    desc:  "Glamorous beauty for your big day",
-    href:  "/venues?type=Beauty+Parlor",
-    bg:    "#FFE8EE",
-    accent:"#BE185D",
-    gradient: "linear-gradient(to right, #FFE8EE 38%, transparent 75%)",
-    img:   "/home/banners/an_elegant_bride_receiving_professional_makeup_application_close_up_on_the.png",
+    desc:  "Glamorous bridal makeup & grooming artists for your big day.",
+    img:   "/home/services/bradial.png",
+    browseHref:  "/venues?type=Beauty+Parlor",
+    browseLabel: "Browse Makeup Artists",
   },
   {
     label: "Decoration",
-    desc:  "Stunning floral & stage setups",
-    href:  "/venues?type=Decoration",
-    bg:    "#FFE0D4",
-    accent:"#C2410C",
-    gradient: "linear-gradient(to right, #FFE0D4 38%, transparent 75%)",
-    img:   "/home/banners/premium_floral_wedding_stage_decoration_lush_white_and_pink_roses_elegant.png",
+    desc:  "Stunning floral arrangements & stage decoration setups.",
+    img:   "/home/services/decoration.png",
+    browseHref:  "/venues?type=Decoration",
+    browseLabel: "Browse Decorators",
   },
   {
     label: "Catering",
-    desc:  "Gourmet menus for every occasion",
-    href:  "/venues?type=Catering",
-    bg:    "#E8F5E0",
-    accent:"#166534",
-    gradient: "linear-gradient(to right, #E8F5E0 38%, transparent 75%)",
-    img:   "/home/banners/beautiful_premium_wedding_catering_arrangement_gourmet_appetizers_elegantly.png",
+    desc:  "Gourmet menus & elegant catering for every occasion.",
+    img:   "/home/services/catering.png",
+    browseHref:  "/venues?type=Catering",
+    browseLabel: "Browse Caterers",
   },
   {
     label: "Mehndi & Henna",
-    desc:  "Intricate traditional henna art",
-    href:  "/venues?q=mehndi",
-    bg:    "#FFF0E0",
-    accent:"#92400E",
-    gradient: "linear-gradient(to right, #FFF0E0 38%, transparent 75%)",
-    img:   "/home/banners/elegant_bridal_henna_mehndi_application_intricate_patterns_on_hands_traditional.png",
+    desc:  "Intricate traditional henna art from skilled mehndi artists.",
+    img:   "/home/services/mehndi_hena.png",
+    browseHref:  "/venues?q=mehndi",
+    browseLabel: "Browse Mehndi Artists",
   },
 ];
+
+function ServiceLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1.5 text-sm font-bold group/link w-fit"
+      style={{ color: "#111827" }}
+    >
+      {label}
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+        className="transition-transform group-hover/link:translate-x-0.5">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </Link>
+  );
+}
 
 function WhatWeOffer() {
   return (
     <section className="px-4 lg:px-8 py-16" style={{ background: "#F8F8F8" }}>
       {/* Section header */}
       <div className="text-center mb-10">
-        <span className="inline-block text-xs font-bold uppercase tracking-[0.22em] mb-3 px-3 py-1 rounded-full"
+        <span className="inline-block text-xs font-bold uppercase tracking-[0.22em] mb-4 px-3.5 py-1.5 rounded-full"
           style={{ background: "#FFF0F4", color: PRIMARY }}>
-          Our Services
+          Event Ease
         </span>
-        <h2 className="text-3xl lg:text-4xl font-black text-black mb-3 tracking-tight">
-          What We Offer
+        <h2 className="text-3xl lg:text-5xl font-black text-black tracking-tight">
+          One platform, every event service
         </h2>
-        <p className="text-sm max-w-sm mx-auto leading-relaxed" style={{ color: "#9CA3AF" }}>
-          Everything you need for a perfect event — venues, catering, decor &amp; more.
-        </p>
       </div>
 
-      {/* 3×2 card grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
-        {OFFER_CARDS.map((card) => (
-          <Link
-            key={card.label}
-            href={card.href}
-            className="group relative overflow-hidden rounded-2xl flex items-stretch cursor-pointer transition-transform duration-300 hover:-translate-y-1"
-            style={{ height: 168, background: card.bg, border: "1px solid #E5E7EB" }}>
-
-            <div className="relative z-10 flex flex-col justify-between p-5 w-[58%] shrink-0">
-              <div>
-                <h3 className="text-base font-black leading-tight" style={{ color: card.accent }}>
-                  {card.label}
-                </h3>
-                <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: card.accent + "AA" }}>
-                  {card.desc}
-                </p>
-              </div>
-              <span
-                className="inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all group-hover:gap-2.5"
-                style={{ background: card.accent }}>
-                Explore
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </span>
-            </div>
-
-            {/* Gradient fade */}
-            <div className="absolute inset-0 z-[5] pointer-events-none"
-              style={{ background: card.gradient }} />
-
-            {/* Image — right side */}
-            <div className="absolute right-0 top-0 bottom-0 w-[55%] overflow-hidden">
+      {/* Service cards */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 max-w-5xl mx-auto">
+        {SERVICES.map((s) => (
+          <div
+            key={s.label}
+            className="group rounded-3xl bg-white overflow-hidden flex flex-col sm:flex-row transition-shadow duration-300 hover:shadow-xl"
+            style={{ border: "1.5px solid #E5E7EB" }}
+          >
+            {/* Illustration */}
+            <div className="w-full sm:w-[44%] shrink-0 p-3 h-52 sm:h-auto">
               <img
-                src={card.img}
-                alt={card.label}
-                className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                src={s.img}
+                alt={s.label}
+                className="w-full h-full object-cover rounded-2xl transition-transform duration-500 group-hover:scale-[1.03]"
               />
             </div>
 
-          </Link>
+            {/* Text */}
+            <div className="flex-1 p-6 sm:p-7 flex flex-col justify-center">
+              <h3 className="text-xl sm:text-2xl font-black text-black mb-2 tracking-tight">
+                {s.label}
+              </h3>
+              <p className="text-sm mb-5 leading-relaxed" style={{ color: "#6B7280" }}>
+                {s.desc}
+              </p>
+              <div className="flex flex-col gap-2.5">
+                <ServiceLink href={s.browseHref} label={s.browseLabel} />
+                <ServiceLink href="/vendor/onboarding" label="List Your Business" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </section>
@@ -620,58 +672,79 @@ function CTABanner() {
   return (
     <section
       className="mx-4 lg:mx-8 my-12 rounded-3xl overflow-hidden relative"
-      style={{ background: "#F4F4F5", border: "1.5px solid #E4E4E7", minHeight: 340 }}
+      style={{ background: "#FFE1EA" }}
     >
+      {/* Watermark shield */}
+      <img
+        src="/home/fav_section/pattern.png"
+        alt=""
+        className="absolute -right-16 -top-16 w-[320px] sm:w-[440px] opacity-60 pointer-events-none select-none"
+        style={{ transform: "scaleX(-1)" }}
+      />
+
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center text-center px-8 lg:px-20 py-14">
+      <div className="relative z-10 flex flex-col-reverse sm:flex-row items-center">
 
-        {/* Eyebrow */}
-        <span
-          className="inline-block text-xs font-bold uppercase tracking-[0.22em] mb-5 px-3 py-1 rounded-full"
-          style={{ background: "#FFF0F4", color: PRIMARY }}
-        >
-          For Business Owners
-        </span>
+        {/* Text */}
+        <div className="flex-1 flex flex-col items-start text-left px-8 sm:pl-14 sm:pr-6 py-12 sm:py-16 w-full">
 
-        <h2
-          className="text-3xl lg:text-4xl font-black tracking-tight"
-          style={{ color: "#111827", lineHeight: 1.15 }}
-        >
-          Grow your business with{" "}
-          <span style={{ color: PRIMARY }}>Event Ease.</span>
-        </h2>
+          {/* Eyebrow */}
+          <span
+            className="inline-block text-xs font-bold uppercase tracking-[0.22em] mb-5 px-3 py-1 rounded-full"
+            style={{ background: "#fff", color: PRIMARY }}
+          >
+            For Business Owners
+          </span>
 
-        <p className="text-sm leading-relaxed mt-4 mb-8 max-w-lg" style={{ color: "#6B7280" }}>
-          Join hundreds of venues, photographers &amp; decorators already listed on Pakistan&apos;s fastest-growing event marketplace. Get discovered by couples planning their big day.
-        </p>
+          <h2
+            className="text-3xl lg:text-4xl font-black tracking-tight"
+            style={{ color: "#111827", lineHeight: 1.15 }}
+          >
+            Grow your business with{" "}
+            <span style={{ color: PRIMARY }}>Event Ease.</span>
+          </h2>
 
-        {/* Benefits */}
-        <ul className="flex flex-col gap-2.5 mb-8 w-full max-w-xs text-left">
-          {BENEFITS.map(b => (
-            <li key={b.label} className="flex items-center gap-3">
-              <span
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: "#FFE4EA" }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={b.icon} />
-                </svg>
-              </span>
-              <span className="text-sm font-semibold" style={{ color: "#374151" }}>{b.label}</span>
-            </li>
-          ))}
-        </ul>
+          <p className="text-sm leading-relaxed mt-4 mb-7 max-w-md" style={{ color: "#4B5563" }}>
+            Join hundreds of venues, photographers &amp; decorators already listed on Pakistan&apos;s fastest-growing event marketplace. Get discovered by couples planning their big day.
+          </p>
 
-        <Link
-          href="/vendor/onboarding"
-          className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
-          style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)" }}
-        >
-          List Your Business
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </Link>
+          {/* Benefits */}
+          <ul className="flex flex-col gap-2.5 mb-8 w-full max-w-xs">
+            {BENEFITS.map(b => (
+              <li key={b.label} className="flex items-center gap-3">
+                <span
+                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ background: "#fff" }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d={b.icon} />
+                  </svg>
+                </span>
+                <span className="text-sm font-semibold" style={{ color: "#374151" }}>{b.label}</span>
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            href="/vendor/onboarding"
+            className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
+            style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)" }}
+          >
+            List Your Business
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </Link>
+        </div>
+
+        {/* Person image */}
+        <div className="w-full sm:w-[36%] flex items-end justify-center shrink-0 pt-8 sm:pt-10">
+          <img
+            src="/home/fav_section/new_user.png"
+            alt=""
+            className="h-[220px] sm:h-[380px] w-auto object-contain"
+          />
+        </div>
       </div>
     </section>
   );

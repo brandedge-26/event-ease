@@ -113,7 +113,7 @@ export default function ContactPage() {
             <div className="bg-white rounded-2xl border p-6" style={{ borderColor: "#E5E7EB" }}>
               {/* Logo + brand */}
               <div className="flex items-center gap-3 mb-6">
-                <Image src="/logo/logo-icon.svg" alt="Event Ease" width={40} height={40} className="rounded-xl" />
+                <Image src="/favicon.svg" alt="Event Ease" width={40} height={40} className="rounded-xl" />
                 <div>
                   <p className="text-base font-black tracking-tight">
                     <span className="text-black">Event</span>
