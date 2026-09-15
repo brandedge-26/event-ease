@@ -5,14 +5,57 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const PRIMARY = "#FF3B6B";
+const MUTED   = "#FF8FA3";
+const BACKING = "#FFE1EA";
+
+// ─── Floating pill geometry — fixed pixel values so the notch math stays exact ──
+const PILL_W      = 340;
+const PILL_H      = 64;
+const CORNER_R    = 18;
+const SIDE_PAD    = 26;
+const SLOT_W      = (PILL_W - SIDE_PAD * 2) / 4;
+const NOTCH_HALF  = 34;   // half-width of the cut-out at the flat edge
+const NOTCH_DEPTH = 34;   // how far the cut-out dips into the bar
+const NOTCH_CTRL  = 17;   // bezier control offset (half of NOTCH_HALF/DEPTH)
+const BUBBLE_SIZE = 56;
+const BACKING_SIZE = 68;
+
+function slotCenter(i: number) {
+  return SIDE_PAD + SLOT_W * i + SLOT_W / 2;
+}
+
+// Rounded-rect pill outline; when cx is a number, a smooth bowl-shaped notch
+// is cut into the top edge centered at that x — this is what the active tab's
+// bubble sits inside. When cx is null, the top edge is left flat.
+function pillPath(cx: number | null) {
+  const top = cx == null
+    ? `L ${PILL_W - CORNER_R} 0`
+    : `L ${cx - NOTCH_HALF} 0
+       C ${cx - NOTCH_CTRL} 0, ${cx - NOTCH_CTRL} ${NOTCH_DEPTH}, ${cx} ${NOTCH_DEPTH}
+       C ${cx + NOTCH_CTRL} ${NOTCH_DEPTH}, ${cx + NOTCH_CTRL} 0, ${cx + NOTCH_HALF} 0
+       L ${PILL_W - CORNER_R} 0`;
+
+  return `
+    M ${CORNER_R} 0
+    ${top}
+    A ${CORNER_R} ${CORNER_R} 0 0 1 ${PILL_W} ${CORNER_R}
+    L ${PILL_W} ${PILL_H - CORNER_R}
+    A ${CORNER_R} ${CORNER_R} 0 0 1 ${PILL_W - CORNER_R} ${PILL_H}
+    L ${CORNER_R} ${PILL_H}
+    A ${CORNER_R} ${CORNER_R} 0 0 1 0 ${PILL_H - CORNER_R}
+    L 0 ${CORNER_R}
+    A ${CORNER_R} ${CORNER_R} 0 0 1 ${CORNER_R} 0
+    Z
+  `;
+}
 
 // ─── Bottom Tabs ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   {
     label: "Home",
     href: "/",
-    icon: (a: boolean) => (
-      <svg width="21" height="21" viewBox="0 0 24 24" fill={a ? PRIMARY : "none"} stroke={a ? PRIMARY : "#9CA3AF"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    icon: (color: string) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
         <polyline points="9 22 9 12 15 12 15 22"/>
       </svg>
@@ -21,8 +64,8 @@ const NAV_ITEMS = [
   {
     label: "Venues",
     href: "/venues",
-    icon: (a: boolean) => (
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke={a ? PRIMARY : "#9CA3AF"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    icon: (color: string) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="4" y="2" width="16" height="20" rx="1"/>
         <path d="M9 22v-4h6v4"/>
         <path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>
@@ -33,8 +76,8 @@ const NAV_ITEMS = [
     label: "Events",
     href: "/events/barat",
     matchPrefix: "/events",
-    icon: (a: boolean) => (
-      <svg width="21" height="21" viewBox="0 0 24 24" fill={a ? PRIMARY : "none"} stroke={a ? PRIMARY : "#9CA3AF"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    icon: (color: string) => (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="4" width="18" height="18" rx="2"/>
         <line x1="16" y1="2" x2="16" y2="6"/>
         <line x1="8" y1="2" x2="8" y2="6"/>
@@ -158,38 +201,92 @@ export default function BottomNav() {
 
   const close = () => setMoreOpen(false);
 
+  // Which of the 4 slots (Home, Venues, Events, More) is active — drives the notch position
+  const navActiveIndex = NAV_ITEMS.findIndex(item => isActive(item.href, pathname, item.matchPrefix));
+  const activeIndex = moreOpen ? 3 : navActiveIndex;
+  const notchCx = activeIndex === -1 ? null : slotCenter(activeIndex);
+
+  const moreIcon = (color: string) => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" stroke={color}>
+      <circle cx="5"  cy="12" r="1.3" fill={color}/>
+      <circle cx="12" cy="12" r="1.3" fill={color}/>
+      <circle cx="19" cy="12" r="1.3" fill={color}/>
+    </svg>
+  );
+
   return (
     <>
-      {/* ── Bottom nav bar ────────────────────────────────────────────────────── */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white border-t"
-        style={{ borderColor: "#E5E7EB", paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <div className="flex items-center justify-around px-1 py-1">
+      {/* ── Bottom nav bar — floating pill with a real cut-out notch around the active tab ── */}
+      <nav
+        className="md:hidden"
+        style={{
+          position:   "fixed",
+          left:       "50%",
+          bottom:     "calc(env(safe-area-inset-bottom) + 16px)",
+          transform:  "translateX(-50%)",
+          zIndex:     40,
+          width:      PILL_W,
+          maxWidth:   "92vw",
+          height:     PILL_H,
+        }}
+      >
+        {/* Pill shape with notch, drawn precisely as an SVG path */}
+        <svg
+          width="100%" height="100%" viewBox={`0 0 ${PILL_W} ${PILL_H}`} preserveAspectRatio="none"
+          style={{ position: "absolute", inset: 0, overflow: "visible" }}
+        >
+          <path d={pillPath(notchCx)} fill="#ffffff" stroke="#E5E7EB" strokeWidth="1.5" />
+        </svg>
 
-          {NAV_ITEMS.map(item => {
-            const active = isActive(item.href, pathname, item.matchPrefix);
+        {/* Icon row */}
+        <div style={{ position: "relative", display: "flex", height: "100%", paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD }}>
+          {NAV_ITEMS.map((item, i) => {
+            const active = i === activeIndex;
             return (
               <Link key={item.label} href={item.href}
-                className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors min-w-0"
-                style={{ color: active ? PRIMARY : "#9CA3AF" }}>
-                {item.icon(active)}
-                <span className="text-[10px] font-semibold leading-none">{item.label}</span>
+                style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {active ? (
+                  <>
+                    <span style={{
+                      position: "absolute", top: -(BACKING_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                      width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING, zIndex: 1,
+                    }} />
+                    <span style={{
+                      position: "absolute", top: -(BUBBLE_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                      width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
+                      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
+                    }}>
+                      {item.icon("#ffffff")}
+                    </span>
+                  </>
+                ) : (
+                  item.icon(MUTED)
+                )}
               </Link>
             );
           })}
 
           {/* More button */}
           <button onClick={() => setMoreOpen(o => !o)}
-            className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-colors min-w-0 cursor-pointer"
-            style={{ color: moreOpen ? PRIMARY : "#9CA3AF" }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-              stroke={moreOpen ? PRIMARY : "#9CA3AF"}>
-              <circle cx="5"  cy="12" r="1.2" fill={moreOpen ? PRIMARY : "#9CA3AF"}/>
-              <circle cx="12" cy="12" r="1.2" fill={moreOpen ? PRIMARY : "#9CA3AF"}/>
-              <circle cx="19" cy="12" r="1.2" fill={moreOpen ? PRIMARY : "#9CA3AF"}/>
-            </svg>
-            <span className="text-[10px] font-semibold leading-none">More</span>
+            style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "transparent", border: "none" }}>
+            {moreOpen ? (
+              <>
+                <span style={{
+                  position: "absolute", top: -(BACKING_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                  width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING, zIndex: 1,
+                }} />
+                <span style={{
+                  position: "absolute", top: -(BUBBLE_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                  width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
+                  display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
+                }}>
+                  {moreIcon("#ffffff")}
+                </span>
+              </>
+            ) : (
+              moreIcon(MUTED)
+            )}
           </button>
-
         </div>
       </nav>
 
