@@ -366,15 +366,25 @@ export default function SiteHeader() {
             </Link>
           )}
 
+          {/* List Your Business — mobile icon button */}
+          <Link
+            href="/vendor/onboarding"
+            aria-label="List Your Business"
+            className="sm:hidden flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-all active:scale-95"
+            style={{
+              background: "linear-gradient(135deg, #FF5478 0%, #FF3B6B 55%, #E8235A 100%)",
+              boxShadow:  "0 4px 14px rgba(255,59,107,0.45), inset 0 1px 0 rgba(255,255,255,0.35)",
+            }}>
+            <img src="/logo/white_icon.png" alt="" width={16} height={16} />
+          </Link>
+
           <Link href="/vendor/onboarding"
             className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0"
             style={{
               background:  "linear-gradient(135deg, #FF5478 0%, #FF3B6B 55%, #E8235A 100%)",
               boxShadow:   "0 4px 18px rgba(255,59,107,0.45), inset 0 1px 0 rgba(255,255,255,0.35)",
             }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
-              <path d="M12 2l1.9 5.8L20 9.5l-5.1 3.6 1.6 6.1L12 15.8 7.5 19.2l1.6-6.1L4 9.5l6.1-1.7z"/>
-            </svg>
+            <img src="/logo/white_icon.png" alt="" width={14} height={14} className="shrink-0" />
             List Your Business
           </Link>
 
@@ -449,9 +459,9 @@ export default function SiteHeader() {
               <div className="relative py-10" style={{ minHeight: 300 }}>
                 {/* Watermark */}
                 <img
-                  src="/home/fav_section/pattern.png"
+                  src="/logo/logo-icon.png"
                   alt=""
-                  className="absolute -left-12 -bottom-20 w-[320px] opacity-[0.12] pointer-events-none select-none"
+                  className="absolute -left-12 -bottom-20 w-[420px] opacity-[0.14] pointer-events-none select-none"
                 />
 
                 <div className="relative z-10 grid grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-4 max-w-3xl">

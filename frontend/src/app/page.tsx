@@ -405,11 +405,11 @@ function TrustSection() {
 
         {/* Card */}
         <div className="relative rounded-3xl overflow-hidden" style={{ background: "#FFE1EA" }}>
-          {/* Watermark shield */}
+          {/* Watermark logo */}
           <img
-            src="/home/fav_section/pattern.png"
+            src="/logo/logo-icon.png"
             alt=""
-            className="absolute -left-14 -top-16 w-[360px] sm:w-[480px] opacity-60 pointer-events-none select-none"
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-[300px] sm:w-[360px] opacity-40 pointer-events-none select-none"
           />
 
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-stretch">
@@ -674,12 +674,11 @@ function CTABanner() {
       className="mx-4 lg:mx-8 my-12 rounded-3xl overflow-hidden relative"
       style={{ background: "#FFE1EA" }}
     >
-      {/* Watermark shield */}
+      {/* Watermark logo */}
       <img
-        src="/home/fav_section/pattern.png"
+        src="/logo/logo-icon.png"
         alt=""
-        className="absolute -right-16 -top-16 w-[320px] sm:w-[440px] opacity-60 pointer-events-none select-none"
-        style={{ transform: "scaleX(-1)" }}
+        className="absolute right-4 top-1/2 -translate-y-1/2 w-[300px] sm:w-[360px] opacity-40 pointer-events-none select-none"
       />
 
       {/* Content */}
@@ -730,15 +729,13 @@ function CTABanner() {
             className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full text-sm font-bold text-white transition-all hover:opacity-90 active:scale-95"
             style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)" }}
           >
+            <img src="/logo/white_icon.png" alt="" width={14} height={14} className="shrink-0" />
             List Your Business
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
           </Link>
         </div>
 
-        {/* Person image */}
-        <div className="w-full sm:w-[36%] flex items-end justify-center shrink-0 pt-8 sm:pt-10">
+        {/* Person image — hidden on mobile */}
+        <div className="hidden sm:flex sm:w-[36%] items-end justify-center shrink-0 sm:pt-10">
           <img
             src="/home/fav_section/new_user.png"
             alt=""

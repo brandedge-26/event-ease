@@ -1,21 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const PRIMARY = "#FF3B6B";
+const SLIDE_MS = 5000;
 
 // ─── Category tabs — each swaps the hero background to art from our own content ──
 const CATEGORIES = [
-  { label: "Banquet Hall",  img: "/home/banner.webp" },
-  { label: "Photography",   img: "/home/banners/a_professional_wedding_photographer_in_action_holding_a_high_end_camera_focused.png" },
-  { label: "Bridal Makeup", img: "/home/banners/an_elegant_bride_receiving_professional_makeup_application_close_up_on_the.png" },
-  { label: "Decoration",    img: "/home/banners/premium_floral_wedding_stage_decoration_lush_white_and_pink_roses_elegant.png" },
-  { label: "Catering",      img: "/home/banners/beautiful_premium_wedding_catering_arrangement_gourmet_appetizers_elegantly.png" },
-  { label: "Mehndi & Henna",img: "/home/banners/elegant_bridal_henna_mehndi_application_intricate_patterns_on_hands_traditional.png" },
+  { label: "Banquet Hall",  img: "/banners/Banquet Hall.png" },
+  { label: "Photography",   img: "/banners/Photography.png" },
+  { label: "Bridal Makeup", img: "/banners/Bridal Makeup.png" },
+  { label: "Decoration",    img: "/banners/decoration (2).png" },
+  { label: "Catering",      img: "/banners/catering (2).png" },
+  { label: "Mehndi & Henna",img: "/banners/mehndi.png" },
 ];
 
 export default function HeroBanner({ children }: { children: React.ReactNode }) {
   const [active, setActive] = useState(0);
+
+  // Auto-advance to the next tab once the active tab's progress bar fills up
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setActive(a => (a + 1) % CATEGORIES.length);
+    }, SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [active]);
 
   return (
     <div className="relative -mt-16 overflow-hidden" style={{ minHeight: 660 }}>
@@ -40,19 +49,28 @@ export default function HeroBanner({ children }: { children: React.ReactNode }) 
           Pakistan&apos;s No. 1 Venue Platform
         </span>
 
-        {/* Category tabs */}
+        {/* Category tabs — auto-advancing progress bar under the active tab */}
         <div className="flex items-center gap-5 sm:gap-7 mb-7 overflow-x-auto scrollbar-hide max-w-full">
           {CATEGORIES.map((c, i) => (
             <button
               key={c.label}
               onClick={() => setActive(i)}
-              className="shrink-0 pb-2 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors cursor-pointer"
-              style={{
-                color:       i === active ? "#ffffff" : "rgba(255,255,255,0.55)",
-                borderColor: i === active ? PRIMARY   : "transparent",
-              }}
+              className="shrink-0 text-sm font-semibold whitespace-nowrap cursor-pointer text-left"
+              style={{ color: i === active ? "#ffffff" : "rgba(255,255,255,0.55)" }}
             >
-              {c.label}
+              <span className="block pb-2">{c.label}</span>
+              <span
+                className="block h-[3px] rounded-full overflow-hidden"
+                style={{ background: "rgba(255,255,255,0.25)" }}
+              >
+                {i === active && (
+                  <span
+                    key={active}
+                    className="block h-full rounded-full"
+                    style={{ background: PRIMARY, animation: `heroTabFill ${SLIDE_MS}ms linear forwards` }}
+                  />
+                )}
+              </span>
             </button>
           ))}
         </div>
