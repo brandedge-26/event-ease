@@ -405,11 +405,11 @@ function TrustSection() {
 
         {/* Card */}
         <div className="relative rounded-3xl overflow-hidden" style={{ background: "#FFE1EA" }}>
-          {/* Watermark logo */}
+          {/* Watermark logo — on mobile, anchored behind the person from the top of the photo down */}
           <img
             src="/logo/logo-icon.png"
             alt=""
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-[300px] sm:w-[360px] opacity-40 pointer-events-none select-none"
+            className="absolute left-4 top-0 sm:top-1/2 sm:-translate-y-1/2 w-[300px] sm:w-[360px] opacity-40 pointer-events-none select-none"
           />
 
           <div className="relative z-10 flex flex-col sm:flex-row items-center sm:items-stretch">
@@ -678,7 +678,7 @@ function CTABanner() {
       <img
         src="/logo/logo-icon.png"
         alt=""
-        className="absolute right-4 top-1/2 -translate-y-1/2 w-[300px] sm:w-[360px] opacity-40 pointer-events-none select-none"
+        className="absolute right-4 top-1/2 -translate-y-1/2 w-[300px] sm:w-[360px] opacity-20 sm:opacity-40 pointer-events-none select-none"
       />
 
       {/* Content */}
