@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const PRIMARY  = "#FF3B6B";
 const MUTED    = "#FF6B8A";
@@ -194,6 +194,7 @@ function SheetLink({ href, icon, label, highlight = false, onClose }: {
 export default function BottomNav() {
   const pathname  = usePathname();
   const router    = useRouter();
+  const navRef    = useRef<HTMLElement>(null);
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => { setMoreOpen(false); }, [pathname]);
@@ -210,46 +211,90 @@ export default function BottomNav() {
   const activeIndex = moreOpen ? 3 : navActiveIndex;
   const notchCx = activeIndex === -1 ? null : slotCenter(activeIndex);
 
-  // ── Swipe left/right anywhere on a mobile page to move between bottom-nav tabs ──
+  // ── Live drag: the active bubble follows the finger while swiping ──────────────
+  const [dragCx, setDragCx]               = useState<number | null>(null);
+  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
+  const activeIndexRef = useRef(activeIndex);
+  useEffect(() => { activeIndexRef.current = activeIndex; }, [activeIndex]);
+
   useEffect(() => {
-    let startX = 0, startY = 0, tracking = false;
+    const startX = { current: 0 };
+    const startY = { current: 0 };
+    const scale = { current: 1 };
+    const baseCx = { current: 0 };
+    const baseIndex = { current: 0 };
+    const liveCx = { current: 0 };
+    let tracking = false;
+    let dragging = false;
 
     function onStart(e: TouchEvent) {
       const t = e.touches[0];
-      startX = t.clientX;
-      startY = t.clientY;
+      startX.current = t.clientX;
+      startY.current = t.clientY;
       tracking = true;
+      dragging = false;
+      const rect = navRef.current?.getBoundingClientRect();
+      scale.current = rect && rect.width ? PILL_W / rect.width : 1;
+      const i = activeIndexRef.current === -1 ? 0 : activeIndexRef.current;
+      baseIndex.current = i;
+      baseCx.current = slotCenter(i);
     }
 
-    function onEnd(e: TouchEvent) {
+    function onMove(e: TouchEvent) {
       if (!tracking) return;
+      const t = e.touches[0];
+      const dxReal = t.clientX - startX.current;
+      const dyReal = t.clientY - startY.current;
+
+      if (!dragging) {
+        // Only start following once the gesture is clearly a horizontal drag —
+        // keeps normal vertical scrolling and taps unaffected.
+        if (Math.abs(dxReal) < 8 || Math.abs(dxReal) < Math.abs(dyReal) * 1.3) return;
+        dragging = true;
+        setDragStartIndex(baseIndex.current);
+      }
+
+      const cx = Math.max(slotCenter(0), Math.min(slotCenter(3), baseCx.current + dxReal * scale.current));
+      liveCx.current = cx;
+      setDragCx(cx);
+    }
+
+    function onEnd() {
       tracking = false;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - startX;
-      const dy = t.clientY - startY;
+      if (!dragging) return;
+      dragging = false;
 
-      // Require a clear, mostly-horizontal fling so it doesn't fight scrolling chips/tabs
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
+      const nearest = Math.round((liveCx.current - SIDE_PAD - SLOT_W / 2) / SLOT_W);
+      const target = Math.max(0, Math.min(3, nearest));
 
-      const current = activeIndex === -1 ? 0 : activeIndex;
-      const next = dx > 0 ? current + 1 : current - 1; // swipe right → next tab (toward Events), left → previous
-      if (next < 0 || next > 3) return;
+      setDragCx(null);
+      setDragStartIndex(null);
 
-      if (next === 3) {
-        setMoreOpen(true);
-      } else {
-        setMoreOpen(false);
-        router.push(NAV_ITEMS[next].href);
+      if (target !== baseIndex.current) {
+        if (target === 3) {
+          setMoreOpen(true);
+        } else {
+          setMoreOpen(false);
+          router.push(NAV_ITEMS[target].href);
+        }
       }
     }
 
     window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: true });
     window.addEventListener("touchend", onEnd, { passive: true });
     return () => {
       window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onEnd);
     };
-  }, [activeIndex, router]);
+  }, [router]);
+
+  // What the floating bubble currently shows: mid-drag it sticks to the tab the
+  // drag started from; once released it reflects the real route/More state.
+  const bubbleIndex = dragStartIndex ?? activeIndex;
+  const displayCx   = dragCx ?? notchCx;
+  const bubbleTransition = dragCx != null ? "none" : "left 0.25s ease";
 
   const moreIcon = (color: string) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" stroke={color}>
@@ -263,6 +308,7 @@ export default function BottomNav() {
     <>
       {/* ── Bottom nav bar — floating pill with a real cut-out notch around the active tab ── */}
       <nav
+        ref={navRef}
         className="md:hidden"
         style={{
           position:   "fixed",
@@ -273,6 +319,7 @@ export default function BottomNav() {
           width:      PILL_W,
           maxWidth:   "92vw",
           height:     PILL_H,
+          touchAction: "pan-y",
         }}
       >
         {/* Pill shape with notch, drawn precisely as an SVG path */}
@@ -280,57 +327,43 @@ export default function BottomNav() {
           width="100%" height="100%" viewBox={`0 0 ${PILL_W} ${PILL_H}`} preserveAspectRatio="none"
           style={{ position: "absolute", inset: 0, overflow: "visible" }}
         >
-          <path d={pillPath(notchCx)} fill={PILL_BG} stroke="#E5E7EB" strokeWidth="1.5" />
+          <path d={pillPath(displayCx)} fill={PILL_BG} stroke="#E5E7EB" strokeWidth="1.5" />
         </svg>
+
+        {/* Floating active bubble — tracks the finger 1:1 while dragging, snaps when settled */}
+        {displayCx != null && (
+          <>
+            <span style={{
+              position: "absolute", top: BACKING_TOP,
+              left: `${(displayCx / PILL_W) * 100}%`, transform: "translateX(-50%)",
+              width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING,
+              zIndex: 1, transition: bubbleTransition, pointerEvents: "none",
+            }} />
+            <span style={{
+              position: "absolute", top: BUBBLE_TOP,
+              left: `${(displayCx / PILL_W) * 100}%`, transform: "translateX(-50%)",
+              width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              zIndex: 2, transition: bubbleTransition, pointerEvents: "none",
+            }}>
+              {bubbleIndex === 3 ? moreIcon("#ffffff") : NAV_ITEMS[bubbleIndex].icon("#ffffff")}
+            </span>
+          </>
+        )}
 
         {/* Icon row */}
         <div style={{ position: "relative", display: "flex", height: "100%", paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD }}>
-          {NAV_ITEMS.map((item, i) => {
-            const active = i === activeIndex;
-            return (
-              <Link key={item.label} href={item.href}
-                style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {active ? (
-                  <>
-                    <span style={{
-                      position: "absolute", top: BACKING_TOP, left: "50%", transform: "translateX(-50%)",
-                      width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING, zIndex: 1,
-                    }} />
-                    <span style={{
-                      position: "absolute", top: BUBBLE_TOP, left: "50%", transform: "translateX(-50%)",
-                      width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
-                      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
-                    }}>
-                      {item.icon("#ffffff")}
-                    </span>
-                  </>
-                ) : (
-                  item.icon(MUTED)
-                )}
-              </Link>
-            );
-          })}
+          {NAV_ITEMS.map((item, i) => (
+            <Link key={item.label} href={item.href}
+              style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {i !== bubbleIndex && item.icon(MUTED)}
+            </Link>
+          ))}
 
           {/* More button */}
           <button onClick={() => setMoreOpen(o => !o)}
             style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "transparent", border: "none" }}>
-            {moreOpen ? (
-              <>
-                <span style={{
-                  position: "absolute", top: BACKING_TOP, left: "50%", transform: "translateX(-50%)",
-                  width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING, zIndex: 1,
-                }} />
-                <span style={{
-                  position: "absolute", top: BUBBLE_TOP, left: "50%", transform: "translateX(-50%)",
-                  width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
-                  display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
-                }}>
-                  {moreIcon("#ffffff")}
-                </span>
-              </>
-            ) : (
-              moreIcon(MUTED)
-            )}
+            {bubbleIndex !== 3 && moreIcon(MUTED)}
           </button>
         </div>
       </nav>
