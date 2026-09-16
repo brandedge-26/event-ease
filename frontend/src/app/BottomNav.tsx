@@ -229,10 +229,10 @@ export default function BottomNav() {
       const dy = t.clientY - startY;
 
       // Require a clear, mostly-horizontal fling so it doesn't fight scrolling chips/tabs
-      if (Math.abs(dx) < 90 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.3) return;
 
       const current = activeIndex === -1 ? 0 : activeIndex;
-      const next = dx < 0 ? current + 1 : current - 1; // swipe left → next tab, right → previous
+      const next = dx > 0 ? current + 1 : current - 1; // swipe right → next tab (toward Events), left → previous
       if (next < 0 || next > 3) return;
 
       if (next === 3) {
