@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const PRIMARY  = "#FF3B6B";
@@ -20,8 +20,8 @@ const NOTCH_DEPTH = 28;   // how far the cut-out dips into the bar
 const NOTCH_CTRL  = 14;   // bezier control offset (half of NOTCH_HALF/DEPTH)
 const BUBBLE_SIZE  = 46;
 const BACKING_SIZE = 58;
-const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4);   // less pop-out — leaves margin above the bubble
-const BACKING_TOP  = -(BACKING_SIZE * 0.4);
+const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4) + 10;   // less pop-out — leaves margin above the bubble
+const BACKING_TOP  = -(BACKING_SIZE * 0.4) + 10;
 
 function slotCenter(i: number) {
   return SIDE_PAD + SLOT_W * i + SLOT_W / 2;
@@ -193,6 +193,7 @@ function SheetLink({ href, icon, label, highlight = false, onClose }: {
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function BottomNav() {
   const pathname  = usePathname();
+  const router    = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => { setMoreOpen(false); }, [pathname]);
@@ -208,6 +209,47 @@ export default function BottomNav() {
   const navActiveIndex = NAV_ITEMS.findIndex(item => isActive(item.href, pathname, item.matchPrefix));
   const activeIndex = moreOpen ? 3 : navActiveIndex;
   const notchCx = activeIndex === -1 ? null : slotCenter(activeIndex);
+
+  // ── Swipe left/right anywhere on a mobile page to move between bottom-nav tabs ──
+  useEffect(() => {
+    let startX = 0, startY = 0, tracking = false;
+
+    function onStart(e: TouchEvent) {
+      const t = e.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      tracking = true;
+    }
+
+    function onEnd(e: TouchEvent) {
+      if (!tracking) return;
+      tracking = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+
+      // Require a clear, mostly-horizontal fling so it doesn't fight scrolling chips/tabs
+      if (Math.abs(dx) < 90 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+
+      const current = activeIndex === -1 ? 0 : activeIndex;
+      const next = dx < 0 ? current + 1 : current - 1; // swipe left → next tab, right → previous
+      if (next < 0 || next > 3) return;
+
+      if (next === 3) {
+        setMoreOpen(true);
+      } else {
+        setMoreOpen(false);
+        router.push(NAV_ITEMS[next].href);
+      }
+    }
+
+    window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchend", onEnd);
+    };
+  }, [activeIndex, router]);
 
   const moreIcon = (color: string) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" stroke={color}>
