@@ -8,7 +8,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY  = "#FF3B6B";
 
 // ─── Event Content Data ───────────────────────────────────────────────────────
-const EVENTS: Record<string, {
+export const EVENTS: Record<string, {
   slug:          string;
   title:         string;
   subtitle:      string;
@@ -188,7 +188,7 @@ const EVENTS: Record<string, {
 };
 
 // ─── Event banner images ──────────────────────────────────────────────────────
-const EVENT_BANNERS: Record<string, string> = {
+export const EVENT_BANNERS: Record<string, string> = {
   barat:      "/home/events/barat.png",
   mehndi:     "/home/events/mehndi.png",
   walima:     "/home/events/walima.png",
@@ -362,7 +362,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
         <div className="flex items-center gap-2 text-xs mb-4" style={{ color: "#9CA3AF" }}>
           <Link href="/" className="hover:underline">Home</Link>
           <span>›</span>
-          <Link href="/events/barat" className="hover:underline">Events</Link>
+          <Link href="/events" className="hover:underline">Events</Link>
           <span>›</span>
           <span style={{ color: "#374151" }}>{ev.title}</span>
         </div>

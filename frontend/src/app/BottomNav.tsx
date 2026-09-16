@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 
-const PRIMARY = "#FF3B6B";
-const MUTED   = "#FF8FA3";
-const BACKING = "#FFE1EA";
+const PRIMARY  = "#FF3B6B";
+const MUTED    = "#FF6B8A";
+const BACKING  = "#FFE1EA";
+const PILL_BG  = "#F3F4F6";
 
 // ─── Floating pill geometry — fixed pixel values so the notch math stays exact ──
 const PILL_W      = 340;
@@ -14,11 +15,13 @@ const PILL_H      = 64;
 const CORNER_R    = 18;
 const SIDE_PAD    = 26;
 const SLOT_W      = (PILL_W - SIDE_PAD * 2) / 4;
-const NOTCH_HALF  = 34;   // half-width of the cut-out at the flat edge
-const NOTCH_DEPTH = 34;   // how far the cut-out dips into the bar
-const NOTCH_CTRL  = 17;   // bezier control offset (half of NOTCH_HALF/DEPTH)
-const BUBBLE_SIZE = 56;
-const BACKING_SIZE = 68;
+const NOTCH_HALF  = 28;   // half-width of the cut-out at the flat edge
+const NOTCH_DEPTH = 28;   // how far the cut-out dips into the bar
+const NOTCH_CTRL  = 14;   // bezier control offset (half of NOTCH_HALF/DEPTH)
+const BUBBLE_SIZE  = 46;
+const BACKING_SIZE = 58;
+const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4);   // less pop-out — leaves margin above the bubble
+const BACKING_TOP  = -(BACKING_SIZE * 0.4);
 
 function slotCenter(i: number) {
   return SIDE_PAD + SLOT_W * i + SLOT_W / 2;
@@ -74,7 +77,7 @@ const NAV_ITEMS = [
   },
   {
     label: "Events",
-    href: "/events/barat",
+    href: "/events",
     matchPrefix: "/events",
     icon: (color: string) => (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -235,7 +238,7 @@ export default function BottomNav() {
           width="100%" height="100%" viewBox={`0 0 ${PILL_W} ${PILL_H}`} preserveAspectRatio="none"
           style={{ position: "absolute", inset: 0, overflow: "visible" }}
         >
-          <path d={pillPath(notchCx)} fill="#ffffff" stroke="#E5E7EB" strokeWidth="1.5" />
+          <path d={pillPath(notchCx)} fill={PILL_BG} stroke="#E5E7EB" strokeWidth="1.5" />
         </svg>
 
         {/* Icon row */}
@@ -248,11 +251,11 @@ export default function BottomNav() {
                 {active ? (
                   <>
                     <span style={{
-                      position: "absolute", top: -(BACKING_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                      position: "absolute", top: BACKING_TOP, left: "50%", transform: "translateX(-50%)",
                       width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING, zIndex: 1,
                     }} />
                     <span style={{
-                      position: "absolute", top: -(BUBBLE_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                      position: "absolute", top: BUBBLE_TOP, left: "50%", transform: "translateX(-50%)",
                       width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
                       display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
                     }}>
@@ -272,11 +275,11 @@ export default function BottomNav() {
             {moreOpen ? (
               <>
                 <span style={{
-                  position: "absolute", top: -(BACKING_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                  position: "absolute", top: BACKING_TOP, left: "50%", transform: "translateX(-50%)",
                   width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING, zIndex: 1,
                 }} />
                 <span style={{
-                  position: "absolute", top: -(BUBBLE_SIZE / 2), left: "50%", transform: "translateX(-50%)",
+                  position: "absolute", top: BUBBLE_TOP, left: "50%", transform: "translateX(-50%)",
                   width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
                   display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
                 }}>
