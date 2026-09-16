@@ -11,17 +11,18 @@ const PILL_BG  = "#F3F4F6";
 
 // ─── Floating pill geometry — fixed pixel values so the notch math stays exact ──
 const PILL_W      = 340;
-const PILL_H      = 64;
+const PILL_H      = 60;
 const CORNER_R    = 18;
 const SIDE_PAD    = 26;
 const SLOT_W      = (PILL_W - SIDE_PAD * 2) / 4;
-const NOTCH_HALF  = 28;   // half-width of the cut-out at the flat edge
-const NOTCH_DEPTH = 28;   // how far the cut-out dips into the bar
-const NOTCH_CTRL  = 14;   // bezier control offset (half of NOTCH_HALF/DEPTH)
+const NOTCH_HALF  = 26;   // half-width of the cut-out at the flat edge
+const NOTCH_DEPTH = 26;   // how far the cut-out dips into the bar
+const NOTCH_CTRL  = 13;   // bezier control offset (half of NOTCH_HALF/DEPTH)
 const BUBBLE_SIZE  = 46;
 const BACKING_SIZE = 58;
-const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4) + 12;   // less pop-out — leaves margin above the bubble
-const BACKING_TOP  = -(BACKING_SIZE * 0.4) + 12;
+// Bubble and icons share the exact same vertical center — true middle of the pill.
+const BUBBLE_TOP   = (PILL_H / 2) - (BUBBLE_SIZE / 2);
+const BACKING_TOP  = (PILL_H / 2) - (BACKING_SIZE / 2);
 
 function slotCenter(i: number) {
   return SIDE_PAD + SLOT_W * i + SLOT_W / 2;
