@@ -20,11 +20,24 @@ const NOTCH_DEPTH = 28;   // how far the cut-out dips into the bar
 const NOTCH_CTRL  = 14;   // bezier control offset (half of NOTCH_HALF/DEPTH)
 const BUBBLE_SIZE  = 46;
 const BACKING_SIZE = 58;
-const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4) + 20;   // less pop-out — leaves margin above the bubble
-const BACKING_TOP  = -(BACKING_SIZE * 0.4) + 20;
+const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4) + 12;   // less pop-out — leaves margin above the bubble
+const BACKING_TOP  = -(BACKING_SIZE * 0.4) + 12;
 
 function slotCenter(i: number) {
   return SIDE_PAD + SLOT_W * i + SLOT_W / 2;
+}
+
+// Same vertical center the bubble sits at — icons are pinned here too so the
+// active one lines up inside it without needing to move.
+const ICON_CENTER_Y  = BUBBLE_TOP + BUBBLE_SIZE / 2;
+const ICON_SIZE      = 20;
+const ICON_ROW_PAD_TOP = ICON_CENTER_Y - ICON_SIZE / 2;
+
+// Ease-out-back — a slight overshoot, matching the bubble's "settle" feel
+function easeOutBack(t: number) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
 // Rounded-rect pill outline; when cx is a number, a smooth bowl-shaped notch
@@ -287,13 +300,51 @@ export default function BottomNav() {
     };
   }, [router]);
 
+  // ── One animated value drives BOTH the bubble and the SVG notch, every frame,
+  //    so they can never drift apart. While dragging it tracks the finger with
+  //    zero lag; once released it eases to the target with a small overshoot.
+  const [animCx, setAnimCx] = useState<number | null>(null);
+  const animCxRef = useRef<number | null>(null);
+  const rafRef    = useRef<number | null>(null);
+
+  useEffect(() => {
+    const target = dragCx ?? notchCx;
+
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    if (dragCx != null) {
+      animCxRef.current = target;
+      setAnimCx(target);
+      return;
+    }
+
+    if (target == null) {
+      animCxRef.current = null;
+      setAnimCx(null);
+      return;
+    }
+
+    const from  = animCxRef.current ?? target;
+    const start = performance.now();
+    const duration = 320;
+
+    function step(now: number) {
+      const t = Math.min(1, (now - start) / duration);
+      const value = from + (target! - from) * easeOutBack(t);
+      animCxRef.current = value;
+      setAnimCx(value);
+      rafRef.current = t < 1 ? requestAnimationFrame(step) : null;
+    }
+    rafRef.current = requestAnimationFrame(step);
+
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [dragCx, notchCx]);
+
   // The bubble is just a sliding highlight — icons never leave their slot. Whichever
-  // slot the bubble currently sits over (live while dragging) is lit up white.
-  const displayCx = dragCx ?? notchCx;
-  const liveIndex = displayCx == null
+  // slot it currently sits over (live, using the same animated value) is lit up white.
+  const liveIndex = animCx == null
     ? -1
-    : Math.max(0, Math.min(3, Math.round((displayCx - SIDE_PAD - SLOT_W / 2) / SLOT_W)));
-  const bubbleTransition = dragCx != null ? "left 0.05s linear" : "left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)";
+    : Math.max(0, Math.min(3, Math.round((animCx - SIDE_PAD - SLOT_W / 2) / SLOT_W)));
 
   const moreIcon = (color: string) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" stroke={color}>
@@ -326,40 +377,43 @@ export default function BottomNav() {
           width="100%" height="100%" viewBox={`0 0 ${PILL_W} ${PILL_H}`} preserveAspectRatio="none"
           style={{ position: "absolute", inset: 0, overflow: "visible" }}
         >
-          <path d={pillPath(displayCx)} fill={PILL_BG} stroke="#E5E7EB" strokeWidth="1.5" />
+          <path d={pillPath(animCx)} fill={PILL_BG} stroke="#E5E7EB" strokeWidth="1.5" />
         </svg>
 
         {/* Sliding highlight — a plain colored disc, no icon inside. Icons never move,
-            they just light up white when the disc is under them. */}
-        {displayCx != null && (
+            they just light up white when the disc is under them. Driven by the same
+            animCx value as the notch above, so the two can never fall out of sync. */}
+        {animCx != null && (
           <>
             <span style={{
               position: "absolute", top: BACKING_TOP,
-              left: `${(displayCx / PILL_W) * 100}%`, transform: "translateX(-50%)",
+              left: `${(animCx / PILL_W) * 100}%`, transform: "translateX(-50%)",
               width: BACKING_SIZE, height: BACKING_SIZE, borderRadius: "50%", background: BACKING,
-              zIndex: 1, transition: bubbleTransition, pointerEvents: "none",
+              zIndex: 1, pointerEvents: "none",
             }} />
             <span style={{
               position: "absolute", top: BUBBLE_TOP,
-              left: `${(displayCx / PILL_W) * 100}%`, transform: "translateX(-50%)",
+              left: `${(animCx / PILL_W) * 100}%`, transform: "translateX(-50%)",
               width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
-              zIndex: 2, transition: bubbleTransition, pointerEvents: "none",
+              zIndex: 2, pointerEvents: "none",
             }} />
           </>
         )}
 
-        {/* Icon row — fixed positions; color reflects whether the sliding highlight is over them */}
-        <div style={{ position: "relative", display: "flex", height: "100%", paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD, zIndex: 3 }}>
+        {/* Icon row — fixed positions, pinned to the same vertical center as the bubble
+            so the lit-up icon always sits dead-center inside it; color reflects whether
+            the sliding highlight is currently over that slot. */}
+        <div style={{ position: "relative", display: "flex", height: "100%", paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD, paddingTop: ICON_ROW_PAD_TOP, zIndex: 3 }}>
           {NAV_ITEMS.map((item, i) => (
             <Link key={item.label} href={item.href}
-              style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              style={{ position: "relative", flex: 1, height: ICON_SIZE, display: "flex", alignItems: "center", justifyContent: "center" }}>
               {item.icon(i === liveIndex ? "#ffffff" : MUTED)}
             </Link>
           ))}
 
           {/* More button */}
           <button onClick={() => setMoreOpen(o => !o)}
-            style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "transparent", border: "none" }}>
+            style={{ position: "relative", flex: 1, height: ICON_SIZE, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "transparent", border: "none" }}>
             {moreIcon(liveIndex === 3 ? "#ffffff" : MUTED)}
           </button>
         </div>
