@@ -20,8 +20,8 @@ const NOTCH_DEPTH = 28;   // how far the cut-out dips into the bar
 const NOTCH_CTRL  = 14;   // bezier control offset (half of NOTCH_HALF/DEPTH)
 const BUBBLE_SIZE  = 46;
 const BACKING_SIZE = 58;
-const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4) + 10;   // less pop-out — leaves margin above the bubble
-const BACKING_TOP  = -(BACKING_SIZE * 0.4) + 10;
+const BUBBLE_TOP   = -(BUBBLE_SIZE * 0.4) + 20;   // less pop-out — leaves margin above the bubble
+const BACKING_TOP  = -(BACKING_SIZE * 0.4) + 20;
 
 function slotCenter(i: number) {
   return SIDE_PAD + SLOT_W * i + SLOT_W / 2;
@@ -212,8 +212,7 @@ export default function BottomNav() {
   const notchCx = activeIndex === -1 ? null : slotCenter(activeIndex);
 
   // ── Live drag: the active bubble follows the finger while swiping ──────────────
-  const [dragCx, setDragCx]               = useState<number | null>(null);
-  const [dragStartIndex, setDragStartIndex] = useState<number | null>(null);
+  const [dragCx, setDragCx] = useState<number | null>(null);
   const activeIndexRef = useRef(activeIndex);
   useEffect(() => { activeIndexRef.current = activeIndex; }, [activeIndex]);
 
@@ -251,7 +250,6 @@ export default function BottomNav() {
         // keeps normal vertical scrolling and taps unaffected.
         if (Math.abs(dxReal) < 8 || Math.abs(dxReal) < Math.abs(dyReal) * 1.3) return;
         dragging = true;
-        setDragStartIndex(baseIndex.current);
       }
 
       const cx = Math.max(slotCenter(0), Math.min(slotCenter(3), baseCx.current + dxReal * scale.current));
@@ -268,7 +266,6 @@ export default function BottomNav() {
       const target = Math.max(0, Math.min(3, nearest));
 
       setDragCx(null);
-      setDragStartIndex(null);
 
       if (target !== baseIndex.current) {
         if (target === 3) {
@@ -290,11 +287,13 @@ export default function BottomNav() {
     };
   }, [router]);
 
-  // What the floating bubble currently shows: mid-drag it sticks to the tab the
-  // drag started from; once released it reflects the real route/More state.
-  const bubbleIndex = dragStartIndex ?? activeIndex;
-  const displayCx   = dragCx ?? notchCx;
-  const bubbleTransition = dragCx != null ? "none" : "left 0.25s ease";
+  // The bubble is just a sliding highlight — icons never leave their slot. Whichever
+  // slot the bubble currently sits over (live while dragging) is lit up white.
+  const displayCx = dragCx ?? notchCx;
+  const liveIndex = displayCx == null
+    ? -1
+    : Math.max(0, Math.min(3, Math.round((displayCx - SIDE_PAD - SLOT_W / 2) / SLOT_W)));
+  const bubbleTransition = dragCx != null ? "left 0.05s linear" : "left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)";
 
   const moreIcon = (color: string) => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" stroke={color}>
@@ -330,7 +329,8 @@ export default function BottomNav() {
           <path d={pillPath(displayCx)} fill={PILL_BG} stroke="#E5E7EB" strokeWidth="1.5" />
         </svg>
 
-        {/* Floating active bubble — tracks the finger 1:1 while dragging, snaps when settled */}
+        {/* Sliding highlight — a plain colored disc, no icon inside. Icons never move,
+            they just light up white when the disc is under them. */}
         {displayCx != null && (
           <>
             <span style={{
@@ -343,27 +343,24 @@ export default function BottomNav() {
               position: "absolute", top: BUBBLE_TOP,
               left: `${(displayCx / PILL_W) * 100}%`, transform: "translateX(-50%)",
               width: BUBBLE_SIZE, height: BUBBLE_SIZE, borderRadius: "50%", background: PRIMARY,
-              display: "flex", alignItems: "center", justifyContent: "center",
               zIndex: 2, transition: bubbleTransition, pointerEvents: "none",
-            }}>
-              {bubbleIndex === 3 ? moreIcon("#ffffff") : NAV_ITEMS[bubbleIndex].icon("#ffffff")}
-            </span>
+            }} />
           </>
         )}
 
-        {/* Icon row */}
-        <div style={{ position: "relative", display: "flex", height: "100%", paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD }}>
+        {/* Icon row — fixed positions; color reflects whether the sliding highlight is over them */}
+        <div style={{ position: "relative", display: "flex", height: "100%", paddingLeft: SIDE_PAD, paddingRight: SIDE_PAD, zIndex: 3 }}>
           {NAV_ITEMS.map((item, i) => (
             <Link key={item.label} href={item.href}
               style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {i !== bubbleIndex && item.icon(MUTED)}
+              {item.icon(i === liveIndex ? "#ffffff" : MUTED)}
             </Link>
           ))}
 
           {/* More button */}
           <button onClick={() => setMoreOpen(o => !o)}
             style={{ position: "relative", flex: 1, height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", background: "transparent", border: "none" }}>
-            {bubbleIndex !== 3 && moreIcon(MUTED)}
+            {moreIcon(liveIndex === 3 ? "#ffffff" : MUTED)}
           </button>
         </div>
       </nav>

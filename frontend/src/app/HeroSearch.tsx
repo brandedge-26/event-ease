@@ -275,7 +275,7 @@ export default function HeroSearch() {
         <div className="grid grid-cols-3 sm:grid-cols-[1.1fr_1px_1fr_1px_1fr_1px_1fr_auto] items-stretch">
 
           {/* Venue Name — full width on mobile */}
-          <div className="col-span-3 sm:col-span-1 flex items-center gap-3 px-5 py-4 border-b sm:border-b-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+          <div className="col-span-3 sm:col-span-1 flex items-center gap-3 px-4 py-2.5 sm:px-5 sm:py-4 border-b sm:border-b-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
             <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -299,7 +299,7 @@ export default function HeroSearch() {
           <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* City */}
-          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-r sm:border-r-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-4 border-r sm:border-r-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
             <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
@@ -315,7 +315,7 @@ export default function HeroSearch() {
           <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* Venue Type */}
-          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-r sm:border-r-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-4 border-r sm:border-r-0 transition-colors hover:bg-white/[0.06]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
             <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="4" y="2" width="16" height="20" rx="1"/><path d="M9 22v-4h6v4"/>
@@ -332,7 +332,7 @@ export default function HeroSearch() {
           <div className="hidden sm:block self-stretch" style={{ background: "rgba(255,255,255,0.15)" }} />
 
           {/* Capacity */}
-          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 transition-colors hover:bg-white/[0.06]">
+          <div className="col-span-1 flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 sm:py-4 transition-colors hover:bg-white/[0.06]">
             <span className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0" style={{ background: "rgba(255,255,255,0.14)" }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -346,10 +346,10 @@ export default function HeroSearch() {
           </div>
 
           {/* Search button — full width on mobile */}
-          <div className="col-span-3 sm:col-span-1 flex items-center px-3 py-3 border-t sm:border-t-0" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+          <div className="col-span-3 sm:col-span-1 flex items-center px-3 py-2 sm:py-3 border-t sm:border-t-0" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
             <button
               onClick={() => search()}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-7 py-3 sm:py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 hover:shadow-lg active:scale-95 cursor-pointer whitespace-nowrap"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3.5 rounded-2xl text-sm font-bold text-white transition-all hover:opacity-90 hover:shadow-lg active:scale-95 cursor-pointer whitespace-nowrap"
               style={{ background: "linear-gradient(135deg, #FF3B6B, #FF6B8A)", boxShadow: "0 6px 24px rgba(255,59,107,0.55)" }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -362,7 +362,7 @@ export default function HeroSearch() {
 
         {/* Bottom bar — verified toggle */}
         <div
-          className="flex items-center gap-4 px-5 py-2.5 border-t"
+          className="flex items-center gap-4 px-5 py-2 sm:py-2.5 border-t"
           style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(0,0,0,0.14)" }}
         >
           <button
@@ -386,12 +386,12 @@ export default function HeroSearch() {
         </div>
       </div>
 
-      {/* ── City chips ── */}
-      <div className="flex items-center gap-2 mt-5 flex-wrap justify-start">
-        <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.55)" }}>Popular:</span>
+      {/* ── City chips — single scrollable line on mobile, wraps from sm up ── */}
+      <div className="flex items-center gap-2 mt-5 flex-nowrap overflow-x-auto sm:flex-wrap sm:overflow-visible scrollbar-hide pb-1 sm:pb-0">
+        <span className="text-xs font-semibold shrink-0" style={{ color: "rgba(255,255,255,0.55)" }}>Popular:</span>
         {["Karachi", "Lahore", "Islamabad", "Rawalpindi", "Multan"].map(c => (
           <button key={c} onClick={() => pickCity(c)}
-            className="px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
+            className="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all"
             style={{
               background:     city === c ? "#FF3B6B"                    : "rgba(255,255,255,0.12)",
               color:          city === c ? "#fff"                        : "rgba(255,255,255,0.85)",

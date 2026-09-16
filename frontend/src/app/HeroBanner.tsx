@@ -78,14 +78,14 @@ export default function HeroBanner({ children }: { children: React.ReactNode }) 
         {/* Headline */}
         <h1 className="font-black tracking-tight mb-10" style={{ lineHeight: 1.1 }}>
           <span
-            className="inline-block text-3xl sm:text-5xl lg:text-6xl px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-md mb-1"
+            className="inline-block text-4xl sm:text-5xl lg:text-6xl px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-md mb-1"
             style={{ background: PRIMARY, color: "#fff" }}>
             Your event starts
           </span>
-          <span className="block text-3xl sm:text-5xl lg:text-6xl text-white mt-1">
+          <span className="block text-4xl sm:text-5xl lg:text-6xl text-white mt-1">
             with the perfect
           </span>
-          <span className="block text-3xl sm:text-5xl lg:text-6xl text-white">
+          <span className="block text-4xl sm:text-5xl lg:text-6xl text-white">
             venue
           </span>
         </h1>
