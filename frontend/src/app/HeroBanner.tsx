@@ -8,10 +8,10 @@ const SLIDE_MS = 5000;
 // ─── Category tabs — each swaps the hero background to art from our own content ──
 const CATEGORIES = [
   { label: "Banquet Hall",  img: "/banners/Banquet Hall.png" },
-  { label: "Photography",   img: "/banners/Photography.png" },
-  { label: "Bridal Makeup", img: "/banners/Bridal Makeup.png" },
-  { label: "Decoration",    img: "/banners/decoration (2).png" },
-  { label: "Catering",      img: "/banners/catering (2).png" },
+  { label: "Photography",   img: "/banners/photographynew.png" },
+  { label: "Bridal Makeup", img: "/banners/bridalnew.png" },
+  { label: "Decoration",    img: "/banners/decorationnew.png" },
+  { label: "Catering",      img: "/banners/cateringnew.png" },
   { label: "Mehndi & Henna",img: "/banners/mehndi.png" },
 ];
 
