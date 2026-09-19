@@ -359,12 +359,18 @@ function MissionSection() {
     <section className="relative overflow-hidden">
       <div className="relative w-full">
         <img
-          src="/pattern.png"
+          src="/patternmobilenew.png"
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover block sm:hidden"
           style={{ objectPosition: "top", opacity: 0.85 }}
         />
-        <div className="relative z-10 flex flex-col items-center text-center px-4 pt-72 sm:pt-[26rem] lg:pt-[30rem] pb-16 sm:pb-20 max-w-3xl mx-auto">
+        <img
+          src="/pattern.png"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover hidden sm:block"
+          style={{ objectPosition: "top", opacity: 0.85 }}
+        />
+        <div className="relative z-10 flex flex-col items-center text-center px-4 pt-60 sm:pt-[26rem] lg:pt-[30rem] pb-16 sm:pb-20 max-w-3xl mx-auto">
           <h2 className="font-black tracking-tight text-white mb-6" style={{ lineHeight: 1.18 }}>
             <span className="block text-3xl sm:text-4xl lg:text-5xl">Our Mission:</span>
             <span className="block text-3xl sm:text-4xl lg:text-5xl">empowering vendors, not just bookings</span>
