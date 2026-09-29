@@ -1,6 +1,7 @@
 import { eq, desc, count, and, sum, or, ilike } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { vendors, halls, branches, bookings } from "../db/schema.js";
+import { sendVendorVerifiedEmail } from "../utils/email.js";
 
 const PAGE_SIZE = 10;
 
@@ -200,7 +201,7 @@ export async function verifyVendor(req, res) {
         const { id } = req.params;
 
         const [vendor] = await db
-            .select({ isVerified: vendors.isVerified })
+            .select({ isVerified: vendors.isVerified, name: vendors.name, email: vendors.email })
             .from(vendors)
             .where(eq(vendors.id, id))
             .limit(1);
@@ -213,6 +214,10 @@ export async function verifyVendor(req, res) {
             .update(vendors)
             .set({ isVerified: newStatus, updatedAt: new Date() })
             .where(eq(vendors.id, id));
+
+        if (newStatus) {
+            sendVendorVerifiedEmail(vendor.email, { businessName: vendor.name });
+        }
 
         return res.status(200).json({ success: true, isVerified: newStatus });
     } catch (err) {

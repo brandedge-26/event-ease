@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import SiteHeader from "../../SiteHeader";
 import BottomNav from "../../BottomNav";
 import SiteFooter from "../../SiteFooter";
@@ -343,6 +344,17 @@ async function fetchVendorsByTypes(types: string[]): Promise<VendorCard[]> {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const ev = EVENTS[slug];
+  if (!ev) return {};
+  return {
+    title: `${ev.title} — ${ev.subtitle}`,
+    description: ev.description.slice(0, 160),
+    alternates: { canonical: `/events/${slug}` },
+  };
+}
+
 export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const ev = EVENTS[slug];

@@ -33,7 +33,14 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // CORS CONFIGURATION
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
-    : ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"];
+    : [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "https://joineventease.com",
+        "https://www.joineventease.com",
+        "https://admin.joineventease.com",
+    ];
 
 app.use(cors({
     origin: allowedOrigins,

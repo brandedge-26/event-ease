@@ -1,53 +1,58 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { ENV } from "../config/envs.js";
+import {
+    otpTemplate,
+    vendorWelcomeTemplate,
+    vendorVerifiedTemplate,
+    userWelcomeTemplate,
+} from "./emailTemplates.js";
 
-// ─── Transporter ─────────────────────────────────────────────────────────────
-// In development: logs OTP to console so you can test without real SMTP.
-// In production:  set EMAIL_USER and EMAIL_PASS in .env (Gmail App Password).
+// ─── Resend client ───────────────────────────────────────────────────────────
+// Without RESEND_API_KEY set, every send falls back to a console log so local
+// dev keeps working without real email — set the key in .env to send for real.
+const resend = ENV.RESEND_API_KEY ? new Resend(ENV.RESEND_API_KEY) : null;
 
-function createTransporter() {
-    if (ENV.NODE_ENV !== "production") {
-        // Ethereal fake SMTP — emails are captured, not actually sent
-        return nodemailer.createTransport({
-            host: "smtp.ethereal.email",
-            port: 587,
-            auth: {
-                user: "ethereal_user",  // not needed for console-only dev flow
-                pass: "ethereal_pass",
-            },
+// Fire-and-forget by design — a broken email should never break the request
+// that triggered it (registration, OTP request, etc.), so failures are logged only.
+async function send({ to, subject, html }) {
+    try {
+        if (!resend) {
+            console.log(`\n📧  [email not sent — RESEND_API_KEY missing] To: ${to} | Subject: ${subject}\n`);
+            return;
+        }
+
+        const { error } = await resend.emails.send({
+            from:    ENV.EMAIL_FROM,
+            to,
+            subject,
+            html,
         });
-    }
 
-    return nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-            user: ENV.EMAIL_USER,
-            pass: ENV.EMAIL_PASS,
-        },
-    });
+        if (error) {
+            console.error("[resend] Failed to send email:", error);
+        }
+    } catch (err) {
+        console.error("[resend] Failed to send email:", err);
+    }
 }
 
-// ─── Send OTP ────────────────────────────────────────────────────────────────
+// ─── Public senders — one per transactional event ──────────────────────────────
 export async function sendOtpEmail(to, otp) {
-    // Always log in dev so the flow works without real SMTP
-    if (ENV.NODE_ENV !== "production") {
-        console.log(`\n📧  OTP for ${to} → ${otp}\n`);
-        return;
-    }
+    const { subject, html } = otpTemplate({ otp });
+    await send({ to, subject, html });
+}
 
-    const transporter = createTransporter();
+export async function sendVendorWelcomeEmail(to, { businessName, ownerName }) {
+    const { subject, html } = vendorWelcomeTemplate({ businessName, ownerName });
+    await send({ to, subject, html });
+}
 
-    await transporter.sendMail({
-        from: `"Event Ease" <${ENV.EMAIL_USER}>`,
-        to,
-        subject: "Your Event Ease verification code",
-        html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:auto">
-                <h2 style="color:#FF2D78">Event Ease</h2>
-                <p>Your verification code is:</p>
-                <h1 style="letter-spacing:8px;color:#111">${otp}</h1>
-                <p style="color:#666;font-size:13px">This code expires in 10 minutes. Do not share it with anyone.</p>
-            </div>
-        `,
-    });
+export async function sendVendorVerifiedEmail(to, { businessName }) {
+    const { subject, html } = vendorVerifiedTemplate({ businessName });
+    await send({ to, subject, html });
+}
+
+export async function sendUserWelcomeEmail(to, { name }) {
+    const { subject, html } = userWelcomeTemplate({ name });
+    await send({ to, subject, html });
 }

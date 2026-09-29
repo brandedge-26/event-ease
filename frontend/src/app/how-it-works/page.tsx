@@ -1,8 +1,16 @@
 import SiteHeader from "../SiteHeader";
 import BottomNav from "../BottomNav";
 import Link from "next/link";
+import type { Metadata } from "next";
 
 const PRIMARY = "#FF3B6B";
+
+export const metadata: Metadata = {
+  title: "How It Works — Book a Venue or List Your Business",
+  description:
+    "See how Event Ease works for customers finding the perfect venue and for vendors listing their business — simple steps, verified listings, zero commission.",
+  alternates: { canonical: "/how-it-works" },
+};
 
 const CUSTOMER_STEPS = [
   {

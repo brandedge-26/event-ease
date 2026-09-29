@@ -5,6 +5,7 @@ import { marketplaceUsers } from "../db/schema.js";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../utils/jwt.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { ENV } from "../config/envs.js";
+import { sendUserWelcomeEmail } from "../utils/email.js";
 
 // ─── Cookie config ────────────────────────────────────────────────────────────
 const REFRESH_COOKIE_OPTIONS = {
@@ -49,6 +50,8 @@ export async function register(req, res, next) {
         });
 
         res.cookie("userRefreshToken", refreshToken, REFRESH_COOKIE_OPTIONS);
+
+        sendUserWelcomeEmail(normalEmail, { name: name.trim() });
 
         return res.status(201).json({
             success: true,

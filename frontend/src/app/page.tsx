@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import HeroSearch from "./HeroSearch";
 import HeroBanner from "./HeroBanner";
 import SiteHeader from "./SiteHeader";
@@ -8,6 +9,13 @@ import CustomerReviews from "./CustomerReviews";
 import SiteFooter from "./SiteFooter";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
+
+export const metadata: Metadata = {
+  title: "Event Ease — Find & Book Venues, Vendors for Your Event in Pakistan",
+  description:
+    "Browse verified banquet halls, marquees, photographers, decorators & caterers across Karachi, Lahore, Islamabad & more. Compare prices, read real reviews, book with confidence — zero commission.",
+  alternates: { canonical: "/" },
+};
 const PRIMARY  = "#FF3B6B";
 
 type VendorCard = {
@@ -365,7 +373,7 @@ function MissionSection() {
           style={{ objectPosition: "top", opacity: 0.85 }}
         />
         <img
-          src="/pattern.png"
+          src="/home/pattern.png"
           alt=""
           className="absolute inset-0 w-full h-full object-cover hidden sm:block"
           style={{ objectPosition: "top", opacity: 0.85 }}

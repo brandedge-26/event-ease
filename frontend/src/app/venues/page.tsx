@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import SiteHeader from "../SiteHeader";
 import BottomNav from "../BottomNav";
 import VenueFilters from "./VenueFilters";
@@ -8,6 +9,13 @@ import PromoBanners from "./PromoBanners";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510";
 const PRIMARY = "#FF3B6B";
+
+export const metadata: Metadata = {
+  title: "Browse Venues — Banquet Halls, Marquees & Ballrooms in Pakistan",
+  description:
+    "Search and compare banquet halls, marquees, ballrooms & wedding lawns across Pakistan. Filter by city, capacity & type — verified listings with transparent pricing.",
+  alternates: { canonical: "/venues" },
+};
 
 type VendorCard = {
   id: string;

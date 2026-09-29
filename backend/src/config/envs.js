@@ -60,4 +60,10 @@ export const ENV = {
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     GOOGLE_CALLBACK_URL:  process.env.GOOGLE_CALLBACK_URL ?? "http://localhost:5510/api/user/auth/google/callback",
 
+    // Resend — transactional email (OTP, welcome, congratulations, etc.)
+    // Falls back to console logging when RESEND_API_KEY is not set, so local
+    // dev keeps working without a real key.
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM:     process.env.EMAIL_FROM ?? "Event Ease <onboarding@resend.dev>",
+
 }

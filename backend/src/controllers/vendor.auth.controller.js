@@ -4,7 +4,7 @@ import { db } from "../db/index.js";
 import { vendors, halls, branches } from "../db/schema.js";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../utils/jwt.js";
 import { otpStore } from "../utils/otp.js";
-import { sendOtpEmail } from "../utils/email.js";
+import { sendOtpEmail, sendVendorWelcomeEmail } from "../utils/email.js";
 import { slugify } from "../utils/slugify.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { createNotification } from "../utils/notify.js";
@@ -142,6 +142,9 @@ export async function register(req, res, next) {
             body:  `${businessName.trim()} (${city.trim()}) just signed up and is awaiting verification.`,
             refId: vendorId,
         });
+
+        // ── Congratulations email to the new vendor ──
+        sendVendorWelcomeEmail(normalEmail, { businessName: businessName.trim(), ownerName: ownerName.trim() });
 
         // ── Tokens ──
         const payload      = { id: vendorId, email: normalEmail, name: businessName.trim() };

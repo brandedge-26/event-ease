@@ -4,6 +4,7 @@ import { eq, or } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { marketplaceUsers } from "../db/schema.js";
 import { ENV } from "./envs.js";
+import { sendUserWelcomeEmail } from "../utils/email.js";
 
 passport.use(
     new GoogleStrategy(
@@ -55,6 +56,8 @@ passport.use(
                     googleId,
                     avatarUrl: avatar,
                 });
+
+                sendUserWelcomeEmail(email, { name });
 
                 return done(null, { id: userId, name, email, avatarUrl: avatar });
             } catch (err) {

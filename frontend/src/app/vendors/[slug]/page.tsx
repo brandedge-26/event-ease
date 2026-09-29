@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import SiteHeader from "../../SiteHeader";
 import BottomNav from "../../BottomNav";
 import SiteFooter from "../../SiteFooter";
@@ -335,6 +336,17 @@ function VendorCard({ v }: { v: VendorCard }) {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const v = VENDORS[slug];
+  if (!v) return {};
+  return {
+    title: `${v.label} in Pakistan — ${v.subtitle}`,
+    description: v.description.slice(0, 160),
+    alternates: { canonical: `/vendors/${slug}` },
+  };
+}
+
 export default async function VendorDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const vd = VENDORS[slug];
