@@ -8,6 +8,7 @@ import { sendOtpEmail, sendVendorWelcomeEmail } from "../utils/email.js";
 import { slugify } from "../utils/slugify.js";
 import { AppError } from "../middleware/errorHandler.js";
 import { createNotification } from "../utils/notify.js";
+import { cacheDel, CACHE_KEYS } from "../utils/cache.js";
 
 // ─── Cookie config ────────────────────────────────────────────────────────────
 const REFRESH_COOKIE_OPTIONS = {
@@ -39,7 +40,7 @@ export async function sendOtp(req, res, next) {
             throw new AppError("Email is already registered.", 409);
         }
 
-        const otp = otpStore.generate(normalEmail);
+        const otp = await otpStore.generate(normalEmail);
         await sendOtpEmail(normalEmail, otp);
 
         return res.status(200).json({ success: true, message: "OTP sent to your email." });
@@ -63,7 +64,7 @@ export async function register(req, res, next) {
         const normalEmail = email.toLowerCase().trim();
 
         // ── Verify OTP inline ──
-        const otpResult = otpStore.verify(normalEmail, String(otp));
+        const otpResult = await otpStore.verify(normalEmail, String(otp));
         if (!otpResult.ok) {
             throw new AppError(otpResult.error, 400);
         }
@@ -133,7 +134,7 @@ export async function register(req, res, next) {
             await db.insert(halls).values(hallRows);
         }
 
-        otpStore.delete(normalEmail);
+        await otpStore.delete(normalEmail);
 
         // ── Notify admin ──
         createNotification({
@@ -145,6 +146,9 @@ export async function register(req, res, next) {
 
         // ── Congratulations email to the new vendor ──
         sendVendorWelcomeEmail(normalEmail, { businessName: businessName.trim(), ownerName: ownerName.trim() });
+
+        // ── New vendor changes the public listing — bust the cache ──
+        cacheDel(CACHE_KEYS.allVendors);
 
         // ── Tokens ──
         const payload      = { id: vendorId, email: normalEmail, name: businessName.trim() };

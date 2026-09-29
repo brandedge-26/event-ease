@@ -94,17 +94,22 @@ export default function PortfolioPage() {
     setError("");
     setSuccess("");
     try {
-      const formData = new FormData();
-      files.forEach(f => formData.append("images", f));
-      const res = await fetch(`${API_BASE}/api/vendor/upload/gallery`, {
-        method:  "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body:    formData,
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setError(data.message ?? "Upload failed.");
-        return;
+      // One file per request — a single request carrying every selected photo
+      // can exceed the hosting platform's body-size limit and gets rejected
+      // before it ever reaches the server (which looks like a CORS error).
+      for (const f of files) {
+        const formData = new FormData();
+        formData.append("images", f);
+        const res = await fetch(`${API_BASE}/api/vendor/upload/gallery`, {
+          method:  "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body:    formData,
+        });
+        const data = await res.json();
+        if (!data.success) {
+          setError(data.message ?? "Upload failed.");
+          return;
+        }
       }
       // Refresh gallery
       const profileRes = await api.get<{ vendor: { galleryImages: string[] } }>("/api/vendor/profile", accessToken);

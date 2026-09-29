@@ -162,19 +162,23 @@ export default function VerifyEmailPage() {
         }
       }
 
-      // Upload gallery images if any
+      // Upload gallery images if any — one file per request, since a single
+      // request carrying every photo can exceed the hosting platform's
+      // body-size limit and get rejected before reaching the server.
       const galleryFiles = galleryStore.get();
       if (galleryFiles.length > 0) {
-        try {
-          const formData = new FormData();
-          galleryFiles.forEach((f) => formData.append("images", f));
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510"}/api/vendor/upload/gallery`, {
-            method:  "POST",
-            headers: { Authorization: `Bearer ${res.accessToken}` },
-            body:    formData,
-          });
-        } catch {
-          // Gallery upload failure is non-critical — continue
+        for (const f of galleryFiles) {
+          try {
+            const formData = new FormData();
+            formData.append("images", f);
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5510"}/api/vendor/upload/gallery`, {
+              method:  "POST",
+              headers: { Authorization: `Bearer ${res.accessToken}` },
+              body:    formData,
+            });
+          } catch {
+            // Gallery upload failure is non-critical — continue
+          }
         }
         galleryStore.clear();
       }

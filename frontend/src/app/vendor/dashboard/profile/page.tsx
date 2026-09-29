@@ -349,15 +349,23 @@ function BranchesTab({ accessToken }: { accessToken: string }) {
 
   async function uploadGalleryFiles(branchId: string, files: File[]) {
     if (!files.length) return;
-    const fd = new FormData();
-    files.forEach(f => fd.append("images", f));
-    const res = await fetch(`${API_BASE}/api/vendor/branches/${branchId}/gallery`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: fd,
-    });
-    const data = await res.json();
-    return data.success ? (data.galleryImages as string[]) : null;
+    // One file per request — a single request carrying every selected photo
+    // can exceed the hosting platform's body-size limit and gets rejected
+    // before it ever reaches the server (which looks like a CORS error).
+    let result: string[] | null = null;
+    for (const f of files) {
+      const fd = new FormData();
+      fd.append("images", f);
+      const res = await fetch(`${API_BASE}/api/vendor/branches/${branchId}/gallery`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!data.success) return result;
+      result = data.galleryImages as string[];
+    }
+    return result;
   }
 
   async function handleSave(formData: Record<string, string>, files: File[]) {
@@ -658,18 +666,24 @@ export default function ManageProfilePage() {
     setGalleryUploading(true);
     setError("");
     try {
-      const fd = new FormData();
-      files.forEach(f => fd.append("images", f));
-      const res = await fetch(`${API_BASE}/api/vendor/upload/gallery`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: fd,
-      });
-      const data = await res.json();
-      if (data.success && Array.isArray(data.galleryImages)) {
-        setProfile(p => ({ ...p, galleryImages: data.galleryImages }));
-      } else {
-        setError(data.message ?? "Upload failed. Please try again.");
+      // One file per request — a single request carrying every selected photo
+      // can exceed the hosting platform's body-size limit and gets rejected
+      // before it ever reaches the server (which looks like a CORS error).
+      for (const f of files) {
+        const fd = new FormData();
+        fd.append("images", f);
+        const res = await fetch(`${API_BASE}/api/vendor/upload/gallery`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: fd,
+        });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.galleryImages)) {
+          setProfile(p => ({ ...p, galleryImages: data.galleryImages }));
+        } else {
+          setError(data.message ?? "Upload failed. Please try again.");
+          break;
+        }
       }
     } catch {
       setError("Network error. Please check your connection and try again.");

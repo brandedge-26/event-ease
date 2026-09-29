@@ -2,6 +2,7 @@ import { eq, desc, count, and, sum, or, ilike } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { vendors, halls, branches, bookings } from "../db/schema.js";
 import { sendVendorVerifiedEmail } from "../utils/email.js";
+import { cacheDel, CACHE_KEYS } from "../utils/cache.js";
 
 const PAGE_SIZE = 10;
 
@@ -201,7 +202,7 @@ export async function verifyVendor(req, res) {
         const { id } = req.params;
 
         const [vendor] = await db
-            .select({ isVerified: vendors.isVerified, name: vendors.name, email: vendors.email })
+            .select({ isVerified: vendors.isVerified, name: vendors.name, email: vendors.email, slug: vendors.slug })
             .from(vendors)
             .where(eq(vendors.id, id))
             .limit(1);
@@ -214,6 +215,8 @@ export async function verifyVendor(req, res) {
             .update(vendors)
             .set({ isVerified: newStatus, updatedAt: new Date() })
             .where(eq(vendors.id, id));
+
+        cacheDel(CACHE_KEYS.allVendors, CACHE_KEYS.profile(vendor.slug));
 
         if (newStatus) {
             sendVendorVerifiedEmail(vendor.email, { businessName: vendor.name });
@@ -232,7 +235,7 @@ export async function blockVendor(req, res) {
         const { id } = req.params;
 
         const [vendor] = await db
-            .select({ isBlocked: vendors.isBlocked })
+            .select({ isBlocked: vendors.isBlocked, slug: vendors.slug })
             .from(vendors)
             .where(eq(vendors.id, id))
             .limit(1);
@@ -245,6 +248,8 @@ export async function blockVendor(req, res) {
             .update(vendors)
             .set({ isBlocked: newStatus, updatedAt: new Date() })
             .where(eq(vendors.id, id));
+
+        cacheDel(CACHE_KEYS.allVendors, CACHE_KEYS.profile(vendor.slug));
 
         return res.status(200).json({ success: true, isBlocked: newStatus });
     } catch (err) {
@@ -259,7 +264,7 @@ export async function deleteVendor(req, res) {
         const { id } = req.params;
 
         const [vendor] = await db
-            .select({ id: vendors.id })
+            .select({ id: vendors.id, slug: vendors.slug })
             .from(vendors)
             .where(eq(vendors.id, id))
             .limit(1);
@@ -267,6 +272,8 @@ export async function deleteVendor(req, res) {
         if (!vendor) return res.status(404).json({ success: false, message: "Vendor not found." });
 
         await db.delete(vendors).where(eq(vendors.id, id));
+
+        cacheDel(CACHE_KEYS.allVendors, CACHE_KEYS.featured, CACHE_KEYS.profile(vendor.slug));
 
         return res.status(200).json({ success: true });
     } catch (err) {

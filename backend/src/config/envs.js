@@ -66,4 +66,9 @@ export const ENV = {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM:     process.env.EMAIL_FROM ?? "Event Ease <onboarding@resend.dev>",
 
+    // Redis — caches hot public reads (vendor listings/profiles) and stores OTPs.
+    // Falls back to uncached DB reads / an in-memory OTP map when not set, so
+    // local dev keeps working without a real Redis instance.
+    REDIS_URL: process.env.REDIS_URL,
+
 }

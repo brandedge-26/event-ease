@@ -1,6 +1,7 @@
 import { eq, desc, asc, count, and, or, ilike } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { vendors } from "../db/schema.js";
+import { cacheWrap, cacheDel, CACHE_KEYS, CACHE_TTL_SECONDS } from "../utils/cache.js";
 
 const PAGE_SIZE = 10;
 
@@ -99,6 +100,8 @@ export async function toggleFeatured(req, res) {
             featuredAt: nowFeatured ? new Date() : null,
         }).where(eq(vendors.id, id));
 
+        cacheDel(CACHE_KEYS.featured);
+
         return res.json({ success: true, isFeatured: nowFeatured });
     } catch (err) {
         console.error("[admin toggleFeatured]", err);
@@ -109,23 +112,25 @@ export async function toggleFeatured(req, res) {
 // GET /api/vendor/profile/featured — public endpoint for home page
 export async function getPublicFeatured(req, res) {
     try {
-        const featured = await db
-            .select({
-                id:           vendors.id,
-                name:         vendors.name,
-                slug:         vendors.slug,
-                businessType: vendors.businessType,
-                tagline:      vendors.tagline,
-                city:         vendors.city,
-                area:         vendors.area,
-                logoUrl:       vendors.logoUrl,
-                galleryImages: vendors.galleryImages,
-                isVerified:    vendors.isVerified,
-                featuredAt:    vendors.featuredAt,
-            })
-            .from(vendors)
-            .where(eq(vendors.isFeatured, true))
-            .orderBy(desc(vendors.featuredAt));
+        const featured = await cacheWrap(CACHE_KEYS.featured, CACHE_TTL_SECONDS, async () => {
+            return db
+                .select({
+                    id:           vendors.id,
+                    name:         vendors.name,
+                    slug:         vendors.slug,
+                    businessType: vendors.businessType,
+                    tagline:      vendors.tagline,
+                    city:         vendors.city,
+                    area:         vendors.area,
+                    logoUrl:       vendors.logoUrl,
+                    galleryImages: vendors.galleryImages,
+                    isVerified:    vendors.isVerified,
+                    featuredAt:    vendors.featuredAt,
+                })
+                .from(vendors)
+                .where(eq(vendors.isFeatured, true))
+                .orderBy(desc(vendors.featuredAt));
+        });
 
         return res.json({ success: true, vendors: featured });
     } catch (err) {

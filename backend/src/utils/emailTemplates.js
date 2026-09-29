@@ -31,10 +31,7 @@ function layout({ preheader = "", bodyHtml }) {
             <td style="padding:28px 32px 20px;text-align:center;">
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
                 <tr>
-                  <td style="width:32px;height:32px;background:${PRIMARY};border-radius:9px;text-align:center;vertical-align:middle;font-size:16px;line-height:32px;">
-                    <span style="color:#ffffff;">&#9733;</span>
-                  </td>
-                  <td style="padding-left:9px;font-size:19px;font-weight:800;color:${INK};letter-spacing:-0.3px;">
+                  <td style="font-size:19px;font-weight:800;color:${INK};letter-spacing:-0.3px;">
                     Event<span style="color:${PRIMARY};">Ease</span>
                   </td>
                 </tr>
